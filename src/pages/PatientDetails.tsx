@@ -312,6 +312,9 @@ const PatientDetails: React.FC = () => {
                               Date
                             </th>
                             <th style={{ padding: '12px', textAlign: 'left', color: '#ffffff', fontWeight: 'bold' }}>
+                              Vital Signs
+                            </th>
+                            <th style={{ padding: '12px', textAlign: 'left', color: '#ffffff', fontWeight: 'bold' }}>
                               Treatments
                             </th>
                             <th style={{ padding: '12px', textAlign: 'right', color: '#ffffff', fontWeight: 'bold' }}>
@@ -334,6 +337,22 @@ const PatientDetails: React.FC = () => {
                                   <Typography level="body-sm" sx={{ color: '#ffffff' }}>
                                     {formatAppointmentDate(appointment.date)}
                                   </Typography>
+                                </td>
+                                <td style={{ padding: '12px' }}>
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                    <Typography level="body-xs" sx={{ color: '#ffffff' }}>
+                                      BP: {appointment.vitalSigns.bloodPressure}
+                                    </Typography>
+                                    <Typography level="body-xs" sx={{ color: '#ffffff' }}>
+                                      HR: {appointment.vitalSigns.heartRate} bpm
+                                    </Typography>
+                                    <Typography level="body-xs" sx={{ color: '#ffffff' }}>
+                                      RR: {appointment.vitalSigns.respirationRate} /min
+                                    </Typography>
+                                    <Typography level="body-xs" sx={{ color: '#ffffff' }}>
+                                      Borg: {appointment.vitalSigns.borgScale}/10
+                                    </Typography>
+                                  </Box>
                                 </td>
                                 <td style={{ padding: '12px' }}>
                                   <Typography level="body-sm" sx={{ color: '#ffffff' }}>

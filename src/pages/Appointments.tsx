@@ -52,6 +52,7 @@ interface Appointment {
   vitalSigns: VitalSigns;
   treatments: AppointmentTreatment[];
   totalPrice: number;
+  operatorName?: string;
   created_at: string;
 }
 
@@ -71,7 +72,8 @@ const Appointments: React.FC = () => {
     date: true,
     vitalSigns: false,
     treatments: false,
-    totalPrice: false,
+    totalPrice: true,
+    operator: true,
     actions: true
   });
   const [sortField, setSortField] = useState<keyof Appointment | null>('date');
@@ -478,6 +480,13 @@ const Appointments: React.FC = () => {
                 />
                 <Typography sx={{ color: '#ffffff' }}>Total Price</Typography>
               </MenuItem>
+              <MenuItem onClick={() => handleColumnVisibilityChange('operator')}>
+                <Checkbox
+                  checked={columnVisibility.operator}
+                  sx={{ mr: 1 }}
+                />
+                <Typography sx={{ color: '#ffffff' }}>Operator</Typography>
+              </MenuItem>
               <MenuItem onClick={() => handleColumnVisibilityChange('actions')}>
                 <Checkbox
                   checked={columnVisibility.actions}
@@ -581,6 +590,7 @@ const Appointments: React.FC = () => {
                 {columnVisibility.vitalSigns && <th style={{ padding: '12px', color: '#ffffff' }}>Vital Signs</th>}
                 {columnVisibility.treatments && <th style={{ padding: '12px', color: '#ffffff' }}>Treatments</th>}
                 {columnVisibility.totalPrice && <th style={{ padding: '12px', color: '#ffffff' }}>Total Price</th>}
+                {columnVisibility.operator && <th style={{ padding: '12px', color: '#ffffff' }}>Operator</th>}
                 {columnVisibility.actions && <th style={{ padding: '12px', color: '#ffffff' }}>Actions</th>}
               </tr>
             </thead>
@@ -670,6 +680,13 @@ const Appointments: React.FC = () => {
                       <Chip color="success" variant="soft">
                         {formatCurrency(appointment.totalPrice)}
                       </Chip>
+                    </td>
+                  )}
+                  {columnVisibility.operator && (
+                    <td style={{ padding: '12px' }}>
+                      <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+                        {appointment.operatorName || 'Not assigned'}
+                      </Typography>
                     </td>
                   )}
                   {columnVisibility.actions && (

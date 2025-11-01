@@ -14,6 +14,7 @@ import History from '@mui/icons-material/History';
 import Person from '@mui/icons-material/Person';
 import CalendarMonth from '@mui/icons-material/CalendarMonth';
 import ArrowBack from '@mui/icons-material/ArrowBack';
+import ClearAll from '@mui/icons-material/ClearAll';
 
 interface LogEntry {
   id: number;
@@ -43,6 +44,9 @@ const ActivityLogsSettings: React.FC = () => {
 
   const loadLogs = () => {
     try {
+      // Clean up old logs (older than 7 days)
+      cleanupOldLogs();
+
       const storedLogs = localStorage.getItem('activity_logs');
       if (storedLogs) {
         const logsData: LogEntry[] = JSON.parse(storedLogs);
@@ -59,11 +63,58 @@ const ActivityLogsSettings: React.FC = () => {
     }
   };
 
+  const cleanupOldLogs = () => {
+    try {
+      const storedLogs = localStorage.getItem('activity_logs');
+      if (!storedLogs) return;
+
+      const logsData: LogEntry[] = JSON.parse(storedLogs);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      // Filter out logs older than 7 days
+      const recentLogs = logsData.filter(log => {
+        const logDate = new Date(log.timestamp);
+        return logDate >= sevenDaysAgo;
+      });
+
+      // Update localStorage with filtered logs
+      localStorage.setItem('activity_logs', JSON.stringify(recentLogs));
+
+      // If any logs were removed, update the last seen timestamp if necessary
+      if (recentLogs.length < logsData.length) {
+        const lastSeen = localStorage.getItem('logs_last_seen') || '0';
+        const latestLogId = recentLogs.length > 0 ? Math.max(...recentLogs.map(log => log.id)) : 0;
+
+        // Only update if the old last seen ID is no longer present in recent logs
+        if (parseInt(lastSeen) > latestLogId) {
+          localStorage.setItem('logs_last_seen', latestLogId.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning up old logs:', error);
+    }
+  };
+
   const markAsRead = () => {
     if (logs.length > 0) {
       const latestLogId = Math.max(...logs.map(log => log.id));
       localStorage.setItem('logs_last_seen', latestLogId.toString());
       setUnreadCount(0);
+    }
+  };
+
+  const clearAllLogs = () => {
+    if (window.confirm('Are you sure you want to clear all activity logs? This action cannot be undone.')) {
+      try {
+        localStorage.removeItem('activity_logs');
+        localStorage.setItem('logs_last_seen', '0');
+        setLogs([]);
+        setUnreadCount(0);
+      } catch (error) {
+        console.error('Error clearing logs:', error);
+        alert('Failed to clear logs. Please try again.');
+      }
     }
   };
 
@@ -267,17 +318,29 @@ const ActivityLogsSettings: React.FC = () => {
           <Box>
             <Typography level="h4">System Activity</Typography>
             <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-              View operator actions and system activity history
+              View operator actions and system activity history (logs auto-clear after 7 days)
             </Typography>
           </Box>
-          <IconButton
-            onClick={markAsRead}
-            disabled={unreadCount === 0}
-            variant="outlined"
-            color="neutral"
-          >
-            <History />
-          </IconButton>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton
+              onClick={markAsRead}
+              disabled={unreadCount === 0}
+              variant="outlined"
+              color="neutral"
+              title="Mark all as read"
+            >
+              <History />
+            </IconButton>
+            <IconButton
+              onClick={clearAllLogs}
+              disabled={logs.length === 0}
+              variant="outlined"
+              color="danger"
+              title="Clear all logs"
+            >
+              <ClearAll />
+            </IconButton>
+          </Box>
         </Box>
 
         {logs.length === 0 ? (

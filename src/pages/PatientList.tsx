@@ -38,11 +38,11 @@ const PatientList: React.FC = () => {
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     record_number: false,
     name: true,
-    age: false,
-    address: false,
+    age: true,
+    address: true,
     phone_number: false,
     initial_diagnosis: false,
-    date_added: false,
+    date_added: true,
   });
   const [sortField, setSortField] = useState<keyof Patient | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');

@@ -16,6 +16,7 @@ import CalendarToday from '@mui/icons-material/CalendarToday';
 import AttachMoney from '@mui/icons-material/AttachMoney';
 import Receipt from '@mui/icons-material/Receipt';
 import TrendingUp from '@mui/icons-material/TrendingUp';
+import Download from '@mui/icons-material/Download';
 import Modal from '@mui/joy/Modal';
 import ModalDialog from '@mui/joy/ModalDialog';
 import ModalClose from '@mui/joy/ModalClose';
@@ -24,6 +25,7 @@ import Table from '@mui/joy/Table';
 import Input from '@mui/joy/Input';
 import Search from '@mui/icons-material/Search';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import * as XLSX from 'xlsx';
 
 interface Appointment {
   id: number;
@@ -80,6 +82,7 @@ interface ReportData {
   operatorId: number;
   operatorName: string;
   appointmentCount: number;
+  invoiceCount: number;
   revenue: number;
 }
 
@@ -196,7 +199,7 @@ const Reports: React.FC = () => {
     });
 
     // Group data by operator
-    const operatorMap = new Map<number, { name: string; appointmentCount: number; revenue: number }>();
+    const operatorMap = new Map<number, { name: string; appointmentCount: number; invoiceCount: number; revenue: number }>();
 
     // Initialize with all operators (or filtered ones)
     const relevantOperators = selectedOperators.length > 0
@@ -207,6 +210,7 @@ const Reports: React.FC = () => {
       operatorMap.set(operator.id, {
         name: operator.name,
         appointmentCount: 0,
+        invoiceCount: 0,
         revenue: 0
       });
     });
@@ -219,10 +223,11 @@ const Reports: React.FC = () => {
       }
     });
 
-    // Sum revenue from paid invoices
+    // Count paid invoices and sum revenue
     filteredInvoices.forEach(invoice => {
       const current = operatorMap.get(invoice.operatorId);
       if (current) {
+        current.invoiceCount++;
         current.revenue += invoice.totalAmount;
       }
     });
@@ -232,6 +237,7 @@ const Reports: React.FC = () => {
       operatorId,
       operatorName: data.name,
       appointmentCount: data.appointmentCount,
+      invoiceCount: data.invoiceCount,
       revenue: data.revenue
     }));
 
@@ -278,6 +284,51 @@ const Reports: React.FC = () => {
   const handleViewInvoices = (operator: ReportData) => {
     setSelectedOperator(operator);
     setShowInvoicesModal(true);
+  };
+
+  const handleExportToXLS = (operator: ReportData) => {
+    try {
+      // Get invoices for this operator
+      const operatorInvoices = getOperatorInvoices(operator);
+
+      // Prepare data for export
+      const exportData = operatorInvoices.map((invoice, index) => ({
+        'No': index + 1,
+        'Invoice Number': invoice.invoiceNumber,
+        'Date': formatDate(invoice.date),
+        'Patient Name': invoice.patientName,
+        'Operator': invoice.operatorName,
+        'Amount': invoice.totalAmount,
+        'Status': invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)
+      }));
+
+      // Create workbook
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Invoices');
+
+      // Set column widths
+      const colWidths = [
+        { wch: 5 },   // No
+        { wch: 15 },  // Invoice Number
+        { wch: 12 },  // Date
+        { wch: 25 },  // Patient Name
+        { wch: 20 },  // Operator
+        { wch: 15 },  // Amount
+        { wch: 10 }   // Status
+      ];
+      ws['!cols'] = colWidths;
+
+      // Generate filename
+      const period = selectedMonth ? `${getMonthOptions().find(m => m.value === selectedMonth)?.label}_${selectedYear}` : selectedYear;
+      const filename = `Invoices_${operator.operatorName.replace(/\s+/g, '_')}_${period}.xlsx`;
+
+      // Download file
+      XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error('Error exporting to XLS:', error);
+      alert('Failed to export data. Please try again.');
+    }
   };
 
   const handleCloseInvoicesModal = () => {
@@ -564,6 +615,15 @@ const Reports: React.FC = () => {
                       </Box>
 
                       <Box sx={{ textAlign: 'center' }}>
+                        <Typography level="body-sm" sx={{ color: '#ffffff', fontSize: '0.875rem' }}>
+                          {item.invoiceCount}
+                        </Typography>
+                        <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                          Paid Invoices
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ textAlign: 'center' }}>
                         <Chip color="success" variant="soft" size="sm">
                           {formatCurrency(item.revenue)}
                         </Chip>
@@ -588,6 +648,21 @@ const Reports: React.FC = () => {
                         }}
                       >
                         View Invoices
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="soft"
+                        startDecorator={<Download />}
+                        onClick={() => handleExportToXLS(item)}
+                        sx={{
+                          borderRadius: 'sm',
+                          color: '#ffffff',
+                          '&:hover': {
+                            backgroundColor: 'background.level2'
+                          }
+                        }}
+                      >
+                        Export XLS
                       </Button>
                     </Box>
                   </Box>

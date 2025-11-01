@@ -42,22 +42,25 @@ const Invoices: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10); // Show 10 items per page
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
-  const [selectedDateRange, setSelectedDateRange] = useState<string>('all');
+  const [selectedDateRange, setSelectedDateRange] = useState<string>('today');
   const [showCustomDateRange, setShowCustomDateRange] = useState(false);
   const [sortField, setSortField] = useState<keyof Invoice | null>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [columnVisibility, setColumnVisibility] = useState({
     invoiceNumber: true,
     patient: true,
-    date: false,
-    operator: false,
-    totalAmount: false,
-    status: false,
+    date: true,
+    operator: true,
+    totalAmount: true,
+    status: true,
     actions: true
   });
 
   useEffect(() => {
     loadInvoices();
+    // Initialize date range to today
+    const today = new Date().toISOString().split('T')[0];
+    setDateRange({ start: today, end: today });
   }, []);
 
   const loadInvoices = () => {
@@ -582,7 +585,8 @@ const Invoices: React.FC = () => {
                 aria-labelledby="tableTitle"
                 hoverRow
                 sx={{
-                  width: '100%',
+                  width: 'auto',
+                  minWidth: '100%',
                   tableLayout: 'auto',
                   '& tbody tr:hover': {
                     backgroundColor: 'background.level2',
@@ -593,12 +597,16 @@ const Invoices: React.FC = () => {
                     color: 'text.primary',
                     whiteSpace: 'nowrap',
                     padding: { xs: '8px 12px', md: '12px' },
+                    width: 'auto',
+                    minWidth: 'fit-content',
                   },
                   '& tbody td': {
                     whiteSpace: 'nowrap',
                     padding: { xs: '8px 12px', md: '12px' },
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
+                    width: 'auto',
+                    minWidth: 'fit-content',
                   },
                 }}
               >

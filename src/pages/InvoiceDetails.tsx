@@ -234,140 +234,10 @@ ${receiptConfig.footer}`;
   };
 
   const handlePrint = async () => {
-    // Add small delay to ensure any pending operations complete
-    await new Promise(resolve => setTimeout(resolve, 50));
-    // For Android/Tauri: Always show share dialog
-    // For desktop: Use window.print
-    
     if (!invoice || !patient) {
       return;
     }
 
-    const invoiceText = generateInvoiceText();
-    if (!invoiceText) {
-      return;
-    }
-
-    // Detect Android - check userAgent and platform
-    const userAgent = (navigator.userAgent || '').toLowerCase();
-    const platform = (navigator.platform || '').toLowerCase();
-    const isAndroid = userAgent.includes('android') || platform.includes('android');
-    const hasTauri = !!(window as any).__TAURI__;
-    
-    // On Android/Tauri, try native printing first
-    if (isAndroid || hasTauri) {
-      console.log('[InvoiceDetails] Android/Tauri detected, trying native print methods');
-      
-      // Method 1: Try calling the injected printInvoice wrapper function
-      // Retry multiple times with delays in case interface isn't ready or was lost
-      const tryWrapper = async (retries = 5, delay = 300) => {
-        for (let attempt = 0; attempt < retries; attempt++) {
-          try {
-            // Force a small delay before first attempt to let any cleanup complete
-            if (attempt === 0) {
-              await new Promise(resolve => setTimeout(resolve, 100));
-            }
-            
-            // Check both locations
-            const printFunc = (window as any).printInvoice || 
-                             (window as any).AndroidPrint?.printInvoice;
-            
-            if (attempt === 0) {
-              console.log('[InvoiceDetails] Checking for print functions (attempt ' + (attempt + 1) + '):', {
-                printInvoice: typeof (window as any).printInvoice,
-                AndroidPrint: typeof (window as any).AndroidPrint,
-                AndroidPrint_printInvoice: typeof (window as any).AndroidPrint?.printInvoice
-              });
-            }
-            
-            if (typeof printFunc === 'function') {
-              console.log('[InvoiceDetails] Found print function (attempt ' + (attempt + 1) + '), calling...');
-              const result = printFunc(invoiceText, `Invoice-${invoice?.invoiceNumber || 'Print'}`);
-              console.log('[InvoiceDetails] Print function returned:', result);
-              if (result === 'success') {
-                return true;
-              }
-            } else if (attempt < retries - 1) {
-              // If not found and we have retries left, wait and try again
-              console.log('[InvoiceDetails] Print function not found, waiting ' + delay + 'ms before retry...');
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
-            }
-          } catch (e: any) {
-            console.error('[InvoiceDetails] Error calling print wrapper (attempt ' + (attempt + 1) + '):', e);
-            if (attempt < retries - 1) {
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
-            }
-          }
-        }
-        return false;
-      };
-      
-      // Method 2: Use URL scheme to trigger print (works even if JavaScript interface isn't accessible)
-      const tryUrlScheme = () => {
-        try {
-          const jobName = `Invoice-${invoice?.invoiceNumber || 'Print'}`;
-          const encodedText = encodeURIComponent(invoiceText);
-          const printUrl = `print://${jobName}|${encodedText}`;
-          console.log('[InvoiceDetails] Trying print:// URL scheme, URL length:', printUrl.length);
-          // Force navigation
-          window.location.href = printUrl;
-          // Also try as a link click as fallback
-          setTimeout(() => {
-            const link = document.createElement('a');
-            link.href = printUrl;
-            link.click();
-          }, 100);
-          return true; // Assume it worked (MainActivity will handle it)
-        } catch (e: any) {
-          console.error('[InvoiceDetails] URL scheme failed:', e);
-          return false;
-        }
-      };
-      
-      // Try wrapper first with retries
-      if (await tryWrapper()) {
-        console.log('[InvoiceDetails] Print wrapper succeeded');
-        return;
-      }
-      
-      // Try URL scheme
-      console.log('[InvoiceDetails] Wrapper failed, trying URL scheme');
-      tryUrlScheme();
-      
-      // Wait to see if print dialog appears, otherwise show share dialog
-      setTimeout(() => {
-        console.log('[InvoiceDetails] Timeout reached, showing share dialog as fallback');
-        setInvoiceTextForShare(invoiceText);
-        setShowShareDialog(true);
-      }, 1500);
-      return;
-    }
-    
-    // Show share dialog as fallback
-    if (isAndroid || hasTauri) {
-      setInvoiceTextForShare(invoiceText);
-      setShowShareDialog(true);
-      return; // Must return here to prevent window.print() execution
-    }
-
-    // For desktop browsers, try Web Share API first
-    if (navigator.share && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({
-          title: `Invoice ${invoice.invoiceNumber}`,
-          text: invoiceText,
-        });
-        return;
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          return;
-        }
-      }
-    }
-
-    // Fallback to window.print() for desktop browsers
     // Store original body content
     const originalContent = document.body.innerHTML;
 
@@ -402,15 +272,15 @@ STATUS: ${invoice.status.toUpperCase() === 'PAID' ? 'PAID' : invoice.status.toUp
 
 ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${line}</div>`).join('\n')}`;
 
-    // Replace body content with print content  
-    document.body.innerHTML = `<div style="font-family: monospace; font-size: 12px; line-height: 1.2; color: black; background: white; margin: 0; padding: 0; white-space: pre; letter-spacing: 1px; word-wrap: break-word; overflow-wrap: break-word;">${printContent}</div>`;
+    // Replace body content with print content
+    document.body.innerHTML = `<div style="font-family: monospace; font-size: 12px; line-height: 1.0; color: black; background: white; margin: 0; padding: 0; white-space: pre; letter-spacing: 1px; word-wrap: break-word; overflow-wrap: break-word;">${printContent}</div>`;
 
     // Add print styles to head
     const styleElement = document.createElement('style');
     styleElement.textContent = `
       @media print {
         @page {
-          margin: 0;
+          margin: 0.05in 0.2in 0 0;
           size: 10in 11in;
         }
         html {
@@ -422,7 +292,7 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
           display: block;
         }
         body {
-          margin: 0.1in 0.2in 0 0;
+          margin: 0;
           padding: 0;
           width: 10in;
           height: 11in;
@@ -435,9 +305,9 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
     `;
     document.head.appendChild(styleElement);
 
-    // Check if window.print() is available (may not be in Android WebView)
+    // Check if window.print() is available
     if (typeof window.print === 'function') {
-      // Trigger print dialog
+      // Trigger system print dialog
       window.print();
 
       // Restore original content after print
@@ -466,12 +336,18 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
         navigate('/invoices');
       }, 3000);
     } else {
-      // window.print() not available - restore content immediately and show alert
+      // window.print() not available - restore content immediately and show share dialog
       document.body.innerHTML = originalContent;
       if (document.head.contains(styleElement)) {
         document.head.removeChild(styleElement);
       }
-      alert('Print functionality is not available on this platform. Please use the share option.');
+
+      // Show share dialog as fallback
+      const invoiceText = generateInvoiceText();
+      if (invoiceText) {
+        setInvoiceTextForShare(invoiceText);
+        setShowShareDialog(true);
+      }
     }
   };
 
