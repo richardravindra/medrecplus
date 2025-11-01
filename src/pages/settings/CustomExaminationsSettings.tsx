@@ -326,7 +326,7 @@ const CustomExaminationsSettings: React.FC = () => {
                     required
                     sx={{
                       '& input': {
-                        color: '#000000'
+                        color: '#ffffff'
                       }
                     }}
                   />
@@ -341,7 +341,7 @@ const CustomExaminationsSettings: React.FC = () => {
                     required
                     sx={{
                       '& input': {
-                        color: '#000000'
+                        color: '#ffffff'
                       }
                     }}
                   />

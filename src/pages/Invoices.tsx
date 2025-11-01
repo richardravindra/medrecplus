@@ -107,15 +107,12 @@ const Invoices: React.FC = () => {
       // Apply date range filter if dates are set
       if (dateRange.start || dateRange.end) {
         const invoiceDate = new Date(invoice.date);
-        const startDate = dateRange.start ? new Date(dateRange.start) : null;
-        const endDate = dateRange.end ? new Date(dateRange.end) : null;
 
-        // Set times to start/end of day for inclusive comparison
-        if (startDate) startDate.setHours(0, 0, 0, 0);
-        if (endDate) endDate.setHours(23, 59, 59, 999);
+        // Use date strings for direct comparison to avoid timezone issues
+        const invoiceDateString = invoiceDate.toISOString().split('T')[0];
 
-        if (startDate && invoiceDate < startDate) return false;
-        if (endDate && invoiceDate > endDate) return false;
+        if (dateRange.start && invoiceDateString < dateRange.start) return false;
+        if (dateRange.end && invoiceDateString > dateRange.end) return false;
       }
 
       return true;
@@ -164,64 +161,75 @@ const Invoices: React.FC = () => {
   const handleDateRangeChange = (range: string) => {
     setSelectedDateRange(range);
     const now = new Date();
-    
+
     if (range === 'all') {
       setDateRange({ start: '', end: '' });
       setShowCustomDateRange(false);
     } else if (range === 'today') {
-      const today = now.toISOString().split('T')[0];
-      setDateRange({ start: today, end: today });
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      setDateRange({
+        start: today.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0]
+      });
       setShowCustomDateRange(false);
     } else if (range === 'this_week') {
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
-      setDateRange({ 
-        start: startOfWeek.toISOString().split('T')[0], 
-        end: endOfWeek.toISOString().split('T')[0] 
+      endOfWeek.setHours(23, 59, 59, 999);
+      setDateRange({
+        start: startOfWeek.toISOString().split('T')[0],
+        end: endOfWeek.toISOString().split('T')[0]
       });
       setShowCustomDateRange(false);
     } else if (range === 'last_week') {
       const startOfLastWeek = new Date(now);
-      startOfLastWeek.setDate(now.getDate() - now.getDay() - 7);
+      const daysSinceMonday = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      startOfLastWeek.setDate(now.getDate() - daysSinceMonday - 7);
+      startOfLastWeek.setHours(0, 0, 0, 0);
       const endOfLastWeek = new Date(startOfLastWeek);
       endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
-      setDateRange({ 
-        start: startOfLastWeek.toISOString().split('T')[0], 
-        end: endOfLastWeek.toISOString().split('T')[0] 
+      endOfLastWeek.setHours(23, 59, 59, 999);
+      setDateRange({
+        start: startOfLastWeek.toISOString().split('T')[0],
+        end: endOfLastWeek.toISOString().split('T')[0]
       });
       setShowCustomDateRange(false);
     } else if (range === 'this_month') {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      setDateRange({ 
-        start: startOfMonth.toISOString().split('T')[0], 
-        end: endOfMonth.toISOString().split('T')[0] 
+      setDateRange({
+        start: startOfMonth.toISOString().split('T')[0],
+        end: endOfMonth.toISOString().split('T')[0]
       });
       setShowCustomDateRange(false);
     } else if (range === 'last_month') {
       const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-      setDateRange({ 
-        start: startOfLastMonth.toISOString().split('T')[0], 
-        end: endOfLastMonth.toISOString().split('T')[0] 
+      setDateRange({
+        start: startOfLastMonth.toISOString().split('T')[0],
+        end: endOfLastMonth.toISOString().split('T')[0]
       });
       setShowCustomDateRange(false);
     } else if (range === 'last_30_days') {
       const startDate = new Date(now);
       startDate.setDate(now.getDate() - 30);
-      setDateRange({ 
-        start: startDate.toISOString().split('T')[0], 
-        end: now.toISOString().split('T')[0] 
+      startDate.setHours(0, 0, 0, 0);
+      setDateRange({
+        start: startDate.toISOString().split('T')[0],
+        end: now.toISOString().split('T')[0]
       });
       setShowCustomDateRange(false);
     } else if (range === 'this_year') {
       const startOfYear = new Date(now.getFullYear(), 0, 1);
       const endOfYear = new Date(now.getFullYear(), 11, 31);
-      setDateRange({ 
-        start: startOfYear.toISOString().split('T')[0], 
-        end: endOfYear.toISOString().split('T')[0] 
+      setDateRange({
+        start: startOfYear.toISOString().split('T')[0],
+        end: endOfYear.toISOString().split('T')[0]
       });
       setShowCustomDateRange(false);
     } else if (range === 'custom') {

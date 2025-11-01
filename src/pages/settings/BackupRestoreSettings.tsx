@@ -48,7 +48,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { writeFile } = fsModule;
 
         // Show save dialog
-        const filePath = await (save as any)({
+        const filePath = await (save as (options: unknown) => Promise<string | null>)({
           title: 'Save Backup File',
           defaultPath: defaultFilename,
           filters: [
@@ -66,7 +66,7 @@ const BackupRestoreSettings: React.FC = () => {
         if (filePath) {
           // Convert data to JSON string
           const jsonString = JSON.stringify(backupData, null, 2);
-          await (writeFile as any)(filePath, jsonString);
+          await (writeFile as (path: string, contents: string) => Promise<void>)(filePath, jsonString);
           alert('Backup created successfully!');
         }
       } else {
@@ -147,7 +147,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { writeFile } = fsModule;
 
         // Show save dialog
-        const filePath = await (save as any)({
+        const filePath = await (save as (options: unknown) => Promise<string | null>)({
           title: 'Export Patients to Excel',
           defaultPath: filename,
           filters: [
@@ -165,7 +165,7 @@ const BackupRestoreSettings: React.FC = () => {
         if (filePath) {
           // Convert workbook to Excel file
           const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
-          await (writeFile as any)(filePath, excelBuffer);
+          await (writeFile as (path: string, contents: ArrayBuffer) => Promise<void>)(filePath, excelBuffer);
           alert('Patients data exported to Excel successfully!');
         }
       } else {
@@ -245,7 +245,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { writeFile } = fsModule;
 
         // Show save dialog
-        const filePath = await (save as any)({
+        const filePath = await (save as (options: unknown) => Promise<string | null>)({
           title: 'Export Invoices to Excel',
           defaultPath: filename,
           filters: [
@@ -263,7 +263,7 @@ const BackupRestoreSettings: React.FC = () => {
         if (filePath) {
           // Convert workbook to Excel file
           const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
-          await (writeFile as any)(filePath, excelBuffer);
+          await (writeFile as (path: string, contents: ArrayBuffer) => Promise<void>)(filePath, excelBuffer);
           alert('Invoices data exported to Excel successfully!');
         }
       } else {
@@ -286,6 +286,82 @@ const BackupRestoreSettings: React.FC = () => {
     }).format(amount);
   };
 
+  const handleEraseAllData = async () => {
+    try {
+      // First confirmation with warning about data loss
+      const confirm1 = confirm(
+        '⚠️ WARNING: This will permanently delete ALL data from the application.\n\n' +
+        'This includes:\n' +
+        '• All patient records\n' +
+        '• All appointments\n' +
+        '• All invoices\n' +
+        '• All treatments\n' +
+        '• All operators\n\n' +
+        'This action cannot be undone!\n\n' +
+        'Click OK to continue, or Cancel to abort.'
+      );
+
+      if (!confirm1) return;
+
+      // Second confirmation with password-like requirement
+      const confirmText = prompt(
+        'To confirm you want to erase all data, please type "DELETE ALL DATA" exactly as shown:'
+      );
+
+      if (confirmText !== 'DELETE ALL DATA') {
+        alert('Confirmation text does not match. Data erasure cancelled.');
+        return;
+      }
+
+      // Final confirmation
+      const confirm2 = confirm(
+        '🚨 FINAL WARNING: You are about to permanently delete ALL application data.\n\n' +
+        'There is no way to recover this data after deletion.\n\n' +
+        'Are you absolutely sure you want to proceed?'
+      );
+
+      if (!confirm2) return;
+
+      // Clear all localStorage data
+      const keysToRemove = [
+        'operators',
+        'treatments',
+        'patient_management_data',
+        'appointments',
+        'invoices',
+        'settings',
+        'currentUser'
+      ];
+
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
+
+      // Clear any additional data that might exist
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        if (key.includes('patient_') ||
+            key.includes('appointment_') ||
+            key.includes('invoice_') ||
+            key.includes('treatment_') ||
+            key.includes('operator_') ||
+            key.includes('temp_') ||
+            key.includes('cache_')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      alert('✅ All data has been successfully erased. The page will now reload.');
+
+      // Reload the page to clear any in-memory data
+      window.location.reload();
+
+    } catch (error) {
+      console.error('Data erasure failed:', error);
+      alert('❌ An error occurred while erasing data. Some data may remain. Please try again or contact support.');
+    }
+  };
+
   const handleRestore = async () => {
     try {
       // Check if running in Tauri environment
@@ -297,7 +373,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { readFile } = fsModule;
 
         // Show open dialog
-        const selectedPath = await (open as any)({
+        const selectedPath = await (open as (options: unknown) => Promise<string | null>)({
           title: 'Select Backup File',
           multiple: false,
           filters: [
@@ -314,8 +390,8 @@ const BackupRestoreSettings: React.FC = () => {
 
         if (selectedPath) {
           // Read the selected file using Tauri's API
-          const content = await (readFile as any)(selectedPath);
-          const backupData = JSON.parse(content as string);
+          const content = await (readFile as (path: string) => Promise<string>)(selectedPath);
+          const backupData = JSON.parse(content);
 
           // Validate backup structure
           if (!backupData.operators || !backupData.treatments || !backupData.patients ||
@@ -459,6 +535,36 @@ const BackupRestoreSettings: React.FC = () => {
             </Button>
           </Box>
 
+          {/* Erase All Data Section */}
+          <Box sx={{
+            p: 3,
+            backgroundColor: 'danger.softBg',
+            borderRadius: 'sm',
+            border: '1px solid',
+            borderColor: 'danger.outlinedBorder'
+          }}>
+            <Typography level="h4" sx={{ mb: 2, color: 'danger.plainColor' }}>
+              🗑️ Erase All Data
+            </Typography>
+            <Typography level="body-sm" sx={{ color: 'danger.plainColor', mb: 3 }}>
+              Permanently delete all application data. This action cannot be undone and will remove all patients, appointments, invoices, treatments, and operators.
+            </Typography>
+            <Button
+              variant="solid"
+              color="danger"
+              onClick={handleEraseAllData}
+              sx={{
+                borderRadius: 'sm',
+                backgroundColor: '#dc2626',
+                '&:hover': {
+                  backgroundColor: '#b91c1c',
+                }
+              }}
+            >
+              Erase All Data
+            </Button>
+          </Box>
+
           {/* Excel Export Section */}
           <Box sx={{ p: 3, backgroundColor: 'background.level1', borderRadius: 'sm' }}>
             <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
@@ -499,7 +605,9 @@ const BackupRestoreSettings: React.FC = () => {
               • Restoring data will overwrite all existing data<br />
               • Test restore on a copy before replacing production data<br />
               • Keep backup files in a secure location<br />
-              • Excel exports are read-only and cannot be imported back into the system
+              • Excel exports are read-only and cannot be imported back into the system<br />
+              • Erase All Data will permanently delete everything and cannot be undone<br />
+              • Always create a backup before using the Erase All Data feature
             </Typography>
           </Box>
         </Stack>
