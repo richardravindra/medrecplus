@@ -71,7 +71,7 @@ const Invoices: React.FC = () => {
       } else {
         setInvoices([]);
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load invoices');
     } finally {
       setLoading(false);

@@ -7,8 +7,9 @@ import Button from '@mui/joy/Button';
 import Stack from '@mui/joy/Stack';
 import Add from '@mui/icons-material/Add';
 import MonetizationOn from '@mui/icons-material/MonetizationOn';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { databaseService } from '../services/database';
+import { Invoice } from '../types';
 
 interface PatientStats {
   totalPatients: number;
@@ -26,6 +27,32 @@ interface RevenueStats {
   totalRevenue: number;
   thisMonth: number;
   monthlyData: { month: string; revenue: number }[];
+}
+
+interface VitalSigns {
+  bloodPressure: string;
+  respirationRate: number;
+  heartRate: number;
+  borgScale: number;
+}
+
+interface AppointmentTreatment {
+  id: number;
+  name: string;
+  price: number;
+  notes?: string;
+}
+
+interface Appointment {
+  id: number;
+  patientName: string;
+  patientId: number;
+  date: string;
+  vitalSigns: VitalSigns;
+  treatments: AppointmentTreatment[];
+  totalPrice: number;
+  operatorName?: string;
+  created_at: string;
 }
 
 const Dashboard: React.FC = () => {
@@ -93,7 +120,7 @@ const Dashboard: React.FC = () => {
       const appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
 
       // Calculate appointments this month
-      const appointmentsThisMonth = appointments.filter((appointment: any) => {
+      const appointmentsThisMonth = appointments.filter((appointment: Appointment) => {
         const appointmentDate = new Date(appointment.date);
         return appointmentDate.getMonth() === currentMonth &&
                appointmentDate.getFullYear() === currentYear;
@@ -107,7 +134,7 @@ const Dashboard: React.FC = () => {
         const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
         const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
 
-        const count = appointments.filter((appointment: any) => {
+        const count = appointments.filter((appointment: Appointment) => {
           const appointmentDate = new Date(appointment.date);
           return appointmentDate >= monthStart && appointmentDate <= monthEnd;
         }).length;
@@ -123,14 +150,14 @@ const Dashboard: React.FC = () => {
 
       // Load invoice statistics and calculate revenue
       const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-      const paidInvoices = invoices.filter((invoice: any) => invoice.status === 'paid');
+      const paidInvoices = invoices.filter((invoice: Invoice) => invoice.status === 'paid');
 
       // Calculate revenue this month
-      const revenueThisMonth = paidInvoices.filter((invoice: any) => {
+      const revenueThisMonth = paidInvoices.filter((invoice: Invoice) => {
         const invoiceDate = new Date(invoice.date);
         return invoiceDate.getMonth() === currentMonth &&
                invoiceDate.getFullYear() === currentYear;
-      }).reduce((total, invoice) => total + ((invoice.totalAmount || 0)), 0);
+      }).reduce((total: number, invoice: Invoice) => total + ((invoice.totalAmount || 0)), 0);
 
       // Generate monthly data for revenue
       const revenueMonthlyData = [];
@@ -141,16 +168,16 @@ const Dashboard: React.FC = () => {
         const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
 
         const monthlyRevenue = paidInvoices
-          .filter((invoice: any) => {
+          .filter((invoice: Invoice) => {
             const invoiceDate = new Date(invoice.date);
             return invoiceDate >= monthStart && invoiceDate <= monthEnd;
           })
-          .reduce((total, invoice) => total + ((invoice.totalAmount || 0)), 0);
+          .reduce((total: number, invoice: Invoice) => total + ((invoice.totalAmount || 0)), 0);
 
         revenueMonthlyData.push({ month: monthName, revenue: monthlyRevenue });
       }
 
-      const totalRevenue = paidInvoices.reduce((total, invoice) => total + (invoice.totalAmount || 0), 0);
+      const totalRevenue = paidInvoices.reduce((total: number, invoice: Invoice) => total + (invoice.totalAmount || 0), 0);
 
       setRevenueStats({
         totalRevenue,

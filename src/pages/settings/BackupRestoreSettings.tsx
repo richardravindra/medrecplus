@@ -5,13 +5,19 @@ import Card from '@mui/joy/Card';
 import Typography from '@mui/joy/Typography';
 import Button from '@mui/joy/Button';
 import Stack from '@mui/joy/Stack';
-import Alert from '@mui/joy/Alert';
 import Download from '@mui/icons-material/Download';
 import Upload from '@mui/icons-material/Upload';
-import Warning from '@mui/icons-material/Warning';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import * as XLSX from 'xlsx';
 import { isTauriEnvironment, importTauriDialog, importTauriFs } from '../../utils/tauriUtils';
+import { Patient, Invoice } from '../../types';
+
+interface Treatment {
+  id: number;
+  name: string;
+  price: number;
+  notes?: string;
+}
 
 const BackupRestoreSettings: React.FC = () => {
   const navigate = useNavigate();
@@ -42,7 +48,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { writeFile } = fsModule;
 
         // Show save dialog
-        const filePath = await save({
+        const filePath = await (save as any)({
           title: 'Save Backup File',
           defaultPath: defaultFilename,
           filters: [
@@ -60,7 +66,7 @@ const BackupRestoreSettings: React.FC = () => {
         if (filePath) {
           // Convert data to JSON string
           const jsonString = JSON.stringify(backupData, null, 2);
-          await writeFile(filePath, jsonString);
+          await (writeFile as any)(filePath, jsonString);
           alert('Backup created successfully!');
         }
       } else {
@@ -101,7 +107,7 @@ const BackupRestoreSettings: React.FC = () => {
       }
 
       // Prepare data for Excel export
-      const excelData = patients.map((patient: any) => ({
+      const excelData = patients.map((patient: Patient) => ({
         'Record Number': patient.record_number || '',
         'Name': patient.name || '',
         'Age': patient.age || '',
@@ -141,7 +147,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { writeFile } = fsModule;
 
         // Show save dialog
-        const filePath = await save({
+        const filePath = await (save as any)({
           title: 'Export Patients to Excel',
           defaultPath: filename,
           filters: [
@@ -159,7 +165,7 @@ const BackupRestoreSettings: React.FC = () => {
         if (filePath) {
           // Convert workbook to Excel file
           const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
-          await writeFile(filePath, excelBuffer);
+          await (writeFile as any)(filePath, excelBuffer);
           alert('Patients data exported to Excel successfully!');
         }
       } else {
@@ -185,7 +191,7 @@ const BackupRestoreSettings: React.FC = () => {
       }
 
       // Prepare data for Excel export
-      const excelData = invoices.map((invoice: any) => ({
+      const excelData = invoices.map((invoice: Invoice) => ({
         'Invoice Number': invoice.invoiceNumber || '',
         'Patient Name': invoice.patientName || '',
         'Operator Name': invoice.operatorName || '',
@@ -198,7 +204,7 @@ const BackupRestoreSettings: React.FC = () => {
         'Vital Signs - HR': invoice.vitalSigns?.heartRate || '',
         'Vital Signs - Borg': invoice.vitalSigns?.borgScale || '',
         'Treatments Count': invoice.treatments?.length || 0,
-        'Treatments List': invoice.treatments?.map((t: any) => `${t.name} (${formatCurrency(t.price)})`).join(', ') || '',
+        'Treatments List': invoice.treatments?.map((t: Treatment) => `${t.name} (${formatCurrency(t.price)})`).join(', ') || '',
         'Created At': invoice.created_at ? new Date(invoice.created_at).toLocaleString() : ''
       }));
 
@@ -239,7 +245,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { writeFile } = fsModule;
 
         // Show save dialog
-        const filePath = await save({
+        const filePath = await (save as any)({
           title: 'Export Invoices to Excel',
           defaultPath: filename,
           filters: [
@@ -257,7 +263,7 @@ const BackupRestoreSettings: React.FC = () => {
         if (filePath) {
           // Convert workbook to Excel file
           const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
-          await writeFile(filePath, excelBuffer);
+          await (writeFile as any)(filePath, excelBuffer);
           alert('Invoices data exported to Excel successfully!');
         }
       } else {
@@ -291,7 +297,7 @@ const BackupRestoreSettings: React.FC = () => {
         const { readFile } = fsModule;
 
         // Show open dialog
-        const selectedPath = await open({
+        const selectedPath = await (open as any)({
           title: 'Select Backup File',
           multiple: false,
           filters: [
@@ -308,7 +314,7 @@ const BackupRestoreSettings: React.FC = () => {
 
         if (selectedPath) {
           // Read the selected file using Tauri's API
-          const content = await readFile(selectedPath);
+          const content = await (readFile as any)(selectedPath);
           const backupData = JSON.parse(content as string);
 
           // Validate backup structure
@@ -417,7 +423,7 @@ const BackupRestoreSettings: React.FC = () => {
         <Stack spacing={3}>
           {/* Backup Section */}
           <Box sx={{ p: 3, backgroundColor: 'background.level1', borderRadius: 'sm' }}>
-            <Typography level="h5" sx={{ mb: 2, color: '#ffffff' }}>
+            <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
               📤 Backup Data
             </Typography>
             <Typography level="body-sm" sx={{ color: '#ffffff', mb: 3 }}>
@@ -436,7 +442,7 @@ const BackupRestoreSettings: React.FC = () => {
 
           {/* Restore Section */}
           <Box sx={{ p: 3, backgroundColor: 'background.level1', borderRadius: 'sm' }}>
-            <Typography level="h5" sx={{ mb: 2, color: '#ffffff' }}>
+            <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
               📥 Restore Data
             </Typography>
             <Typography level="body-sm" sx={{ color: '#ffffff', mb: 3 }}>
@@ -455,7 +461,7 @@ const BackupRestoreSettings: React.FC = () => {
 
           {/* Excel Export Section */}
           <Box sx={{ p: 3, backgroundColor: 'background.level1', borderRadius: 'sm' }}>
-            <Typography level="h5" sx={{ mb: 2, color: '#ffffff' }}>
+            <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
               📊 Export to Excel
             </Typography>
             <Typography level="body-sm" sx={{ color: '#ffffff', mb: 3 }}>

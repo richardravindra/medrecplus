@@ -1,38 +1,42 @@
 // Utility functions for Tauri plugin access with error handling
+interface TauriAPI {
+  [key: string]: unknown;
+}
+
 declare global {
   interface Window {
-    __TAURI__?: any;
+    __TAURI__?: TauriAPI;
   }
 }
 
 export async function importTauriDialog() {
-  if (!(window as any).__TAURI__) {
+  if (!window.__TAURI__) {
     throw new Error('Not in Tauri environment');
   }
 
   try {
-    // Use dynamic import with type assertion to bypass TypeScript checking
-    const dialogModule = await Function('return import("@tauri-apps/plugin-dialog")')() as any;
+    // Use dynamic import with proper typing
+    const dialogModule = await Function('return import("@tauri-apps/plugin-dialog")')() as Record<string, unknown>;
     return dialogModule;
-  } catch (error) {
+  } catch {
     throw new Error('Failed to import Tauri dialog plugin');
   }
 }
 
 export async function importTauriFs() {
-  if (!(window as any).__TAURI__) {
+  if (!window.__TAURI__) {
     throw new Error('Not in Tauri environment');
   }
 
   try {
-    // Use dynamic import with type assertion to bypass TypeScript checking
-    const fsModule = await Function('return import("@tauri-apps/plugin-fs")')() as any;
+    // Use dynamic import with proper typing
+    const fsModule = await Function('return import("@tauri-apps/plugin-fs")')() as Record<string, unknown>;
     return fsModule;
-  } catch (error) {
+  } catch {
     throw new Error('Failed to import Tauri fs plugin');
   }
 }
 
 export function isTauriEnvironment(): boolean {
-  return !!(window as any).__TAURI__;
+  return !!window.__TAURI__;
 }

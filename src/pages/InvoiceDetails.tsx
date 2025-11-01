@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -47,14 +47,7 @@ const InvoiceDetails: React.FC = () => {
     footer: defaultFooter
   });
 
-  useEffect(() => {
-    if (id) {
-      loadInvoice(parseInt(id));
-    }
-    loadReceiptConfig();
-  }, [id]);
-
-  const loadInvoice = async (invoiceId: number) => {
+  const loadInvoice = useCallback(async (invoiceId: number) => {
     try {
       const storedInvoices = localStorage.getItem('invoices');
       if (storedInvoices) {
@@ -77,7 +70,14 @@ const InvoiceDetails: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      loadInvoice(parseInt(id));
+    }
+    loadReceiptConfig();
+  }, [id, loadInvoice]);
 
   const loadPatient = async (patientId: number) => {
     try {
@@ -653,8 +653,8 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
                         text: invoiceTextForShare,
                       });
                       setShowShareDialog(false);
-                    } catch (error: any) {
-                      if (error.name !== 'AbortError') {
+                    } catch (error: unknown) {
+                      if (error instanceof Error && error.name !== 'AbortError') {
                         console.error('Error sharing:', error);
                       }
                     }

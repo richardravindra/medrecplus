@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -35,14 +35,7 @@ const ActivityLogsSettings: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadLogs();
-    // Set up an interval to check for new logs
-    const interval = setInterval(loadLogs, 5000); // Check every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadLogs = () => {
+  const loadLogs = useCallback(() => {
     try {
       // Clean up old logs (older than 7 days)
       cleanupOldLogs();
@@ -61,7 +54,14 @@ const ActivityLogsSettings: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadLogs();
+    // Set up an interval to check for new logs
+    const interval = setInterval(loadLogs, 5000); // Check every 5 seconds
+    return () => clearInterval(interval);
+  }, [loadLogs]);
 
   const cleanupOldLogs = () => {
     try {
@@ -152,7 +152,7 @@ const ActivityLogsSettings: React.FC = () => {
                                log.action.toLowerCase().includes('updated');
 
     // Build the message piece by piece to avoid spacing issues
-    const elements = [];
+    const elements: React.ReactNode[] = [];
     const words = log.action.split(' ');
 
     // Replace entity names and patient names as we process
@@ -346,7 +346,7 @@ const ActivityLogsSettings: React.FC = () => {
         {logs.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <History sx={{ fontSize: 48, color: 'text.tertiary', mb: 2 }} />
-            <Typography level="h6" sx={{ color: 'text.tertiary', mb: 1 }}>
+            <Typography level="title-lg" sx={{ color: 'text.tertiary', mb: 1 }}>
               No activity logs
             </Typography>
             <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>

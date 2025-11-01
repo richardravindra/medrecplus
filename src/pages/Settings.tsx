@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
 import Typography from '@mui/joy/Typography';
-import Button from '@mui/joy/Button';
-import Alert from '@mui/joy/Alert';
 import Stack from '@mui/joy/Stack';
 import Badge from '@mui/joy/Badge';
 import People from '@mui/icons-material/People';
@@ -14,6 +12,19 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import Receipt from '@mui/icons-material/Receipt';
 import Science from '@mui/icons-material/Science';
 import { useNavigate } from 'react-router-dom';
+
+interface LogEntry {
+  id: number;
+  action: string;
+  operatorName: string;
+  targetType: 'patient' | 'appointment' | 'invoice';
+  targetId?: number;
+  targetName?: string;
+  patientId?: number;
+  patientName?: string;
+  timestamp: string;
+  details?: string;
+}
 
 interface SettingsMenuItem {
   title: string;
@@ -41,7 +52,7 @@ const Settings: React.FC = () => {
         const logsData = JSON.parse(storedLogs);
         // Calculate unread logs (logs from last session)
         const lastSeen = localStorage.getItem('logs_last_seen') || '0';
-        const unreadLogs = logsData.filter((log: any) => log.id > parseInt(lastSeen));
+        const unreadLogs = logsData.filter((log: LogEntry) => log.id > parseInt(lastSeen));
         setUnreadCount(unreadLogs.length);
       }
     } catch (error) {
@@ -138,7 +149,7 @@ const Settings: React.FC = () => {
 
               <Box sx={{ flex: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                  <Typography level="h5" sx={{ color: '#ffffff' }}>
+                  <Typography level="h4" sx={{ color: '#ffffff' }}>
                     {item.title}
                   </Typography>
                   {item.badge && (

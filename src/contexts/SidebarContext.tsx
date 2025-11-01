@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useState, ReactNode } from 'react';
 
 interface SidebarContextType {
   isCollapsed: boolean;
@@ -9,21 +10,13 @@ interface SidebarContextType {
   isMobile: boolean;
 }
 
-const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
-
-export const useSidebar = () => {
-  const context = useContext(SidebarContext);
-  if (context === undefined) {
-    throw new Error('useSidebar must be used within a SidebarProvider');
-  }
-  return context;
-};
+export const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 interface SidebarProviderProps {
   children: ReactNode;
 }
 
-export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) => {
+const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -72,3 +65,5 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) =>
     </SidebarContext.Provider>
   );
 };
+
+export { SidebarProvider };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -331,7 +331,9 @@ const PatientDetails: React.FC = () => {
                             .map((appointment) => (
                               <tr
                                 key={appointment.id}
-                                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                               >
                                 <td style={{ padding: '12px' }}>
                                   <Typography level="body-sm" sx={{ color: '#ffffff' }}>
@@ -389,7 +391,7 @@ const PatientDetails: React.FC = () => {
                     border: '1px dashed',
                     borderColor: 'divider'
                   }}>
-                    <Typography level="h6" sx={{ mb: 1, color: 'text.secondary' }}>
+                    <Typography level="title-lg" sx={{ mb: 1, color: 'text.secondary' }}>
                       No appointments recorded
                     </Typography>
                     <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>

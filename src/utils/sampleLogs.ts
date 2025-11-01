@@ -1,4 +1,3 @@
-import logService from '../services/logService';
 
 export const createSampleLogs = () => {
   // Don't create any automatic logs - logs should only be created by actual user actions

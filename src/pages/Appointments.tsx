@@ -113,7 +113,7 @@ const Appointments: React.FC = () => {
         localStorage.setItem('appointments', JSON.stringify(defaultAppointments));
         setAppointments(defaultAppointments);
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load appointments');
     } finally {
       setLoading(false);
@@ -126,7 +126,7 @@ const Appointments: React.FC = () => {
         const updatedAppointments = appointments.filter(a => a.id !== appointment.id);
         localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
         setAppointments(updatedAppointments);
-      } catch (error) {
+      } catch {
         setError('Failed to delete appointment');
       }
     }

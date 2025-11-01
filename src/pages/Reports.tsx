@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
 import Typography from '@mui/joy/Typography';
@@ -9,13 +8,11 @@ import Option from '@mui/joy/Option';
 import Stack from '@mui/joy/Stack';
 import CircularProgress from '@mui/joy/CircularProgress';
 import Chip from '@mui/joy/Chip';
-import ArrowBack from '@mui/icons-material/ArrowBack';
 import Assessment from '@mui/icons-material/Assessment';
 import Person from '@mui/icons-material/Person';
 import CalendarToday from '@mui/icons-material/CalendarToday';
 import AttachMoney from '@mui/icons-material/AttachMoney';
 import Receipt from '@mui/icons-material/Receipt';
-import TrendingUp from '@mui/icons-material/TrendingUp';
 import Download from '@mui/icons-material/Download';
 import Modal from '@mui/joy/Modal';
 import ModalDialog from '@mui/joy/ModalDialog';
@@ -24,7 +21,7 @@ import Divider from '@mui/joy/Divider';
 import Table from '@mui/joy/Table';
 import Input from '@mui/joy/Input';
 import Search from '@mui/icons-material/Search';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 
 interface Appointment {
@@ -87,7 +84,6 @@ interface ReportData {
 }
 
 const Reports: React.FC = () => {
-  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -105,21 +101,12 @@ const Reports: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState<string>('');
   const [vitalSignsData, setVitalSignsData] = useState<VitalSignsData[]>([]);
-  const [patientsLoading, setPatientsLoading] = useState(false);
-
+  
   // Modal states
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
   const [selectedOperator, setSelectedOperator] = useState<ReportData | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    generateReport();
-  }, [selectedMonth, selectedYear, selectedOperators, appointments, invoices]);
-
-  const loadData = () => {
+  const loadData = useCallback(() => {
     try {
       // Load appointments
       const storedAppointments = localStorage.getItem('appointments');
@@ -147,7 +134,11 @@ const Reports: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const loadPatientsAsync = () => {
     // Use setTimeout to defer patient loading and prevent blocking
@@ -164,7 +155,7 @@ const Reports: React.FC = () => {
     }, 100);
   };
 
-  const generateReport = () => {
+  const generateReport = useCallback(() => {
     if (!selectedYear) {
       setReportData([]);
       return;
@@ -245,7 +236,11 @@ const Reports: React.FC = () => {
     data.sort((a, b) => b.revenue - a.revenue);
 
     setReportData(data);
-  };
+  }, [selectedYear, selectedMonth, selectedOperators, appointments, invoices, operators]);
+
+  useEffect(() => {
+    generateReport();
+  }, [generateReport]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -446,7 +441,7 @@ const Reports: React.FC = () => {
       {/* Filter Controls */}
       <Card sx={{ mb: 3 }}>
         <Box sx={{ p: 2 }}>
-          <Typography level="h5" sx={{ mb: 2, fontSize: '1.25rem' }}>Select Report Period</Typography>
+          <Typography level="h4" sx={{ mb: 2, fontSize: '1.25rem' }}>Select Report Period</Typography>
           <Stack spacing={2}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
               <Box sx={{ minWidth: 200, flex: 1 }}>
@@ -563,13 +558,13 @@ const Reports: React.FC = () => {
       {selectedYear && (
         <Card>
           <Box sx={{ p: 2 }}>
-            <Typography level="h5" sx={{ mb: 2, fontSize: '1.25rem' }}>
+            <Typography level="h4" sx={{ mb: 2, fontSize: '1.25rem' }}>
               Operator Performance Report
             </Typography>
 
             {reportData.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography level="h5" sx={{ mb: 2, color: '#ffffff', fontSize: '1.1rem' }}>
+                <Typography level="h4" sx={{ mb: 2, color: '#ffffff', fontSize: '1.1rem' }}>
                   No data available
                 </Typography>
                 <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
@@ -676,7 +671,7 @@ const Reports: React.FC = () => {
       {/* Patient Analysis Card */}
       <Card sx={{ mt: 3, mb: 2 }}>
           <Box sx={{ p: 2 }}>
-            <Typography level="h5" sx={{ mb: 2, fontSize: '1.25rem' }}>
+            <Typography level="h4" sx={{ mb: 2, fontSize: '1.25rem' }}>
               Patient Analysis
             </Typography>
 
@@ -763,7 +758,7 @@ const Reports: React.FC = () => {
               <Box sx={{ p: 2, backgroundColor: 'background.level1', borderRadius: 'sm', border: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box>
-                    <Typography level="h6" sx={{ mb: 1, color: '#ffffff' }}>
+                    <Typography level="title-lg" sx={{ mb: 1, color: '#ffffff' }}>
                       {selectedPatient.name}
                     </Typography>
                     <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
@@ -1049,7 +1044,7 @@ const Reports: React.FC = () => {
                 borderColor: 'divider'
               }}>
                 <Person sx={{ fontSize: 48, color: '#ffffff', opacity: 0.3, mb: 2 }} />
-                <Typography level="h6" sx={{ mb: 1, color: '#ffffff', opacity: 0.8 }}>
+                <Typography level="title-lg" sx={{ mb: 1, color: '#ffffff', opacity: 0.8 }}>
                   Patient Search
                 </Typography>
                 <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.6 }}>
@@ -1087,7 +1082,7 @@ const Reports: React.FC = () => {
             <Box>
               {getOperatorInvoices(selectedOperator).length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography level="h5" sx={{ mb: 2 }}>
+                  <Typography level="h4" sx={{ mb: 2 }}>
                     No invoices found
                   </Typography>
                   <Typography level="body-sm" sx={{ color: 'text.secondary' }}>

@@ -66,7 +66,7 @@ const Treatments: React.FC = () => {
         localStorage.setItem('treatments', JSON.stringify(defaultTreatments));
         setTreatments(defaultTreatments);
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load treatments');
     } finally {
       setLoading(false);
@@ -79,7 +79,7 @@ const Treatments: React.FC = () => {
         const updatedTreatments = treatments.filter(t => t.id !== treatment.id);
         localStorage.setItem('treatments', JSON.stringify(updatedTreatments));
         setTreatments(updatedTreatments);
-      } catch (error) {
+      } catch {
         setError('Failed to delete treatment');
       }
     }

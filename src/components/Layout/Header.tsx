@@ -42,8 +42,15 @@ const Header: React.FC = () => {
           return; // Skip this segment as it's part of a longer route
         }
       } else if (segment === 'add') {
-        label = 'Add Patient';
-        icon = <PersonAdd />;
+        // Check if this is for treatments or patients
+        const previousSegment = pathSegments[index - 1];
+        if (previousSegment === 'treatments') {
+          label = 'Add Treatment';
+          icon = <PersonAdd />;
+        } else {
+          label = 'Add Patient';
+          icon = <PersonAdd />;
+        }
       } else if (!isNaN(Number(segment))) {
         // Check if next segment is 'edit'
         const nextSegment = pathSegments[index + 1];
@@ -56,6 +63,14 @@ const Header: React.FC = () => {
             label = 'Edit Patient';
             icon = <Edit />;
           }
+        } else if (previousSegment === 'appointments') {
+          // This is an appointment ID (for appointment details)
+          label = 'Appointment Details';
+          icon = <CalendarMonth />;
+        } else if (previousSegment === 'invoices') {
+          // This is an invoice ID (for invoice details)
+          label = 'Invoice Details';
+          icon = <Receipt />;
         } else {
           label = 'Patient Details';
           icon = <People />;
@@ -65,6 +80,13 @@ const Header: React.FC = () => {
       } else if (segment === 'settings') {
         label = 'Settings';
         icon = <Settings />;
+      } else if (segment === 'new') {
+        // Check if this is for appointments
+        const previousSegment = pathSegments[index - 1];
+        if (previousSegment === 'appointments') {
+          label = 'New Appointment';
+          icon = <PersonAdd />;
+        }
       } else if (segment === 'appointments') {
         // Check if this is the appointments list or part of another route
         if (pathSegments.length === 1 || (pathSegments.length === 2 && pathSegments[1] === 'new')) {
@@ -73,17 +95,6 @@ const Header: React.FC = () => {
         } else {
           return; // Skip this segment as it's part of a longer route
         }
-      } else if (segment === 'new') {
-        // Check if this is for appointments
-        const previousSegment = pathSegments[index - 1];
-        if (previousSegment === 'appointments') {
-          label = 'New Appointment';
-          icon = <PersonAdd />;
-        }
-      } else if (!isNaN(Number(segment)) && pathSegments[index - 1] === 'appointments') {
-        // This is an appointment ID (for appointment details)
-        label = 'Appointment Details';
-        icon = <CalendarMonth />;
       } else if (segment === 'invoices') {
         // Check if this is the invoices list or part of another route
         if (pathSegments.length === 1) {
@@ -92,10 +103,6 @@ const Header: React.FC = () => {
         } else {
           return; // Skip this segment as it's part of a longer route
         }
-      } else if (!isNaN(Number(segment)) && pathSegments[index - 1] === 'invoices') {
-        // This is an invoice ID (for invoice details)
-        label = 'Invoice Details';
-        icon = <Receipt />;
       } else if (segment === 'treatments') {
         // Check if this is the treatments list or part of another route
         if (pathSegments.length === 1) {
@@ -103,16 +110,6 @@ const Header: React.FC = () => {
           icon = <MedicalServices />;
         } else {
           return; // Skip this segment as it's part of a longer route
-        }
-      } else if (segment === 'add') {
-        // Check if this is for treatments or patients
-        const previousSegment = pathSegments[index - 1];
-        if (previousSegment === 'treatments') {
-          label = 'Add Treatment';
-          icon = <PersonAdd />;
-        } else {
-          label = 'Add Patient';
-          icon = <PersonAdd />;
         }
       }
 

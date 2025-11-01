@@ -24,9 +24,13 @@ declare module '@tauri-apps/plugin-fs' {
   export function readFile(filePath: string): Promise<Uint8Array>;
 }
 
+interface TauriAPI {
+  [key: string]: unknown;
+}
+
 declare global {
   interface Window {
-    __TAURI__?: any;
+    __TAURI__?: TauriAPI;
   }
 }
 

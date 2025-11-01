@@ -250,7 +250,7 @@ const CustomExaminationsSettings: React.FC = () => {
             borderRadius: 'sm'
           }}>
             <Science sx={{ fontSize: 64, color: '#ffffff', opacity: 0.5, mb: 2 }} />
-            <Typography level="h5" sx={{ color: '#ffffff', mb: 1 }}>
+            <Typography level="h4" sx={{ color: '#ffffff', mb: 1 }}>
               No Custom Examinations
             </Typography>
             <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
@@ -273,7 +273,7 @@ const CustomExaminationsSettings: React.FC = () => {
                 }}
               >
                 <ListItemContent>
-                  <Typography level="h6" sx={{ color: '#ffffff', mb: 0.5 }}>
+                  <Typography level="title-lg" sx={{ color: '#ffffff', mb: 0.5 }}>
                     {examination.name}
                   </Typography>
                   <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>

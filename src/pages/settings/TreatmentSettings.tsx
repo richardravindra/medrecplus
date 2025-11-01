@@ -52,7 +52,7 @@ const TreatmentSettings: React.FC = () => {
       const treatmentsRaw = localStorage.getItem('treatments');
       const storedTreatments: Treatment[] = JSON.parse(treatmentsRaw || '[]');
       setTreatments(storedTreatments);
-    } catch (error) {
+    } catch {
       setError('Failed to load treatments');
     } finally {
       setLoading(false);
@@ -88,7 +88,7 @@ const TreatmentSettings: React.FC = () => {
         const updatedTreatments = treatments.filter(t => t.id !== treatment.id);
         localStorage.setItem('treatments', JSON.stringify(updatedTreatments));
         setTreatments(updatedTreatments);
-      } catch (error) {
+      } catch {
         setError('Failed to delete treatment');
       }
     }
@@ -141,7 +141,7 @@ const TreatmentSettings: React.FC = () => {
       setTreatmentFormData({ name: '', description: '', price: '' });
       setEditingTreatment(null);
       setError(null);
-    } catch (error) {
+    } catch {
       setError(editingTreatment ? 'Failed to update treatment' : 'Failed to add treatment');
     }
   };

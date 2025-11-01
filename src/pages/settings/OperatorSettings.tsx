@@ -50,7 +50,7 @@ const OperatorSettings: React.FC = () => {
       const operatorsRaw = localStorage.getItem('operators');
       const storedOperators: Operator[] = JSON.parse(operatorsRaw || '[]');
       setOperators(storedOperators);
-    } catch (error) {
+    } catch {
       setError('Failed to load operators');
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ const OperatorSettings: React.FC = () => {
         const updatedOperators = operators.filter(op => op.id !== operator.id);
         localStorage.setItem('operators', JSON.stringify(updatedOperators));
         setOperators(updatedOperators);
-      } catch (error) {
+      } catch {
         setError('Failed to delete operator');
       }
     }
@@ -128,7 +128,7 @@ const OperatorSettings: React.FC = () => {
       setOperatorFormData({ name: '', role: '' });
       setEditingOperator(null);
       setError(null);
-    } catch (error) {
+    } catch {
       setError(editingOperator ? 'Failed to update operator' : 'Failed to add operator');
     }
   };

@@ -19,9 +19,14 @@ const getInitialPatients = (): Patient[] => {
 
   const existingData = localStorage.getItem(STORAGE_KEY);
   if (existingData) {
-    cachedPatients = JSON.parse(existingData);
-    cacheTimestamp = now;
-    return cachedPatients;
+    try {
+      const parsedData = JSON.parse(existingData);
+      cachedPatients = parsedData;
+      cacheTimestamp = now;
+      return cachedPatients;
+    } catch (error) {
+      console.error("Error parsing localStorage data:", error);
+    }
   }
 
   // Template data for first-time users
@@ -49,8 +54,12 @@ const getInitialPatients = (): Patient[] => {
   ];
 
   // Save template data to localStorage and cache
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(templateData));
-  localStorage.setItem(RECORD_COUNTER_KEY, '3');
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(templateData));
+    localStorage.setItem(RECORD_COUNTER_KEY, '3');
+  } catch (error) {
+    console.warn("Could not save to localStorage, using memory:", error);
+  }
   cachedPatients = templateData;
   cacheTimestamp = Date.now();
 
@@ -60,17 +69,15 @@ const getInitialPatients = (): Patient[] => {
 const getNextId = (): number => {
   const patients = getInitialPatients();
   if (patients.length === 0) return 1;
-  return Math.max(...patients.map((p: any) => p.id || 0)) + 1;
+  return Math.max(...patients.map((p: Patient) => p.id || 0)) + 1;
 };
 
 export const databaseService = {
   async getPatients(): Promise<Patient[]> {
-    // Removed artificial delay for better performance
     return [...getInitialPatients()].sort((a, b) => b.id! - a.id!);
   },
 
   async addPatient(patient: Omit<Patient, 'id' | 'created_at'>): Promise<number> {
-    // Reduced API delay for better UX
     await new Promise(resolve => setTimeout(resolve, 50));
 
     const existingPatients = getInitialPatients();
@@ -81,30 +88,45 @@ export const databaseService = {
     };
 
     existingPatients.push(newPatient);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPatients));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPatients));
+    } catch (error) {
+      console.warn("Could not save to localStorage:", error);
+    }
 
-    // Update cache and record counter
+    // Update cache
     cachedPatients = existingPatients;
     cacheTimestamp = Date.now();
-    const currentCounter = parseInt(localStorage.getItem(RECORD_COUNTER_KEY) || '3');
-    localStorage.setItem(RECORD_COUNTER_KEY, String(currentCounter + 1));
 
-    return newPatient.id;
+    const currentCounter = parseInt(localStorage.getItem(RECORD_COUNTER_KEY) || '3');
+    try {
+      localStorage.setItem(RECORD_COUNTER_KEY, String(currentCounter + 1));
+    } catch (error) {
+      console.warn("Could not update counter:", error);
+    }
+
+    return newPatient.id!;
   },
 
   async updatePatient(id: number, patient: Omit<Patient, 'id' | 'created_at'>): Promise<string> {
-    // Reduced API delay for better UX
     await new Promise(resolve => setTimeout(resolve, 50));
 
     const existingPatients = getInitialPatients();
     const index = existingPatients.findIndex(p => p.id === id);
+
     if (index !== -1) {
       existingPatients[index] = {
         ...patient,
         id,
         created_at: existingPatients[index].created_at
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPatients));
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPatients));
+      } catch (error) {
+        console.warn("Could not save to localStorage:", error);
+      }
+
       // Update cache
       cachedPatients = existingPatients;
       cacheTimestamp = Date.now();
@@ -114,14 +136,20 @@ export const databaseService = {
   },
 
   async deletePatient(id: number): Promise<string> {
-    // Reduced API delay for better UX
     await new Promise(resolve => setTimeout(resolve, 50));
 
     const existingPatients = getInitialPatients();
     const index = existingPatients.findIndex(p => p.id === id);
+
     if (index !== -1) {
       existingPatients.splice(index, 1);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPatients));
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(existingPatients));
+      } catch (error) {
+        console.warn("Could not save to localStorage:", error);
+      }
+
       // Update cache
       cachedPatients = existingPatients;
       cacheTimestamp = Date.now();
@@ -131,14 +159,19 @@ export const databaseService = {
   },
 
   async generateRecordNumber(): Promise<string> {
-    // Minimal delay for realism
     await new Promise(resolve => setTimeout(resolve, 10));
 
     const year = new Date().getFullYear();
     const counter = parseInt(localStorage.getItem(RECORD_COUNTER_KEY) || '3');
     const newCounter = counter + 1;
-    localStorage.setItem(RECORD_COUNTER_KEY, String(newCounter));
+
+    try {
+      localStorage.setItem(RECORD_COUNTER_KEY, String(newCounter));
+    } catch (error) {
+      console.warn("Could not update counter:", error);
+    }
 
     return `PT${year}${String(newCounter).padStart(6, '0')}`;
   }
 };
+

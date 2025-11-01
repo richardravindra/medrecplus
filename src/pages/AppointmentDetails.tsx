@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -23,10 +23,10 @@ import Modal from '@mui/joy/Modal';
 import ModalDialog from '@mui/joy/ModalDialog';
 import Textarea from '@mui/joy/Textarea';
 import FormLabel from '@mui/joy/FormLabel';
-import DialogTitle from '@mui/joy/DialogTitle';
 import DialogContent from '@mui/joy/DialogContent';
 import FormControl from '@mui/joy/FormControl';
 import logService from '../services/logService';
+import { Invoice } from '../types';
 
 interface VitalSigns {
   bloodPressure: string;
@@ -69,13 +69,7 @@ const AppointmentDetails: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadAppointment(parseInt(id));
-    }
-  }, [id]);
-
-  const loadAppointment = async (appointmentId: number) => {
+  const loadAppointment = useCallback(async (appointmentId: number) => {
     try {
       const storedAppointments = localStorage.getItem('appointments');
       if (storedAppointments) {
@@ -98,7 +92,13 @@ const AppointmentDetails: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      loadAppointment(parseInt(id));
+    }
+  }, [id, loadAppointment]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -135,7 +135,7 @@ const AppointmentDetails: React.FC = () => {
     const storedInvoices = localStorage.getItem('invoices');
     if (storedInvoices) {
       const invoices = JSON.parse(storedInvoices);
-      const existingInvoice = invoices.find((inv: any) => inv.appointmentId === appointmentId);
+      const existingInvoice = invoices.find((inv: Invoice) => inv.appointmentId === appointmentId);
       setHasInvoice(!!existingInvoice);
       return existingInvoice;
     }
@@ -236,7 +236,7 @@ const AppointmentDetails: React.FC = () => {
       const storedInvoices = localStorage.getItem('invoices');
       if (storedInvoices) {
         const invoices = JSON.parse(storedInvoices);
-        const updatedInvoices = invoices.filter((inv: any) => inv.appointmentId !== appointment.id);
+        const updatedInvoices = invoices.filter((inv: Invoice) => inv.appointmentId !== appointment.id);
         localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
       }
 
