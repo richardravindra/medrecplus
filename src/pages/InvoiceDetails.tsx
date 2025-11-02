@@ -19,6 +19,7 @@ import Alert from '@mui/joy/Alert';
 import ShareIcon from '@mui/icons-material/Share';
 import { Invoice } from '../types';
 import { Patient } from '../types';
+import { DataService } from '../services/DataService';
 
 interface ReceiptConfig {
   header: string;
@@ -49,54 +50,62 @@ const InvoiceDetails: React.FC = () => {
 
   const loadInvoice = useCallback(async (invoiceId: number) => {
     try {
-      const storedInvoices = localStorage.getItem('invoices');
-      if (storedInvoices) {
-        const invoices: Invoice[] = JSON.parse(storedInvoices);
-        const foundInvoice = invoices.find(inv => inv.id === invoiceId);
+      console.log('🧾 Loading invoice details using DataService...');
+      const invoices: Invoice[] = await DataService.getData('invoices');
+      console.log(`📊 Retrieved ${invoices.length} invoices from DataService`);
 
-        if (foundInvoice) {
-          setInvoice(foundInvoice);
-          // Load the patient data
-          await loadPatient(foundInvoice.patientId);
-        } else {
-          setError('Invoice not found');
-        }
+      const foundInvoice = invoices.find(inv => inv.id === invoiceId);
+
+      if (foundInvoice) {
+        console.log(`✅ Found invoice ${invoiceId}:`, foundInvoice.invoiceNumber);
+        setInvoice(foundInvoice);
+        // Load the patient data
+        await loadPatient(foundInvoice.patientId);
       } else {
-        setError('No invoices found');
+        console.warn(`⚠️ Invoice ${invoiceId} not found in ${invoices.length} invoices`);
+        setError('Invoice not found');
       }
     } catch (error) {
+      console.error('❌ Failed to load invoice:', error);
       setError('Failed to load invoice');
-      console.error('Error loading invoice:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (id) {
-      loadInvoice(parseInt(id));
-    }
-    loadReceiptConfig();
+    const loadData = async () => {
+      if (id) {
+        await loadInvoice(parseInt(id));
+      }
+      await loadReceiptConfig();
+    };
+    loadData();
   }, [id, loadInvoice]);
 
   const loadPatient = async (patientId: number) => {
     try {
-      const storedPatients = localStorage.getItem('patient_management_data');
-      if (storedPatients) {
-        const patients: Patient[] = JSON.parse(storedPatients);
-        const foundPatient = patients.find(p => p.id === patientId);
-        setPatient(foundPatient || null);
+      console.log(`👤 Loading patient ${patientId} using DataService...`);
+      const patients: Patient[] = await DataService.getPatients();
+      console.log(`📊 Retrieved ${patients.length} patients from DataService`);
+
+      const foundPatient = patients.find(p => p.id === patientId);
+      if (foundPatient) {
+        console.log(`✅ Found patient ${patientId}:`, foundPatient.name);
+      } else {
+        console.warn(`⚠️ Patient ${patientId} not found`);
       }
+      setPatient(foundPatient || null);
     } catch (error) {
-      console.error('Error loading patient:', error);
+      console.error('❌ Error loading patient:', error);
     }
   };
 
-  const loadReceiptConfig = () => {
+  const loadReceiptConfig = async () => {
     try {
-      const storedConfig = localStorage.getItem('receipt_config');
-      if (storedConfig) {
-        const config: ReceiptConfig = JSON.parse(storedConfig);
+      const receiptConfigs = await DataService.getData('receipt_config');
+      if (receiptConfigs && receiptConfigs.length > 0) {
+        const config: ReceiptConfig = receiptConfigs[0];
         setReceiptConfig(config);
       }
     } catch (error) {
@@ -104,24 +113,23 @@ const InvoiceDetails: React.FC = () => {
     }
   };
 
-  const updateInvoiceStatus = (newStatus: 'paid' | 'unpaid' | 'void') => {
+  const updateInvoiceStatus = async (newStatus: 'paid' | 'unpaid' | 'void' | 'pending') => {
     if (!invoice) return;
 
     setIsUpdating(true);
     try {
-      const storedInvoices = localStorage.getItem('invoices');
-      if (storedInvoices) {
-        const invoices: Invoice[] = JSON.parse(storedInvoices);
-        const updatedInvoices = invoices.map(inv =>
-          inv.id === invoice.id
-            ? { ...inv, status: newStatus, updated_at: new Date().toISOString() }
-            : inv
-        );
-        localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
-        setInvoice({ ...invoice, status: newStatus, updated_at: new Date().toISOString() });
-      }
+      console.log(`🔄 Updating invoice ${invoice.id} status to ${newStatus}`);
+      const invoices: Invoice[] = await DataService.getData('invoices');
+      const updatedInvoices = invoices.map(inv =>
+        inv.id === invoice.id
+          ? { ...inv, status: newStatus, updated_at: new Date().toISOString() }
+          : inv
+      );
+      await DataService.saveData('invoices', updatedInvoices);
+      setInvoice({ ...invoice, status: newStatus, updated_at: new Date().toISOString() });
+      console.log(`✅ Invoice ${invoice.id} status updated to ${newStatus}`);
     } catch (error) {
-      console.error('Error updating invoice status:', error);
+      console.error('❌ Error updating invoice status:', error);
     } finally {
       setIsUpdating(false);
     }

@@ -8,7 +8,7 @@ import Stack from '@mui/joy/Stack';
 import Add from '@mui/icons-material/Add';
 import MonetizationOn from '@mui/icons-material/MonetizationOn';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { databaseService } from '../services/database';
+import { DataService } from '../services/DataService';
 import { Invoice } from '../types';
 
 interface PatientStats {
@@ -79,8 +79,8 @@ const Dashboard: React.FC = () => {
 
   const loadStats = async () => {
     try {
-      // Load patient statistics
-      const patients = await databaseService.getPatients();
+      // Load patient statistics using DataService
+      const patients = await DataService.getPatients();
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -116,8 +116,8 @@ const Dashboard: React.FC = () => {
         monthlyData: patientMonthlyData
       });
 
-      // Load appointment statistics
-      const appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+      // Load appointment statistics using DataService
+      const appointments = await DataService.getAppointments();
 
       // Calculate appointments this month
       const appointmentsThisMonth = appointments.filter((appointment: Appointment) => {
@@ -148,8 +148,8 @@ const Dashboard: React.FC = () => {
         monthlyData: appointmentMonthlyData
       });
 
-      // Load invoice statistics and calculate revenue
-      const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+      // Load invoice statistics and calculate revenue using DataService
+      const invoices = await DataService.getInvoices();
       const paidInvoices = invoices.filter((invoice: Invoice) => invoice.status === 'paid');
 
       // Calculate revenue this month

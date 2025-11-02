@@ -32,6 +32,7 @@ import MenuItem from '@mui/joy/MenuItem';
 import Checkbox from '@mui/joy/Checkbox';
 import { Invoice } from '../types';
 import logService from '../services/logService';
+import { DataService } from '../services/DataService';
 
 const Invoices: React.FC = () => {
   const navigate = useNavigate();
@@ -63,15 +64,14 @@ const Invoices: React.FC = () => {
     setDateRange({ start: today, end: today });
   }, []);
 
-  const loadInvoices = () => {
+  const loadInvoices = async () => {
     try {
-      const storedInvoices = localStorage.getItem('invoices');
-      if (storedInvoices) {
-        setInvoices(JSON.parse(storedInvoices));
-      } else {
-        setInvoices([]);
-      }
-    } catch {
+      console.log('🧾 Loading invoices using DataService...');
+      const invoicesData = await DataService.getData('invoices');
+      console.log(`📊 Loaded ${invoicesData.length} invoices from DataService`);
+      setInvoices(invoicesData);
+    } catch (error) {
+      console.error('❌ Failed to load invoices:', error);
       setError('Failed to load invoices');
     } finally {
       setLoading(false);
@@ -106,13 +106,31 @@ const Invoices: React.FC = () => {
 
       // Apply date range filter if dates are set
       if (dateRange.start || dateRange.end) {
-        const invoiceDate = new Date(invoice.date);
+        try {
+          // Handle different date formats and invalid dates
+          let invoiceDateString = invoice.date;
 
-        // Use date strings for direct comparison to avoid timezone issues
-        const invoiceDateString = invoiceDate.toISOString().split('T')[0];
+          // If date is already in YYYY-MM-DD format, use it directly
+          if (invoiceDateString && invoiceDateString.includes('-')) {
+            // Extract YYYY-MM-DD part if there are time components
+            invoiceDateString = invoiceDateString.split('T')[0];
+          } else {
+            // Try to parse as Date object and format it
+            const invoiceDate = new Date(invoice.date);
+            if (!isNaN(invoiceDate.getTime())) {
+              invoiceDateString = invoiceDate.toISOString().split('T')[0];
+            } else {
+              console.warn('Invalid date found in invoice:', invoice.id, invoice.date);
+              return false; // Skip invoices with invalid dates
+            }
+          }
 
-        if (dateRange.start && invoiceDateString < dateRange.start) return false;
-        if (dateRange.end && invoiceDateString > dateRange.end) return false;
+          if (dateRange.start && invoiceDateString < dateRange.start) return false;
+          if (dateRange.end && invoiceDateString > dateRange.end) return false;
+        } catch (error) {
+          console.error('Error processing invoice date:', invoice.id, invoice.date, error);
+          return false; // Skip invoices with date processing errors
+        }
       }
 
       return true;
@@ -265,32 +283,30 @@ const Invoices: React.FC = () => {
     }
   };
 
-  const handleDeleteInvoice = (invoiceId: number) => {
+  const handleDeleteInvoice = async (invoiceId: number) => {
     if (window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
       try {
-        const storedInvoices = localStorage.getItem('invoices');
-        if (storedInvoices) {
-          const invoices: Invoice[] = JSON.parse(storedInvoices);
-          const invoiceToDelete = invoices.find(inv => inv.id === invoiceId);
+        const invoices: Invoice[] = await DataService.getData('invoices');
+        const invoiceToDelete = invoices.find(inv => inv.id === invoiceId);
 
-          // Log invoice deletion before removing
-          if (invoiceToDelete) {
-            logService.logInvoiceDeleted(invoiceId, invoiceToDelete.patientId, invoiceToDelete.patientName, invoiceToDelete.operatorName);
-          }
+        // Log invoice deletion before removing
+        if (invoiceToDelete) {
+          logService.logInvoiceDeleted(invoiceId, invoiceToDelete.patientId, invoiceToDelete.patientName, invoiceToDelete.operatorName);
+        }
 
-          const updatedInvoices = invoices.filter(inv => inv.id !== invoiceId);
-          localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
-          setInvoices(updatedInvoices);
+        const updatedInvoices = invoices.filter(inv => inv.id !== invoiceId);
+        await DataService.saveData('invoices', updatedInvoices);
+        setInvoices(updatedInvoices);
+        console.log(`✅ Deleted invoice ${invoiceId}`);
 
-          // Reset to page 1 if current page would be empty
-          const newTotalItems = updatedInvoices.length;
-          const newTotalPages = Math.ceil(newTotalItems / itemsPerPage);
-          if (currentPage > newTotalPages && newTotalPages > 0) {
-            setCurrentPage(newTotalPages);
-          }
+        // Reset to page 1 if current page would be empty
+        const newTotalItems = updatedInvoices.length;
+        const newTotalPages = Math.ceil(newTotalItems / itemsPerPage);
+        if (currentPage > newTotalPages && newTotalPages > 0) {
+          setCurrentPage(newTotalPages);
         }
       } catch (error) {
-        console.error('Error deleting invoice:', error);
+        console.error('❌ Error deleting invoice:', error);
         alert('Failed to delete invoice. Please try again.');
       }
     }

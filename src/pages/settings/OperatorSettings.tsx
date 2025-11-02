@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -20,7 +20,13 @@ import Edit from '@mui/icons-material/Edit';
 import Delete from '@mui/icons-material/Delete';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
+import Search from '@mui/icons-material/Search';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import ChevronRight from '@mui/icons-material/ChevronRight';
+import FirstPage from '@mui/icons-material/FirstPage';
+import LastPage from '@mui/icons-material/LastPage';
 import Sheet from '@mui/joy/Sheet';
+import { DataService } from '../../services/DataService';
 
 interface Operator {
   id: number;
@@ -41,20 +47,92 @@ const OperatorSettings: React.FC = () => {
     role: ''
   });
 
+  // Search and pagination state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+
   useEffect(() => {
     loadOperators();
   }, []);
 
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset to first page when searching
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const loadOperators = async () => {
     try {
-      const operatorsRaw = localStorage.getItem('operators');
-      const storedOperators: Operator[] = JSON.parse(operatorsRaw || '[]');
-      setOperators(storedOperators);
-    } catch {
-      setError('Failed to load operators');
+      setLoading(true);
+      // Use DataService to get operators (supports IndexedDB)
+      const data = await DataService.getData('operators');
+      console.log(`📊 Loaded ${data.length} operators`);
+      setOperators(data);
+    } catch (error) {
+      console.error('Error loading operators:', error);
+      // Fallback to localStorage
+      try {
+        const operatorsRaw = localStorage.getItem('operators');
+        const storedOperators: Operator[] = JSON.parse(operatorsRaw || '[]');
+        console.log(`📊 Fallback: Loaded ${storedOperators.length} operators from localStorage`);
+        setOperators(storedOperators);
+      } catch (localStorageError) {
+        console.error('Fallback to localStorage also failed:', localStorageError);
+        setError('Failed to load operators');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  // Filter and paginate operators
+  const filteredAndPaginatedOperators = useMemo(() => {
+    let filtered = operators;
+
+    // Apply search filter
+    if (debouncedSearchTerm) {
+      const searchLower = debouncedSearchTerm.toLowerCase();
+      filtered = operators.filter(operator =>
+        operator.name.toLowerCase().includes(searchLower) ||
+        operator.role.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply pagination
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginated = filtered.slice(startIndex, endIndex);
+
+    return {
+      operators: paginated,
+      totalCount: filtered.length,
+      totalPages: Math.ceil(filtered.length / itemsPerPage)
+    };
+  }, [operators, debouncedSearchTerm, currentPage, itemsPerPage]);
+
+  const { operators: paginatedOperators, totalCount, totalPages } = filteredAndPaginatedOperators;
+
+  // Pagination handlers
+  const handleFirstPage = () => {
+    setCurrentPage(1);
+  };
+
+  const handleLastPage = () => {
+    setCurrentPage(totalPages);
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
   };
 
   const handleOperatorInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,13 +154,25 @@ const OperatorSettings: React.FC = () => {
     setIsOperatorModalOpen(true);
   };
 
-  const handleDeleteOperator = (operator: Operator) => {
+  const handleDeleteOperator = async (operator: Operator) => {
     if (window.confirm(`Are you sure you want to delete operator "${operator.name}"?`)) {
       try {
         const updatedOperators = operators.filter(op => op.id !== operator.id);
-        localStorage.setItem('operators', JSON.stringify(updatedOperators));
+
+        // Save using DataService
+        await DataService.saveData('operators', updatedOperators);
+        console.log(`💾 Saved ${updatedOperators.length} operators using DataService`);
+
+        // Update local state
         setOperators(updatedOperators);
-      } catch {
+
+        // Reset to first page if current page becomes empty
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        if (startIndex >= updatedOperators.length && currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+        }
+      } catch (error) {
+        console.error('Failed to delete operator:', error);
         setError('Failed to delete operator');
       }
     }
@@ -102,15 +192,15 @@ const OperatorSettings: React.FC = () => {
     }
 
     try {
+      let updatedOperators: Operator[];
+
       if (editingOperator) {
         // Update existing operator
-        const updatedOperators = operators.map(op =>
+        updatedOperators = operators.map(op =>
           op.id === editingOperator.id
             ? { ...op, name: operatorFormData.name.trim(), role: operatorFormData.role.trim() }
             : op
         );
-        localStorage.setItem('operators', JSON.stringify(updatedOperators));
-        setOperators(updatedOperators);
       } else {
         // Add new operator
         const newOperator: Operator = {
@@ -119,16 +209,22 @@ const OperatorSettings: React.FC = () => {
           role: operatorFormData.role.trim(),
           created_at: new Date().toISOString()
         };
-        const updatedOperators = [...operators, newOperator];
-        localStorage.setItem('operators', JSON.stringify(updatedOperators));
-        setOperators(updatedOperators);
+        updatedOperators = [...operators, newOperator];
       }
+
+      // Save using DataService
+      await DataService.saveData('operators', updatedOperators);
+      console.log(`💾 Saved ${updatedOperators.length} operators using DataService`);
+
+      // Update local state
+      setOperators(updatedOperators);
 
       setIsOperatorModalOpen(false);
       setOperatorFormData({ name: '', role: '' });
       setEditingOperator(null);
       setError(null);
-    } catch {
+    } catch (error) {
+      console.error('Failed to save operator:', error);
       setError(editingOperator ? 'Failed to update operator' : 'Failed to add operator');
     }
   };
@@ -176,7 +272,7 @@ const OperatorSettings: React.FC = () => {
           <Box>
             <Typography level="h4">System Operators</Typography>
             <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-              Manage system operators and their roles
+              Manage system operators and their roles ({totalCount} total)
             </Typography>
           </Box>
           <Button
@@ -189,18 +285,47 @@ const OperatorSettings: React.FC = () => {
           </Button>
         </Box>
 
-        {operators.length === 0 ? (
+        {/* Search Box */}
+        <Box sx={{ mb: 3 }}>
+          <Input
+            placeholder="Search operators by name or role..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            startDecorator={<Search />}
+            sx={{
+              color: '#ffffff',
+              '& input::placeholder': {
+                color: '#ffffff !important',
+                opacity: 0.7
+              },
+              '& input': {
+                color: '#ffffff !important'
+              }
+            }}
+          />
+        </Box>
+
+        {totalCount === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography level="body-lg" sx={{ color: '#ffffff', mb: 2 }}>
-              No operators found
+              {operators.length === 0 ? 'No operators found' : 'No operators match your search'}
             </Typography>
-            <Button
-              variant="outlined"
-              startDecorator={<Add />}
-              onClick={handleAddOperator}
-            >
-              Add First Operator
-            </Button>
+            {operators.length === 0 ? (
+              <Button
+                variant="outlined"
+                startDecorator={<Add />}
+                onClick={handleAddOperator}
+              >
+                Add First Operator
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                onClick={() => setSearchTerm('')}
+              >
+                Clear Search
+              </Button>
+            )}
           </Box>
         ) : (
           <Sheet sx={{
@@ -247,7 +372,7 @@ const OperatorSettings: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {operators.map((operator) => (
+                  {paginatedOperators.map((operator) => (
                     <tr key={operator.id}>
                       <td>
                         <Typography level="body-sm" fontWeight="bold">
@@ -290,6 +415,70 @@ const OperatorSettings: React.FC = () => {
               </Table>
             </Box>
           </Sheet>
+        )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mt: 3,
+            px: 2
+          }}>
+            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} operators
+            </Typography>
+
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <IconButton
+                size="sm"
+                variant="outlined"
+                onClick={handleFirstPage}
+                disabled={currentPage === 1}
+                sx={{ color: '#ffffff' }}
+              >
+                <FirstPage />
+              </IconButton>
+              <IconButton
+                size="sm"
+                variant="outlined"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                sx={{ color: '#ffffff' }}
+              >
+                <ChevronLeft />
+              </IconButton>
+
+              <Typography level="body-sm" sx={{
+                color: '#ffffff',
+                mx: 2,
+                minWidth: '60px',
+                textAlign: 'center'
+              }}>
+                Page {currentPage} of {totalPages}
+              </Typography>
+
+              <IconButton
+                size="sm"
+                variant="outlined"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                sx={{ color: '#ffffff' }}
+              >
+                <ChevronRight />
+              </IconButton>
+              <IconButton
+                size="sm"
+                variant="outlined"
+                onClick={handleLastPage}
+                disabled={currentPage === totalPages}
+                sx={{ color: '#ffffff' }}
+              >
+                <LastPage />
+              </IconButton>
+            </Box>
+          </Box>
         )}
       </Card>
 

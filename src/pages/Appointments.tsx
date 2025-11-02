@@ -30,29 +30,39 @@ import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import Select from '@mui/joy/Select';
 import Option from '@mui/joy/Option';
+import { DataService } from '../services/DataService';
 
 interface VitalSigns {
   bloodPressure: string;
   respirationRate: number;
   heartRate: number;
   borgScale: number;
+  custom_undefined?: {
+    name: string;
+    unit: string;
+    value: string;
+  };
 }
 
 interface AppointmentTreatment {
   id: number;
   name: string;
+  description?: string;
   price: number;
+  created_at?: string;
+  notes?: string;
 }
 
 interface Appointment {
   id: number;
   patientName: string;
   patientId: number;
+  operatorName: string;
+  operatorId: number;
   date: string;
   vitalSigns: VitalSigns;
   treatments: AppointmentTreatment[];
   totalPrice: number;
-  operatorName?: string;
   created_at: string;
 }
 
@@ -85,16 +95,21 @@ const Appointments: React.FC = () => {
 
   const loadAppointments = async () => {
     try {
-      const storedAppointments = localStorage.getItem('appointments');
-      if (storedAppointments) {
-        setAppointments(JSON.parse(storedAppointments));
-      } else {
+      console.log('📅 Loading appointments using DataService...');
+      const appointmentsData = await DataService.getData('appointments');
+      console.log(`📊 Loaded ${appointmentsData.length} appointments from DataService`);
+      setAppointments(appointmentsData);
+
+      if (appointmentsData.length === 0) {
+        console.log('📅 No appointments found, adding default appointment...');
         // Add some default appointments
         const defaultAppointments: Appointment[] = [
           {
             id: 1,
             patientName: 'John Doe',
             patientId: 1,
+            operatorName: 'Dr. Default',
+            operatorId: 1,
             date: new Date().toISOString().split('T')[0],
             vitalSigns: {
               bloodPressure: '120/80',
@@ -110,23 +125,26 @@ const Appointments: React.FC = () => {
             created_at: new Date().toISOString()
           }
         ];
-        localStorage.setItem('appointments', JSON.stringify(defaultAppointments));
+        await DataService.saveData('appointments', defaultAppointments);
         setAppointments(defaultAppointments);
       }
-    } catch {
+    } catch (error) {
+      console.error('❌ Failed to load appointments:', error);
       setError('Failed to load appointments');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteAppointment = (appointment: Appointment) => {
+  const handleDeleteAppointment = async (appointment: Appointment) => {
     if (window.confirm(`Are you sure you want to delete appointment for "${appointment.patientName}"?`)) {
       try {
         const updatedAppointments = appointments.filter(a => a.id !== appointment.id);
-        localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+        await DataService.saveData('appointments', updatedAppointments);
         setAppointments(updatedAppointments);
-      } catch {
+        console.log(`✅ Deleted appointment for ${appointment.patientName}`);
+      } catch (error) {
+        console.error('❌ Failed to delete appointment:', error);
         setError('Failed to delete appointment');
       }
     }

@@ -27,6 +27,7 @@ import DialogContent from '@mui/joy/DialogContent';
 import FormControl from '@mui/joy/FormControl';
 import logService from '../services/logService';
 import { Invoice } from '../types';
+import { DataService } from '../services/DataService';
 
 interface VitalSigns {
   bloodPressure: string;
@@ -71,20 +72,15 @@ const AppointmentDetails: React.FC = () => {
 
   const loadAppointment = useCallback(async (appointmentId: number) => {
     try {
-      const storedAppointments = localStorage.getItem('appointments');
-      if (storedAppointments) {
-        const appointments: Appointment[] = JSON.parse(storedAppointments);
-        const foundAppointment = appointments.find(a => a.id === appointmentId);
+      const appointments = await DataService.getData('appointments');
+      const foundAppointment = appointments.find(a => a.id === appointmentId);
 
-        if (foundAppointment) {
-          setAppointment(foundAppointment);
-          setEditedTreatments(foundAppointment.treatments);
-          checkIfInvoiceExists(foundAppointment.id);
-        } else {
-          setError('Appointment not found');
-        }
+      if (foundAppointment) {
+        setAppointment(foundAppointment);
+        setEditedTreatments(foundAppointment.treatments);
+        await checkIfInvoiceExists(foundAppointment.id);
       } else {
-        setError('No appointments found');
+        setError('Appointment not found');
       }
     } catch (error) {
       setError('Failed to load appointment');
@@ -131,32 +127,41 @@ const AppointmentDetails: React.FC = () => {
     return 'High exertion';
   };
 
-  const checkIfInvoiceExists = (appointmentId: number) => {
-    const storedInvoices = localStorage.getItem('invoices');
-    if (storedInvoices) {
-      const invoices = JSON.parse(storedInvoices);
+  const checkIfInvoiceExists = async (appointmentId: number) => {
+    try {
+      const invoices = await DataService.getData('invoices');
       const existingInvoice = invoices.find((inv: Invoice) => inv.appointmentId === appointmentId);
       setHasInvoice(!!existingInvoice);
       return existingInvoice;
+    } catch (error) {
+      console.error('❌ Error checking invoice existence:', error);
+      setHasInvoice(false);
+      return null;
     }
-    setHasInvoice(false);
-    return null;
   };
 
-  const generateInvoiceNumber = () => {
-    const storedInvoices = localStorage.getItem('invoices');
-    const invoices = storedInvoices ? JSON.parse(storedInvoices) : [];
-    const invoiceCount = invoices.length + 1;
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    return `INV-${year}${month}-${invoiceCount.toString().padStart(4, '0')}`;
+  const generateInvoiceNumber = async () => {
+    try {
+      const invoices = await DataService.getData('invoices');
+      const invoiceCount = invoices.length + 1;
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      return `INV-${year}${month}-${invoiceCount.toString().padStart(4, '0')}`;
+    } catch (error) {
+      console.error('❌ Error generating invoice number:', error);
+      // Fallback to simple timestamp if error occurs
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      return `INV-${year}${month}-${Date.now().toString().slice(-4)}`;
+    }
   };
 
-  const generateInvoice = () => {
+  const generateInvoice = async () => {
     if (!appointment) return;
 
-    const existingInvoice = checkIfInvoiceExists(appointment.id);
+    const existingInvoice = await checkIfInvoiceExists(appointment.id);
     if (existingInvoice) {
       navigate(`/invoices/${existingInvoice.id}`);
       return;
@@ -164,7 +169,7 @@ const AppointmentDetails: React.FC = () => {
 
     const newInvoice = {
       id: Date.now(),
-      invoiceNumber: generateInvoiceNumber(),
+      invoiceNumber: await generateInvoiceNumber(),
       appointmentId: appointment.id,
       patientName: appointment.patientName,
       patientId: appointment.patientId,
@@ -179,10 +184,15 @@ const AppointmentDetails: React.FC = () => {
       created_at: new Date().toISOString(),
     };
 
-    const storedInvoices = localStorage.getItem('invoices');
-    const invoices = storedInvoices ? JSON.parse(storedInvoices) : [];
-    invoices.push(newInvoice);
-    localStorage.setItem('invoices', JSON.stringify(invoices));
+    try {
+      const invoices = await DataService.getData('invoices');
+      invoices.push(newInvoice);
+      await DataService.saveData('invoices', invoices);
+    } catch (error) {
+      console.error('❌ Error generating invoice:', error);
+      alert('Failed to generate invoice. Please try again.');
+      return;
+    }
 
     // Log invoice creation
     logService.logInvoiceCreated(newInvoice.id, appointment.id, appointment.patientId, appointment.patientName, appointment.operatorName);
@@ -224,21 +234,15 @@ const AppointmentDetails: React.FC = () => {
       // Log the deletion before removing
       logService.logAppointmentDeleted(appointment.id, appointment.patientId, appointment.patientName);
 
-      // Remove appointment from localStorage
-      const storedAppointments = localStorage.getItem('appointments');
-      if (storedAppointments) {
-        const appointments: Appointment[] = JSON.parse(storedAppointments);
-        const updatedAppointments = appointments.filter(apt => apt.id !== appointment.id);
-        localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
-      }
+      // Remove appointment using DataService
+      const appointments = await DataService.getData('appointments');
+      const updatedAppointments = appointments.filter(apt => apt.id !== appointment.id);
+      await DataService.saveData('appointments', updatedAppointments);
 
       // Remove associated invoice if it exists
-      const storedInvoices = localStorage.getItem('invoices');
-      if (storedInvoices) {
-        const invoices = JSON.parse(storedInvoices);
-        const updatedInvoices = invoices.filter((inv: Invoice) => inv.appointmentId !== appointment.id);
-        localStorage.setItem('invoices', JSON.stringify(updatedInvoices));
-      }
+      const invoices = await DataService.getData('invoices');
+      const updatedInvoices = invoices.filter((inv: Invoice) => inv.appointmentId !== appointment.id);
+      await DataService.saveData('invoices', updatedInvoices);
 
       navigate('/appointments');
     } catch (error) {
@@ -250,7 +254,7 @@ const AppointmentDetails: React.FC = () => {
     }
   };
 
-  const saveTreatmentNotes = () => {
+  const saveTreatmentNotes = async () => {
     if (!appointment || selectedTreatmentId === null) return;
 
     const updatedTreatments = editedTreatments.map(treatment =>
@@ -261,24 +265,21 @@ const AppointmentDetails: React.FC = () => {
 
     setEditedTreatments(updatedTreatments);
 
-    // Update appointment in localStorage
+    // Update appointment using DataService
     try {
-      const storedAppointments = localStorage.getItem('appointments');
-      if (storedAppointments) {
-        const appointments: Appointment[] = JSON.parse(storedAppointments);
-        const updatedAppointments = appointments.map(apt =>
-          apt.id === appointment.id
-            ? { ...apt, treatments: updatedTreatments }
-            : apt
-        );
-        localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+      const appointments = await DataService.getData('appointments');
+      const updatedAppointments = appointments.map(apt =>
+        apt.id === appointment.id
+          ? { ...apt, treatments: updatedTreatments }
+          : apt
+      );
+      await DataService.saveData('appointments', updatedAppointments);
 
-        // Update local appointment state
-        setAppointment({ ...appointment, treatments: updatedTreatments });
+      // Update local appointment state
+      setAppointment({ ...appointment, treatments: updatedTreatments });
 
-        // Log appointment update (treatment notes)
-        logService.logAppointmentUpdated(appointment.id, appointment.patientId, appointment.patientName);
-      }
+      // Log appointment update (treatment notes)
+      logService.logAppointmentUpdated(appointment.id, appointment.patientId, appointment.patientName);
     } catch (error) {
       console.error('Error saving treatment notes:', error);
     }

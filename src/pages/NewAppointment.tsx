@@ -18,6 +18,7 @@ import Search from '@mui/icons-material/Search';
 import Refresh from '@mui/icons-material/Refresh';
 import { Patient } from '../types';
 import logService from '../services/logService';
+import { DataService } from '../services/DataService';
 
 interface Treatment {
   id: number;
@@ -118,41 +119,30 @@ const NewAppointment: React.FC = () => {
 
   const loadData = async () => {
     try {
-      // Debug localStorage contents
-      console.log('=== LOCAL STORAGE DEBUG ===');
-      console.log('localStorage keys:', Object.keys(localStorage));
+      console.log('=== DATA LOADING DEBUG ===');
 
-      // Check patients specifically - patients are stored under 'patient_management_data'
-      const patientsRaw = localStorage.getItem('patient_management_data');
-      console.log('Raw patients data from localStorage (key: patient_management_data):', patientsRaw);
-
-      const storedPatients: Patient[] = JSON.parse(patientsRaw || '[]');
-      console.log('Parsed patients:', storedPatients);
+      // Load patients using DataService
+      const storedPatients = await DataService.getPatients();
+      console.log('Loaded patients:', storedPatients);
       console.log('Number of patients loaded:', storedPatients.length);
       setPatients(storedPatients);
 
-      // Load operators
-      const operatorsRaw = localStorage.getItem('operators');
-      console.log('Raw operators data:', operatorsRaw);
-      const storedOperators: Operator[] = JSON.parse(operatorsRaw || '[]');
+      // Load operators using DataService
+      const storedOperators = await DataService.getData('operators');
       console.log('Loaded operators:', storedOperators);
       setOperators(storedOperators);
 
-      // Load treatments
-      const treatmentsRaw = localStorage.getItem('treatments');
-      console.log('Raw treatments data:', treatmentsRaw);
-      const storedTreatments: Treatment[] = JSON.parse(treatmentsRaw || '[]');
+      // Load treatments using DataService
+      const storedTreatments = await DataService.getData('treatments');
       console.log('Loaded treatments:', storedTreatments);
       setTreatments(storedTreatments);
 
-      // Load custom examinations
-      const customExaminationsRaw = localStorage.getItem('custom_examinations');
-      console.log('Raw custom examinations data:', customExaminationsRaw);
-      const storedCustomExaminations: CustomExamination[] = JSON.parse(customExaminationsRaw || '[]');
+      // Load custom examinations using DataService
+      const storedCustomExaminations = await DataService.getData('custom_examinations');
       console.log('Loaded custom examinations:', storedCustomExaminations);
       setCustomExaminations(storedCustomExaminations);
 
-      console.log('=== END LOCAL STORAGE DEBUG ===');
+      console.log('=== END DATA LOADING DEBUG ===');
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -351,7 +341,7 @@ const NewAppointment: React.FC = () => {
     setError(null);
 
     try {
-      const existingAppointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+      const existingAppointments = await DataService.getData('appointments');
 
       const selectedTreatmentData = treatments.find(t => t.id === formData.selectedTreatment);
       const selectedOperator = operators.find(op => op.id === parseInt(formData.operatorId));
@@ -387,7 +377,7 @@ const NewAppointment: React.FC = () => {
       };
 
       const updatedAppointments = [...existingAppointments, newAppointment];
-      localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
+      await DataService.saveData('appointments', updatedAppointments);
 
       // Log appointment creation
       logService.logAppointmentCreated(newAppointmentId, newAppointment.patientId, newAppointment.patientName);

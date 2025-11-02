@@ -34,15 +34,22 @@ export interface Invoice {
     respirationRate: number;
     heartRate: number;
     borgScale: number;
+    custom_undefined?: {
+      name: string;
+      unit: string;
+      value: string;
+    };
   };
   treatments: Array<{
     id: number;
     name: string;
+    description?: string;
     price: number;
+    created_at?: string;
     notes?: string;
   }>;
   totalAmount: number;
-  status: 'paid' | 'unpaid' | 'void';
+  status: 'paid' | 'unpaid' | 'void' | 'pending';
   created_at: string;
   updated_at?: string;
 }

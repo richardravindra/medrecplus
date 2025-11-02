@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -11,6 +11,7 @@ import ArrowBack from '@mui/icons-material/ArrowBack';
 import * as XLSX from 'xlsx';
 import { isTauriEnvironment, importTauriDialog, importTauriFs } from '../../utils/tauriUtils';
 import { Patient, Invoice } from '../../types';
+import { EnhancedRestoreDialog } from '../../components/EnhancedRestoreDialog';
 
 interface Treatment {
   id: number;
@@ -21,6 +22,7 @@ interface Treatment {
 
 const BackupRestoreSettings: React.FC = () => {
   const navigate = useNavigate();
+  const [showEnhancedRestore, setShowEnhancedRestore] = useState(false);
 
   const handleBackup = async () => {
     try {
@@ -521,18 +523,35 @@ const BackupRestoreSettings: React.FC = () => {
             <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
               📥 Restore Data
             </Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff', mb: 3 }}>
+            <Typography level="body-sm" sx={{ color: '#ffffff', mb: 2 }}>
               Import application data from a previously created JSON backup file.
             </Typography>
-            <Button
-              variant="outlined"
-              color="neutral"
-              startDecorator={<Upload sx={{ color: '#ffffff' }} />}
-              onClick={handleRestore}
-              sx={{ borderRadius: 'sm' }}
-            >
-              Restore from Backup
-            </Button>
+
+            <Stack spacing={2} sx={{ mb: 2 }}>
+              <Button
+                variant="solid"
+                color="primary"
+                startDecorator={<Upload sx={{ color: '#ffffff' }} />}
+                onClick={() => setShowEnhancedRestore(true)}
+                sx={{ borderRadius: 'sm' }}
+              >
+                🚀 Enhanced Restore (Large Files)
+              </Button>
+
+              <Button
+                variant="outlined"
+                color="neutral"
+                startDecorator={<Upload sx={{ color: '#ffffff' }} />}
+                onClick={handleRestore}
+                sx={{ borderRadius: 'sm' }}
+              >
+                Standard Restore (Small Files)
+              </Button>
+            </Stack>
+
+            <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              💡 Use Enhanced Restore for files with 1000+ records or files larger than 1MB
+            </Typography>
           </Box>
 
           {/* Erase All Data Section */}
@@ -612,6 +631,15 @@ const BackupRestoreSettings: React.FC = () => {
           </Box>
         </Stack>
       </Card>
+
+      <EnhancedRestoreDialog
+        open={showEnhancedRestore}
+        onClose={() => setShowEnhancedRestore(false)}
+        onSuccess={() => {
+          // Handle successful restore
+          console.log('Enhanced restore completed successfully');
+        }}
+      />
     </Box>
   );
 };
