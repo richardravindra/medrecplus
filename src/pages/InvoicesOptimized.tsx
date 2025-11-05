@@ -19,7 +19,7 @@ import { VirtualizedTable, invoiceColumns } from '../components/tables/Virtualiz
 import { OptimizedSearch } from '../components/OptimizedSearch';
 import { usePerformanceMonitor } from '../hooks/usePerformanceMonitor';
 
-  const InvoicesOptimized: React.FC = () => {
+const InvoicesOptimized: React.FC = () => {
   const navigate = useNavigate();
   const { metrics } = usePerformanceMonitor('InvoicesPage');
 
