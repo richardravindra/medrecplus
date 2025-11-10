@@ -1,46 +1,58 @@
 # MedRecPlus - Comprehensive Patient Management System
 
-A modern offline cross-platform medical records management application built with Tauri, React, Vite, and Joy UI for complete healthcare practice management with SQLite database. Available for Windows, Linux, and Android.
+A modern offline cross-platform medical records management application built with Tauri, React, Vite, and Joy UI for complete healthcare practice management. Features performance-optimized data handling and comprehensive settings management. Available for Windows, Linux, and Android.
 
 ## Features
 
 ### Core Patient Management
 - **🏥 Complete Patient Records**: Full CRUD operations for comprehensive patient data
 - **📋 Smart Record Numbers**: Auto-generated patient IDs (PT202500001 format)
-- **🔍 Advanced Search**: Real-time search across all patient data
+- **🔍 Advanced Search**: Real-time optimized search across all patient data
 - **📱 Responsive Design**: Modern UI built with Joy UI components
-- **💾 Offline Storage**: SQLite database for reliable offline data storage
+- **💾 Data Storage**: Unified storage system with performance optimization
+- **⚡ Performance**: Virtualized tables and lazy loading for large datasets
 
 ### Appointments & Scheduling
-- **📅 Appointment Management**: Schedule and manage patient appointments
+- **📅 Optimized Appointment Management**: Schedule and manage patient appointments with performance optimization
 - **🔄 Appointment Details**: Track appointment status and patient information
-- **📊 Calendar Integration**: Visual calendar for appointment scheduling
+- **📊 Vital Signs Recording**: Comprehensive vital signs capture including custom examinations
+- **💰 Treatment Integration**: Direct treatment selection and pricing during appointments
 
 ### Treatments & Medical Records
-- **💊 Treatment Management**: Track medications and treatment plans
+- **💊 Treatment Management**: Create, edit, and manage treatment plans with pricing
 - **📋 Treatment History**: Complete treatment and examination records
-- **🔬 Custom Examinations**: Configurable medical examination types
+- **🔬 Custom Examinations**: Configurable medical examination types with units
+- **📈 Performance Tracking**: Monitor treatment effectiveness over time
 
 ### Financial Management
-- **💰 Invoicing System**: Generate and manage patient invoices
-- **📈 Revenue Tracking**: Monitor financial performance with charts
-- **🧾 Receipt Management**: Generate professional receipts
+- **💰 Optimized Invoicing System**: Generate and manage patient invoices with sorting and filtering
+- **📈 Revenue Tracking**: Monitor financial performance with interactive charts
+- **🧾 Receipt Management**: Generate professional receipts with customizable headers and footers
+- **💱 Multi-Currency Support**: Configurable currency settings with real-time formatting
 
 ### Reporting & Analytics
-- **📊 Dashboard**: Comprehensive overview with statistics and charts
-- **📈 Monthly Reports**: Track patient growth, appointments, and revenue
-- **📋 Activity Logs**: Complete audit trail of system activities
+- **📊 Performance Dashboard**: Comprehensive overview with lazy-loaded charts and statistics
+- **📈 Monthly Reports**: Track patient growth, appointments, and revenue trends
+- **📋 Activity Logs**: Complete audit trail of all system activities with filtering
+- **📊 Data Visualization**: Interactive charts using Recharts with lazy loading
 
 ### System Configuration
-- **⚙️ Settings Panel**: Comprehensive system configuration
+- **⚙️ Comprehensive Settings Panel**: Full system configuration with multiple setting categories
 - **👤 Operator Management**: User and role management
-- **💾 Backup & Restore**: Data backup and recovery options
-- **🎨 Customizable UI**: Tailor the system to your practice needs
+- **💾 Backup & Restore**: Enhanced data backup and recovery with validation
+- **🔐 Security Settings**: Password protection, encryption setup, and session management
+- **💱 Currency Configuration**: Multi-currency support with symbol and locale settings
+- **🧾 Receipt Customization**: Configure receipt headers, footers, and business information
+- **🔬 Custom Examinations**: Define custom medical examination types and units
+- **💊 Treatment Management**: Configure treatment options and pricing
+- **📊 Activity Monitoring**: Track system usage and access logs
 
 ### Navigation & UX
-- **🎯 Clean Interface**: Intuitive navigation sidebar with collapsible menu
-- **📱 Edge-to-Edge Design**: Modern mobile-first responsive design
+- **🎯 Clean Interface**: Intuitive navigation sidebar with collapsible menu and animations
+- **📱 Responsive Design**: Modern mobile-first responsive design with adaptive layouts
 - **🔄 Seamless Navigation**: Smooth transitions and breadcrumb navigation
+- **⚡ Performance Optimized**: Virtualized tables, lazy loading, and optimized rendering
+- **🎨 Modern UI**: Edge-to-edge design with Joy UI components and animations
 
 ## Tech Stack
 
@@ -48,11 +60,14 @@ A modern offline cross-platform medical records management application built wit
 - **React 19.1** - Latest React with hooks and TypeScript
 - **Vite 7.1** - Ultra-fast build tool and development server
 - **Joy UI 5.0** - Beautiful, accessible React components
+- **Material-UI (MUI) 7.3** - Comprehensive React component library
 - **React Router 7.9** - Modern client-side routing
 - **TypeScript 5.9** - Type-safe development
-- **TanStack React Table** - Powerful data table functionality
+- **TanStack React Table 8.21** - Powerful data table functionality with virtualization
 - **Recharts 3.3** - Interactive charts and data visualization
+- **DayJS 1.11** - Lightweight date manipulation library
 - **XLSX 0.18** - Excel file export functionality
+- **Chrono 1.0** - Natural language date parsing
 
 ### Backend
 - **Tauri 2.0** - Build cross-platform apps (desktop & mobile) with web tech
@@ -68,40 +83,62 @@ A modern offline cross-platform medical records management application built wit
 medrecplus/
 ├── src/
 │   ├── components/
-│   │   └── Layout/
-│   │       ├── MainLayout.tsx        # Main app layout with sidebar
-│   │       ├── Header.tsx             # Header with breadcrumbs
-│   │       └── Sidebar.tsx           # Navigation sidebar
-│   ├── contexts/
-│   │   └── SidebarContext.tsx        # Sidebar state management
+│   │   ├── Layout/
+│   │   │   ├── MainLayout.tsx        # Main app layout with sidebar
+│   │   │   ├── Header.tsx             # Header with breadcrumbs
+│   │   │   └── Sidebar.tsx           # Navigation sidebar with animations
+│   │   ├── tables/
+│   │   │   ├── VirtualizedTable.tsx  # Virtualized table component
+│   │   │   ├── LazyPatientTable.tsx  # Lazy-loaded patient table
+│   │   │   ├── LazyAppointmentTable.tsx # Lazy-loaded appointment table
+│   │   │   ├── LazyInvoiceTable.tsx  # Lazy-loaded invoice table
+│   │   │   ├── patientColumns.tsx    # Patient table column definitions
+│   │   │   ├── appointmentColumns.tsx # Appointment table column definitions
+│   │   │   └── invoiceColumns.tsx    # Invoice table column definitions
+│   │   ├── charts/
+│   │   │   ├── LazyLineChart.tsx     # Lazy-loaded line chart
+│   │   │   └── LazyBarChart.tsx      # Lazy-loaded bar chart
+│   │   ├── EnhancedRestoreDialog.tsx # Enhanced backup/restore dialog
+│   │   ├── LockScreen.tsx            # Application lock screen
+│   │   ├── OptimizedSearch.tsx       # Performance-optimized search
+│   │   └── PerformanceOptimizer.tsx  # Performance optimization utilities
+│   ├── hooks/
+│   │   └── useSidebar.ts             # Sidebar state management hook
 │   ├── pages/
-│   │   ├── Dashboard.tsx             # Main dashboard with statistics
-│   │   ├── PatientList.tsx           # Main patient list page
+│   │   ├── Dashboard.tsx             # Main dashboard with lazy-loaded statistics
+│   │   ├── OptimizedPatientList.tsx  # Optimized patient list with virtualization
 │   │   ├── AddPatient.tsx            # Add new patient form
 │   │   ├── PatientDetails.tsx        # View patient details
 │   │   ├── EditPatient.tsx          # Edit patient form
-│   │   ├── Appointments.tsx          # Appointment management
+│   │   ├── OptimizedAppointments.tsx # Optimized appointment management
 │   │   ├── NewAppointment.tsx        # Create new appointment
 │   │   ├── AppointmentDetails.tsx    # View appointment details
-│   │   ├── Treatments.tsx            # Treatment management
-│   │   ├── AddTreatment.tsx          # Add new treatment
-│   │   ├── EditTreatment.tsx         # Edit treatment
-│   │   ├── Invoices.tsx              # Invoice management
+│   │   ├── OptimizedInvoices.tsx     # Optimized invoice management
 │   │   ├── InvoiceDetails.tsx        # View invoice details
 │   │   ├── Reports.tsx               # Reports and analytics
 │   │   ├── Settings.tsx              # Main settings page
+│   │   ├── EncryptionSetup.tsx       # Security and encryption setup
 │   │   └── settings/
-│   │       ├── BackupRestoreSettings.tsx    # Backup/restore configuration
+│   │       ├── BackupRestoreSettings.tsx    # Enhanced backup/restore configuration
 │   │       ├── OperatorSettings.tsx         # User management
 │   │       ├── CustomExaminationsSettings.tsx # Medical examination types
 │   │       ├── ReceiptSettings.tsx          # Receipt configuration
 │   │       ├── TreatmentSettings.tsx        # Treatment settings
-│   │       └── ActivityLogsSettings.tsx     # System activity logs
+│   │       ├── ActivityLogsSettings.tsx     # System activity logs
+│   │       ├── CurrencySettings.tsx         # Currency configuration
+│   │       └── PasswordAndSecuritySettings.tsx # Security settings
 │   ├── services/
+│   │   ├── UnifiedStorage.ts         # Unified data storage service
 │   │   ├── database.ts               # Tauri API interface
-│   │   └── databaseMock.ts           # Mock service for development
+│   │   ├── databaseMock.ts           # Mock service for development
+│   │   ├── optimizedDatabaseMock.ts  # Performance-optimized mock service
+│   │   ├── databaseService.ts        # Database service layer
+│   │   └── logService.ts             # Activity logging service
+│   ├── utils/
+│   │   ├── currencyUtils.tsx         # Currency formatting and conversion
+│   │   └── logger.ts                 # Logging utilities
 │   └── types/
-│       └── index.ts                  # TypeScript type definitions
+│       └── index.ts                  # Comprehensive TypeScript type definitions
 ├── src-tauri/
 │   ├── src/
 │   │   └── main.rs                   # Rust backend with SQLite
@@ -207,16 +244,25 @@ medrecplus/
 
 ## Development Environment
 
-### Mock Service
-The application uses a mock service (`databaseMock.ts`) for web development:
-- Simulates API responses with realistic delays
-- Includes sample patient records, appointments, and treatments
-- Maintains data in memory during development session
-- Provides full CRUD functionality without database setup
+### Data Storage & Services
+The application uses a comprehensive data management system:
 
-### Environment Detection
+#### Unified Storage Service
+- **UnifiedStorage.ts**: Centralized data management with performance optimization
+- **Cross-platform compatibility**: Works with both localStorage (dev) and SQLite (production)
+- **Data persistence**: Reliable data storage with backup/restore capabilities
+- **Performance optimization**: Lazy loading and caching for large datasets
+
+#### Mock Services for Development
+- **databaseMock.ts**: Standard mock service for web development
+- **optimizedDatabaseMock.ts**: Performance-optimized mock service with virtualization
+- **Simulated API responses**: Realistic delays and sample data
+- **Full CRUD functionality**: Complete operations without database setup
+- **Large dataset support**: Handles thousands of records with pagination
+
+#### Environment Detection
 The application automatically detects the runtime environment:
-- **Web Development**: Uses localStorage mock service (`npm run dev`)
+- **Web Development**: Uses localStorage mock services (`npm run dev`)
 - **Desktop Application**: Uses real SQLite backend (`npm run tauri:dev` or `npm run tauri:build`)
 - **Mobile Application**: Full SQLite backend with mobile-optimized UI (`npm run android:dev`)
 
@@ -257,11 +303,43 @@ CREATE TABLE treatments (
 
 CREATE TABLE invoices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_number TEXT UNIQUE NOT NULL,
+    appointment_id INTEGER NOT NULL,
     patient_id INTEGER NOT NULL,
+    patient_name TEXT NOT NULL,
+    operator_name TEXT NOT NULL,
+    operator_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    appointment_date TEXT NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL,
-    status TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('paid', 'unpaid', 'void', 'pending')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES patients(id)
+);
+
+-- Additional tables for enhanced functionality
+CREATE TABLE operators (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE treatments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE custom_examinations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -326,44 +404,74 @@ The application supports:
 - **Mobile**: Android support with touch-optimized interface
 - **Responsive Design**: Seamlessly adapts to different screen sizes and input methods
 
+## Performance & Architecture Highlights
+
+### 🚀 Performance Optimizations
+- **Virtualized Tables**: Handle thousands of records efficiently with TanStack React Table
+- **Lazy Loading**: Components and charts load on-demand for faster initial page loads
+- **Optimized Search**: Real-time search with debouncing and indexing
+- **Memory Management**: Efficient data handling with cleanup and garbage collection
+- **Caching Strategy**: Smart caching for frequently accessed data with TTL
+
+### 🏗️ Architecture Patterns
+- **Component-Based Architecture**: Modular, reusable React components
+- **Service Layer Pattern**: Separation of data logic from UI components
+- **Unified Storage**: Abstracted data access layer supporting multiple backends
+- **Type-Safe Development**: Comprehensive TypeScript definitions throughout
+- **Error Boundaries**: Graceful error handling and recovery mechanisms
+
+### 🔒 Security & Privacy
+- **Local-First Design**: All sensitive data stored locally by default
+- **Encryption Support**: Optional data encryption for sensitive information
+- **Activity Logging**: Comprehensive audit trail of all user actions
+- **Session Management**: Secure session handling with timeout protection
+- **Input Validation**: Client-side validation with sanitization
+
 ## Current Status & Roadmap
 
-### ✅ Completed Features
-- [x] Complete patient management system with CRUD operations
-- [x] Appointment scheduling and management
-- [x] Treatment tracking and medical records
-- [x] Invoice generation and financial management
-- [x] Dashboard with statistics and charts
-- [x] Responsive mobile-first design with edge-to-edge compliance
-- [x] Multi-platform support (Windows, Linux, Android)
-- [x] SQLite database backend with comprehensive schema
-- [x] Advanced search and filtering capabilities
-- [x] Export functionality for reports and data
-- [x] Settings panel with system configuration
-- [x] Activity logging and audit trail
-- [x] Backup and restore functionality
-- [x] Modern UI with Joy UI components
+### ✅ Completed Features (v0.2.0)
+- [x] **Complete Patient Management**: Full CRUD operations with optimized search and filtering
+- [x] **Performance-Optimized Tables**: Virtualized tables handling large datasets efficiently
+- [x] **Advanced Appointment System**: Vital signs recording, custom examinations, treatment integration
+- [x] **Comprehensive Financial Management**: Optimized invoicing with sorting, filtering, and multi-currency support
+- [x] **Enhanced Dashboard**: Lazy-loaded charts and real-time statistics
+- [x] **Comprehensive Settings Panel**: 8 configuration categories including security, currency, and customizations
+- [x] **Security Features**: Password protection, encryption setup, and session management
+- [x] **Multi-Currency Support**: Configurable currencies with real-time formatting and conversion
+- [x] **Backup & Restore System**: Enhanced data backup with validation and recovery options
+- [x] **Activity Logging**: Complete audit trail with filtering and monitoring
+- [x] **Custom Examinations**: Configurable medical examination types with units
+- [x] **Treatment Management**: Full treatment lifecycle with pricing and notes
+- [x] **Receipt Customization**: Professional receipt generation with business information
+- [x] **Operator Management**: User and role management system
+- [x] **Performance Optimization**: Lazy loading, virtualization, and optimized rendering
+- [x] **Modern UI/UX**: Responsive design with animations and edge-to-edge compliance
+- [x] **Multi-Platform Support**: Windows, Linux, and Android applications
+- [x] **Unified Storage System**: Cross-platform data management with performance optimization
 
-### 🚧 In Development
-- [ ] Payment processing integration
-- [ ] Advanced reporting with custom date ranges
+### 🚧 In Development (v0.3.0)
+- [ ] Advanced reporting with custom date ranges and filtering
 - [ ] Patient photo upload and management
-- [ ] SMS/email appointment reminders
-- [ ] Multi-language support (i18n)
-- [ ] Dark/light theme switching
-- [ ] Data synchronization across devices
+- [ ] SMS/email appointment reminders with notifications
+- [ ] Multi-language support (i18n) for international use
+- [ ] Dark/light theme switching with system preference detection
+- [ ] Data synchronization across multiple devices
+- [ ] Advanced export options (PDF, Word, custom Excel templates)
+- [ ] Barcode integration for patient identification
 
-### 📋 Planned Features
-- [ ] Telemedicine integration
-- [ ] HIPAA compliance features
-- [ ] Advanced medical imaging support
-- [ ] API for third-party integrations
-- [ ] Cloud backup options
-- [ ] Mobile app iOS support
-- [ ] Prescription management
-- [ ] Lab results integration
-- [ ] Insurance billing support
-- [ ] Advanced user roles and permissions
+### 📋 Planned Features (Future Versions)
+- [ ] Telemedicine integration with video calling
+- [ ] HIPAA compliance features and data encryption standards
+- [ ] Advanced medical imaging support and DICOM integration
+- [ ] REST API for third-party integrations and webhooks
+- [ ] Cloud backup options with automatic synchronization
+- [ ] Mobile app iOS support for full cross-platform coverage
+- [ ] Prescription management with drug interaction checking
+- [ ] Lab results integration and electronic health records (EHR)
+- [ ] Insurance billing support and claim processing
+- [ ] Advanced user roles, permissions, and access control
+- [ ] Appointment scheduling with AI-powered optimization
+- [ ] Predictive analytics for patient care trends
 
 ## Contributing
 
@@ -372,6 +480,8 @@ This is a comprehensive medical records management system designed for modern he
 - **Offline Capability**: Full functionality without internet connection
 - **Cross-Platform**: Consistent experience across desktop and mobile
 - **Modern Technology**: Built with the latest web technologies for performance and maintainability
+- **Performance Focused**: Optimized for handling large datasets with smooth user experience
+- **Developer Friendly**: Clean, well-documented codebase with comprehensive TypeScript support
 
 ## License
 
