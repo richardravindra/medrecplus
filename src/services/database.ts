@@ -1,9 +1,5 @@
-// Check if running in Tauri environment
-// const isTauriEnvironment = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-
-// Use mock service for web development
-// Note: When building for Tauri, comment out the line below and uncomment the Tauri implementation
-export { databaseService } from './databaseMock';
+// Use simplified data service
+export { databaseService } from './SimpleDataService';
 
 /*
 // Real Tauri implementation for desktop builds

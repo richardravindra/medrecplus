@@ -1,3 +1,5 @@
+import { storage, ActivityLog, UnifiedStorage } from './UnifiedStorage';
+
 interface LogEntry {
   id: number;
   action: string;
@@ -26,14 +28,11 @@ class LogService {
     return LogService.instance;
   }
 
-  private loadNextId(): void {
+  private async loadNextId(): Promise<void> {
     try {
-      const storedLogs = localStorage.getItem('activity_logs');
-      if (storedLogs) {
-        const logs: LogEntry[] = JSON.parse(storedLogs);
-        if (logs.length > 0) {
-          this.nextId = Math.max(...logs.map(log => log.id)) + 1;
-        }
+      const storedLogs = await storage.getActivityLogs();
+      if (storedLogs.length > 0) {
+        this.nextId = Math.max(...storedLogs.map(log => parseInt(log.id) || 0)) + 1;
       }
     } catch (error) {
       console.error('Error loading next log ID:', error);
@@ -41,18 +40,33 @@ class LogService {
     }
   }
 
-  private saveLog(log: LogEntry): void {
+  private async saveLog(log: LogEntry): Promise<void> {
     try {
-      const storedLogs = localStorage.getItem('activity_logs');
-      const logs: LogEntry[] = storedLogs ? JSON.parse(storedLogs) : [];
-      logs.unshift(log); // Add to beginning for chronological order (newest first)
+      const logs = await storage.getActivityLogs();
+      // Convert LogEntry to ActivityLog format
+      const activityLog: ActivityLog = {
+        id: log.id.toString(),
+        timestamp: log.timestamp,
+        action: log.action,
+        userId: log.operatorName,
+        details: {
+          operatorName: log.operatorName,
+          targetType: log.targetType,
+          targetId: log.targetId,
+          targetName: log.targetName,
+          patientId: log.patientId,
+          patientName: log.patientName,
+          description: log.details
+        }
+      };
+      logs.unshift(activityLog); // Add to beginning for chronological order (newest first)
 
       // Keep only last 500 logs to prevent storage issues
       if (logs.length > 500) {
         logs.splice(500);
       }
 
-      localStorage.setItem('activity_logs', JSON.stringify(logs));
+      await storage.storeActivityLogs(logs);
     } catch (error) {
       console.error('Error saving log:', error);
     }
@@ -70,7 +84,7 @@ class LogService {
   }
 
   // Patient actions
-  logPatientCreated(patientId: number, patientName: string): void {
+  async logPatientCreated(patientId: number, patientName: string): Promise<void> {
     const log: LogEntry = {
       id: this.nextId++,
       action: `created a new patient record`,
@@ -82,10 +96,10 @@ class LogService {
       patientName: patientName,
       timestamp: this.getCurrentTimestamp()
     };
-    this.saveLog(log);
+    await this.saveLog(log);
   }
 
-  logPatientUpdated(patientId: number, patientName: string): void {
+  async logPatientUpdated(patientId: number, patientName: string): Promise<void> {
     const log: LogEntry = {
       id: this.nextId++,
       action: `updated patient information`,
@@ -97,10 +111,10 @@ class LogService {
       patientName: patientName,
       timestamp: this.getCurrentTimestamp()
     };
-    this.saveLog(log);
+    await this.saveLog(log);
   }
 
-  logPatientDeleted(patientId: number, patientName: string): void {
+  async logPatientDeleted(patientId: number, patientName: string): Promise<void> {
     const log: LogEntry = {
       id: this.nextId++,
       action: `deleted patient record`,
@@ -112,7 +126,7 @@ class LogService {
       patientName: patientName,
       timestamp: this.getCurrentTimestamp()
     };
-    this.saveLog(log);
+    await this.saveLog(log);
   }
 
   // Appointment actions
@@ -232,10 +246,24 @@ class LogService {
   }
 
   // Get logs
-  getLogs(): LogEntry[] {
+  async getLogs(): Promise<LogEntry[]> {
     try {
-      const storedLogs = localStorage.getItem('activity_logs');
-      return storedLogs ? JSON.parse(storedLogs) : [];
+      const activityLogs = await storage.getActivityLogs();
+      // Convert ActivityLog[] to LogEntry[] using type-safe conversion
+      return activityLogs.map((log: unknown) => {
+        // Type guard to ensure we have an ActivityLog
+        if (log && typeof log === 'object' && 'id' in log && 'action' in log && 'timestamp' in log) {
+          return UnifiedStorage.convertActivityLogToLogEntry(log as ActivityLog);
+        }
+        // Fallback for malformed logs
+        return {
+          id: Date.now() + Math.random(),
+          action: 'unknown',
+          operatorName: 'Unknown',
+          targetType: 'patient',
+          timestamp: new Date().toISOString(),
+        };
+      });
     } catch (error) {
       console.error('Error loading logs:', error);
       return [];
@@ -243,15 +271,12 @@ class LogService {
   }
 
   // Clear old logs (keep last 100)
-  clearOldLogs(): void {
+  async clearOldLogs(): Promise<void> {
     try {
-      const storedLogs = localStorage.getItem('activity_logs');
-      if (storedLogs) {
-        const logs: LogEntry[] = JSON.parse(storedLogs);
-        if (logs.length > 100) {
-          const recentLogs = logs.slice(0, 100);
-          localStorage.setItem('activity_logs', JSON.stringify(recentLogs));
-        }
+      const logs = await storage.getActivityLogs();
+      if (logs.length > 100) {
+        const recentLogs = logs.slice(0, 100);
+        await storage.storeActivityLogs(recentLogs);
       }
     } catch (error) {
       console.error('Error clearing old logs:', error);

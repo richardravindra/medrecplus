@@ -21,6 +21,9 @@ import Delete from '@mui/icons-material/Delete';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Sheet from '@mui/joy/Sheet';
+import { useCurrency, formatCurrency } from '../../utils/currencyUtils';
+import SimpleDataService from '../../services/SimpleDataService';
+import { log } from '../../utils/logger';
 
 interface Treatment {
   id: number;
@@ -32,6 +35,7 @@ interface Treatment {
 
 const TreatmentSettings: React.FC = () => {
   const navigate = useNavigate();
+  const [currency] = useCurrency();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +53,17 @@ const TreatmentSettings: React.FC = () => {
 
   const loadTreatments = async () => {
     try {
-      const treatmentsRaw = localStorage.getItem('treatments');
-      const storedTreatments: Treatment[] = JSON.parse(treatmentsRaw || '[]');
-      setTreatments(storedTreatments);
-    } catch {
+      // First, migrate any treatments from localStorage
+      await SimpleDataService.migrateTreatmentsFromLocalStorage();
+
+      // Then load treatments from the new storage
+      const storedTreatments = await SimpleDataService.getTreatments();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setTreatments(storedTreatments as any);
+      log.debug('Treatments loaded successfully', { count: storedTreatments.length }, 'TreatmentSettings');
+    } catch (error) {
+      console.error('Error loading treatments:', error);
+      log.error('Failed to load treatments', { error }, 'TreatmentSettings');
       setError('Failed to load treatments');
     } finally {
       setLoading(false);
@@ -82,13 +93,17 @@ const TreatmentSettings: React.FC = () => {
     setIsTreatmentModalOpen(true);
   };
 
-  const handleDeleteTreatment = (treatment: Treatment) => {
+  const handleDeleteTreatment = async (treatment: Treatment) => {
     if (window.confirm(`Are you sure you want to delete treatment "${treatment.name}"?`)) {
       try {
         const updatedTreatments = treatments.filter(t => t.id !== treatment.id);
-        localStorage.setItem('treatments', JSON.stringify(updatedTreatments));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await SimpleDataService.saveTreatments(updatedTreatments as any);
         setTreatments(updatedTreatments);
-      } catch {
+        log.info('Treatment deleted', { id: treatment.id, name: treatment.name }, 'TreatmentSettings');
+      } catch (error) {
+        console.error('Failed to delete treatment:', error);
+        log.error('Failed to delete treatment', { error, treatmentId: treatment.id }, 'TreatmentSettings');
         setError('Failed to delete treatment');
       }
     }
@@ -114,15 +129,16 @@ const TreatmentSettings: React.FC = () => {
     }
 
     try {
+      let updatedTreatments: Treatment[];
+
       if (editingTreatment) {
         // Update existing treatment
-        const updatedTreatments = treatments.map(t =>
+        updatedTreatments = treatments.map(t =>
           t.id === editingTreatment.id
             ? { ...t, name: treatmentFormData.name.trim(), description: treatmentFormData.description.trim(), price }
             : t
         );
-        localStorage.setItem('treatments', JSON.stringify(updatedTreatments));
-        setTreatments(updatedTreatments);
+        log.info('Treatment updated', { id: editingTreatment.id, name: treatmentFormData.name.trim() }, 'TreatmentSettings');
       } else {
         // Add new treatment
         const newTreatment: Treatment = {
@@ -132,28 +148,26 @@ const TreatmentSettings: React.FC = () => {
           price: price,
           created_at: new Date().toISOString()
         };
-        const updatedTreatments = [...treatments, newTreatment];
-        localStorage.setItem('treatments', JSON.stringify(updatedTreatments));
-        setTreatments(updatedTreatments);
+        updatedTreatments = [...treatments, newTreatment];
+        log.info('Treatment created', { id: newTreatment.id, name: newTreatment.name }, 'TreatmentSettings');
       }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await SimpleDataService.saveTreatments(updatedTreatments as any);
+      setTreatments(updatedTreatments);
 
       setIsTreatmentModalOpen(false);
       setTreatmentFormData({ name: '', description: '', price: '' });
       setEditingTreatment(null);
       setError(null);
-    } catch {
+    } catch (error) {
+      console.error('Failed to save treatment:', error);
+      log.error('Failed to save treatment', { error }, 'TreatmentSettings');
       setError(editingTreatment ? 'Failed to update treatment' : 'Failed to add treatment');
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  // Currency formatting now handled by the imported utility functions
 
   if (loading) {
     return (
@@ -283,7 +297,7 @@ const TreatmentSettings: React.FC = () => {
                       </td>
                       <td>
                         <Typography level="body-sm" color="success" fontWeight="bold">
-                          {formatCurrency(treatment.price)}
+                          {formatCurrency(treatment.price, currency)}
                         </Typography>
                       </td>
                       <td>

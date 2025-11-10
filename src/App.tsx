@@ -13,18 +13,15 @@ import PageTransition from './components/PageTransition';
 import './styles/animations.css';
 import './styles/enhancedComponents.css';
 import Dashboard from './pages/Dashboard';
-import PatientList from './pages/PatientList';
 import OptimizedPatientList from './pages/OptimizedPatientList';
 import AddPatient from './pages/AddPatient';
 import PatientDetails from './pages/PatientDetails';
 import EditPatient from './pages/EditPatient';
 import Settings from './pages/Settings';
-import Appointments from './pages/Appointments';
 import OptimizedAppointments from './pages/OptimizedAppointments';
 import NewAppointment from './pages/NewAppointment';
 import AppointmentDetails from './pages/AppointmentDetails';
-import Invoices from './pages/Invoices';
-import OptimizedInvoices from './pages/InvoicesOptimized';
+import OptimizedInvoices from './pages/OptimizedInvoices';
 import InvoiceDetails from './pages/InvoiceDetails';
 import Reports from './pages/Reports';
 import OperatorSettings from './pages/settings/OperatorSettings';
@@ -39,10 +36,12 @@ import { EncryptionSetup } from './pages/EncryptionSetup';
 import { createSampleLogs } from './utils/sampleLogs';
 import { invoke } from '@tauri-apps/api/core';
 import { useSecurity } from './hooks/useSecurity';
+import { log } from './utils/logger';
 import './utils/IndexedDBDataGenerator';
 import './utils/PerformanceProfiler';
 import { PerformanceProvider } from './hooks/usePerformanceMonitor';
-import { PerformanceOptimizer } from './components/PerformanceOptimizer';
+import { SimplePerformanceOptimizer } from './components/SimplePerformanceOptimizer';
+import { storage } from './services/UnifiedStorage';
 
 const theme = extendTheme({
   colorSchemes: {
@@ -164,10 +163,23 @@ function AppContent() {
         const encrypted = await invoke<boolean>('is_database_encrypted');
         setIsUnlocked(!encrypted); // If not encrypted, we're "unlocked" by default
       } else {
-        // Running in web browser - check localStorage for encryption setup
-        console.log('Running in web browser - checking localStorage for encryption status');
-        const isSetupComplete = localStorage.getItem('medrec_dev_encryption_setup') === 'true';
-        setIsUnlocked(isSetupComplete); // Only unlock if setup was completed
+        // Running in web browser - check UnifiedStorage for encryption setup
+        console.log('Running in web browser - checking UnifiedStorage for encryption status');
+
+        // Force settings sync first
+        await storage.syncSettings();
+
+        const isSetupComplete = await storage.getEncryptionSetup();
+        const hasPassword = await storage.getPassword();
+
+        console.log('🔍 Encryption status check:', {
+          isSetupComplete,
+          hasPassword,
+          isSetupValid: isSetupComplete && hasPassword
+        });
+
+        const isSetupValid = Boolean(isSetupComplete && typeof isSetupComplete === 'boolean' && isSetupComplete) && Boolean(hasPassword);
+        setIsUnlocked(isSetupValid); // Only unlock if setup was completed and password exists
       }
     } catch (err) {
       console.error('Failed to check encryption status:', err);
@@ -203,16 +215,14 @@ function AppContent() {
   }
 
   return (
-    <PerformanceOptimizer
+    <SimplePerformanceOptimizer
       config={{
-        enableMemoryMonitoring: true,
-        enableDatabaseOptimization: true,
-        enableLazyLoading: true,
-        memoryLimitMB: 100,
-        cleanupIntervalMs: 60000
+        enableCaching: true,
+        enableCleanup: true,
+        cleanupIntervalMs: 5 * 60 * 1000 // 5 minutes
       }}
       onOptimizationComplete={(status) => {
-        console.log('Performance optimization completed:', status);
+        log.debug('Simple performance optimization completed', { status }, 'App');
       }}
     >
       <Router>
@@ -244,7 +254,7 @@ function AppContent() {
           </Routes>
         </PageTransition>
       </Router>
-    </PerformanceOptimizer>
+    </SimplePerformanceOptimizer>
   );
 }
 

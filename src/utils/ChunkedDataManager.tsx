@@ -1,9 +1,32 @@
 import { ChunkedDataRestore } from './ChunkedDataRestore';
 import { IndexedDBStorage } from './IndexedDBStorage';
-import { Patient, Invoice } from '../types';
+import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
 
-// Generic type for data entities
-type DataEntity = Patient | Invoice | Record<string, unknown>;
+// Type guard functions
+function isPatient(entity: DataEntity): entity is Patient {
+  return 'record_number' in entity && 'name' in entity && 'age' in entity;
+}
+
+
+// Generic type for data entities - includes all possible types with index signature
+type DataEntity = (Patient & Record<string, unknown>) |
+                   (Invoice & Record<string, unknown>) |
+                   (Appointment & Record<string, unknown>) |
+                   (Operator & Record<string, unknown>) |
+                   (CustomExamination & Record<string, unknown>) |
+                   (ReceiptConfig & Record<string, unknown>) |
+                   (Record<string, unknown> & {
+  patientName?: string;
+  patientId?: number;
+  operatorName?: string;
+  operatorId?: number;
+  date?: string;
+  invoiceNumber?: string;
+  status?: string;
+  totalAmount?: number;
+  vitalSigns?: VitalSigns;
+  treatments?: Treatment[];
+});
 
 export class ChunkedDataManager {
   // Get data with chunked storage support
@@ -37,12 +60,14 @@ export class ChunkedDataManager {
     totalCount: number;
     totalPages: number;
   }> {
-    let patients = await this.getData('patient_management_data');
+    const data = await this.getData('patient_management_data');
+    const patients = data.filter(isPatient);
 
     // Apply search filter
+    let filteredPatients = patients;
     if (search) {
       const searchLower = search.toLowerCase();
-      patients = patients.filter(patient =>
+      filteredPatients = patients.filter(patient =>
         patient.name?.toLowerCase().includes(searchLower) ||
         patient.record_number?.toLowerCase().includes(searchLower) ||
         patient.phone_number?.toLowerCase().includes(searchLower) ||
@@ -50,13 +75,13 @@ export class ChunkedDataManager {
       );
     }
 
-    const totalCount = patients.length;
+    const totalCount = filteredPatients.length;
     const totalPages = Math.ceil(totalCount / pageSize);
     const startIndex = (page - 1) * pageSize;
     const endIndex = startIndex + pageSize;
 
     return {
-      patients: patients.slice(startIndex, endIndex),
+      patients: filteredPatients.slice(startIndex, endIndex),
       totalCount,
       totalPages
     };
@@ -68,7 +93,7 @@ export class ChunkedDataManager {
     totalCount: number;
     totalPages: number;
   }> {
-    let appointments = await this.getData('appointments');
+    let appointments = await this.getData('appointments') as Appointment[];
 
     // Apply search filter
     if (search) {
@@ -101,7 +126,7 @@ export class ChunkedDataManager {
     totalCount: number;
     totalPages: number;
   }> {
-    let invoices = await this.getData('invoices');
+    let invoices = await this.getData('invoices') as Invoice[];
 
     // Apply filters
     if (search) {
@@ -140,7 +165,7 @@ export class ChunkedDataManager {
 
   // Get appointments by patient ID
   static async getAppointmentsByPatientId(patientId: number): Promise<DataEntity[]> {
-    const appointments = await this.getData('appointments');
+    const appointments = await this.getData('appointments') as Appointment[];
     return appointments
       .filter(appointment => appointment.patientId === patientId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -164,8 +189,8 @@ export class ChunkedDataManager {
     recentInvoices: Invoice[];
   }> {
     const patients = await this.getData('patient_management_data');
-    const appointments = await this.getData('appointments');
-    const invoices = await this.getData('invoices');
+    const appointments = await this.getData('appointments') as Appointment[];
+    const invoices = await this.getData('invoices') as Invoice[];
 
     const totalRevenue = invoices
       .filter(invoice => invoice.status === 'paid')

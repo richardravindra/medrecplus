@@ -26,14 +26,10 @@ import ChevronRight from '@mui/icons-material/ChevronRight';
 import FirstPage from '@mui/icons-material/FirstPage';
 import LastPage from '@mui/icons-material/LastPage';
 import Sheet from '@mui/joy/Sheet';
-import { DataService } from '../../services/DataService';
+import SimpleDataService from '../../services/SimpleDataService';
+import { Operator } from '../../types';
+import { log } from '../../utils/logger';
 
-interface Operator {
-  id: number;
-  name: string;
-  role: string;
-  created_at: string;
-}
 
 const OperatorSettings: React.FC = () => {
   const navigate = useNavigate();
@@ -70,22 +66,15 @@ const OperatorSettings: React.FC = () => {
   const loadOperators = async () => {
     try {
       setLoading(true);
-      // Use DataService to get operators (supports IndexedDB)
-      const data = await DataService.getData('operators');
-      console.log(`📊 Loaded ${data.length} operators`);
+      // Use SimpleDataService to get operators
+      const data = await SimpleDataService.getOperators();
+      console.log(`📊 Loaded ${data.length} operators using SimpleDataService`);
       setOperators(data);
+      log.debug('Operators loaded successfully', { count: data.length }, 'OperatorSettings');
     } catch (error) {
       console.error('Error loading operators:', error);
-      // Fallback to localStorage
-      try {
-        const operatorsRaw = localStorage.getItem('operators');
-        const storedOperators: Operator[] = JSON.parse(operatorsRaw || '[]');
-        console.log(`📊 Fallback: Loaded ${storedOperators.length} operators from localStorage`);
-        setOperators(storedOperators);
-      } catch (localStorageError) {
-        console.error('Fallback to localStorage also failed:', localStorageError);
-        setError('Failed to load operators');
-      }
+      log.error('Error loading operators', { error }, 'OperatorSettings');
+      setError('Failed to load operators');
     } finally {
       setLoading(false);
     }
@@ -157,22 +146,37 @@ const OperatorSettings: React.FC = () => {
   const handleDeleteOperator = async (operator: Operator) => {
     if (window.confirm(`Are you sure you want to delete operator "${operator.name}"?`)) {
       try {
-        const updatedOperators = operators.filter(op => op.id !== operator.id);
+        // Use the new proper deleteOperator method
+        const result = await SimpleDataService.deleteOperator(operator.id);
 
-        // Save using DataService
-        await DataService.saveData('operators', updatedOperators);
-        console.log(`💾 Saved ${updatedOperators.length} operators using DataService`);
+        if (result) {
+          console.log(`✅ Operator "${operator.name}" deleted successfully`);
+          log.info('Operator deleted', { id: operator.id, name: operator.name }, 'OperatorSettings');
 
-        // Update local state
-        setOperators(updatedOperators);
+          // Force a small delay to ensure storage operations complete
+          await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Reset to first page if current page becomes empty
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        if (startIndex >= updatedOperators.length && currentPage > 1) {
-          setCurrentPage(currentPage - 1);
+          // Force reload directly from storage to bypass any caching
+          const updatedOperators = await SimpleDataService.getOperatorsFresh();
+          console.log(`🔄 Reloaded ${updatedOperators.length} operators from fresh storage after deletion`);
+          console.log('🔄 Updated operators data:', updatedOperators);
+
+          // Force state update with new array reference
+          setOperators([...updatedOperators]);
+          console.log('🔄 Called setOperators with updated data');
+
+          // Reset to first page if current page becomes empty
+          const startIndex = (currentPage - 1) * itemsPerPage;
+          if (startIndex >= updatedOperators.length && currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+          }
+        } else {
+          console.warn(`⚠️ Failed to delete operator "${operator.name}"`);
+          log.warn('Operator deletion failed', { id: operator.id, name: operator.name }, 'OperatorSettings');
         }
       } catch (error) {
         console.error('Failed to delete operator:', error);
+        log.error('Failed to delete operator', { error, operatorId: operator.id }, 'OperatorSettings');
         setError('Failed to delete operator');
       }
     }
@@ -192,15 +196,20 @@ const OperatorSettings: React.FC = () => {
     }
 
     try {
-      let updatedOperators: Operator[];
-
       if (editingOperator) {
         // Update existing operator
-        updatedOperators = operators.map(op =>
-          op.id === editingOperator.id
-            ? { ...op, name: operatorFormData.name.trim(), role: operatorFormData.role.trim() }
-            : op
-        );
+        const updatedOperator: Operator = {
+          ...editingOperator,
+          name: operatorFormData.name.trim(),
+          role: operatorFormData.role.trim()
+        };
+
+        await SimpleDataService.saveOperator(updatedOperator);
+        console.log(`💾 Updated operator using SimpleDataService`);
+        log.info('Operator updated', { id: updatedOperator.id, name: updatedOperator.name }, 'OperatorSettings');
+
+        // Update local state
+        setOperators(operators.map(op => op.id === editingOperator.id ? updatedOperator : op));
       } else {
         // Add new operator
         const newOperator: Operator = {
@@ -209,15 +218,14 @@ const OperatorSettings: React.FC = () => {
           role: operatorFormData.role.trim(),
           created_at: new Date().toISOString()
         };
-        updatedOperators = [...operators, newOperator];
+
+        const savedOperator = await SimpleDataService.saveOperator(newOperator);
+        console.log(`💾 Created new operator using SimpleDataService`);
+        log.info('Operator created', { id: savedOperator.id, name: savedOperator.name }, 'OperatorSettings');
+
+        // Update local state with the correct ID from storage
+        setOperators([...operators, savedOperator]);
       }
-
-      // Save using DataService
-      await DataService.saveData('operators', updatedOperators);
-      console.log(`💾 Saved ${updatedOperators.length} operators using DataService`);
-
-      // Update local state
-      setOperators(updatedOperators);
 
       setIsOperatorModalOpen(false);
       setOperatorFormData({ name: '', role: '' });
@@ -386,7 +394,7 @@ const OperatorSettings: React.FC = () => {
                       </td>
                       <td>
                         <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-                          {new Date(operator.created_at).toLocaleDateString()}
+                          {new Date(operator.created_at || '').toLocaleDateString()}
                         </Typography>
                       </td>
                       <td>
@@ -436,7 +444,20 @@ const OperatorSettings: React.FC = () => {
                 variant="outlined"
                 onClick={handleFirstPage}
                 disabled={currentPage === 1}
-                sx={{ color: '#ffffff' }}
+                sx={{
+                  color: currentPage === 1 ? '#000000' : '#ffffff',
+                  borderColor: currentPage === 1 ? '#000000' : '#ffffff',
+                  '&:disabled': {
+                    color: '#000000',
+                    borderColor: '#000000'
+                  },
+                  '&:not(:disabled):hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  },
+                  '& svg': {
+                    color: 'inherit'
+                  }
+                }}
               >
                 <FirstPage />
               </IconButton>
@@ -445,7 +466,20 @@ const OperatorSettings: React.FC = () => {
                 variant="outlined"
                 onClick={handlePreviousPage}
                 disabled={currentPage === 1}
-                sx={{ color: '#ffffff' }}
+                sx={{
+                  color: currentPage === 1 ? '#000000' : '#ffffff',
+                  borderColor: currentPage === 1 ? '#000000' : '#ffffff',
+                  '&:disabled': {
+                    color: '#000000',
+                    borderColor: '#000000'
+                  },
+                  '&:not(:disabled):hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  },
+                  '& svg': {
+                    color: 'inherit'
+                  }
+                }}
               >
                 <ChevronLeft />
               </IconButton>
@@ -464,7 +498,20 @@ const OperatorSettings: React.FC = () => {
                 variant="outlined"
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                sx={{ color: '#ffffff' }}
+                sx={{
+                  color: currentPage === totalPages ? '#000000' : '#ffffff',
+                  borderColor: currentPage === totalPages ? '#000000' : '#ffffff',
+                  '&:disabled': {
+                    color: '#000000',
+                    borderColor: '#000000'
+                  },
+                  '&:not(:disabled):hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  },
+                  '& svg': {
+                    color: 'inherit'
+                  }
+                }}
               >
                 <ChevronRight />
               </IconButton>
@@ -473,7 +520,20 @@ const OperatorSettings: React.FC = () => {
                 variant="outlined"
                 onClick={handleLastPage}
                 disabled={currentPage === totalPages}
-                sx={{ color: '#ffffff' }}
+                sx={{
+                  color: currentPage === totalPages ? '#000000' : '#ffffff',
+                  borderColor: currentPage === totalPages ? '#000000' : '#ffffff',
+                  '&:disabled': {
+                    color: '#000000',
+                    borderColor: '#000000'
+                  },
+                  '&:not(:disabled):hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  },
+                  '& svg': {
+                    color: 'inherit'
+                  }
+                }}
               >
                 <LastPage />
               </IconButton>

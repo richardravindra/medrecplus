@@ -169,7 +169,11 @@ export const databaseService = {
     const newPatient: Patient = {
       ...patient,
       id: getNextId(),
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      record_number: (patient as Record<string, unknown>).record_number as string || '',
+      name: (patient as Record<string, unknown>).name as string || '',
+      age: (patient as Record<string, unknown>).age as number || 0,
+      phone_number: (patient as Record<string, unknown>).phone_number as string || ''
     };
 
     existingPatients.push(newPatient);

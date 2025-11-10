@@ -15,6 +15,7 @@ import Person from '@mui/icons-material/Person';
 import CalendarMonth from '@mui/icons-material/CalendarMonth';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ClearAll from '@mui/icons-material/ClearAll';
+import { storage, ActivityLog, UnifiedStorage } from '../../services/UnifiedStorage';
 
 interface LogEntry {
   id: number;
@@ -35,17 +36,31 @@ const ActivityLogsSettings: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const loadLogs = useCallback(() => {
+  const loadLogs = useCallback(async () => {
     try {
       // Clean up old logs (older than 7 days)
-      cleanupOldLogs();
+      await cleanupOldLogs();
 
-      const storedLogs = localStorage.getItem('activity_logs');
-      if (storedLogs) {
-        const logsData: LogEntry[] = JSON.parse(storedLogs);
+      const storedLogs = await storage.getActivityLogs();
+      if (storedLogs.length > 0) {
+        // Transform ActivityLog to LogEntry format using type-safe conversion
+        const logsData: LogEntry[] = storedLogs.map((log: unknown) => {
+          // Type guard to ensure we have an ActivityLog
+          if (log && typeof log === 'object' && 'id' in log && 'action' in log && 'timestamp' in log) {
+            return UnifiedStorage.convertActivityLogToLogEntry(log as ActivityLog);
+          }
+          // Fallback for malformed logs
+          return {
+            id: Date.now() + Math.random(),
+            action: 'unknown',
+            operatorName: 'Unknown',
+            targetType: 'patient' as const,
+            timestamp: new Date().toISOString(),
+          };
+        });
         setLogs(logsData);
         // Calculate unread logs (logs from last session)
-        const lastSeen = localStorage.getItem('logs_last_seen') || '0';
+        const lastSeen = await storage.getLogsLastSeen();
         const unreadLogs = logsData.filter(log => log.id > parseInt(lastSeen));
         setUnreadCount(unreadLogs.length);
       }
@@ -59,16 +74,30 @@ const ActivityLogsSettings: React.FC = () => {
   useEffect(() => {
     loadLogs();
     // Set up an interval to check for new logs
-    const interval = setInterval(loadLogs, 5000); // Check every 5 seconds
+    const interval = setInterval(() => loadLogs(), 5000); // Check every 5 seconds
     return () => clearInterval(interval);
   }, [loadLogs]);
 
-  const cleanupOldLogs = () => {
+  const cleanupOldLogs = async () => {
     try {
-      const storedLogs = localStorage.getItem('activity_logs');
-      if (!storedLogs) return;
+      const storedLogs = await storage.getActivityLogs();
+      if (storedLogs.length === 0) return;
 
-      const logsData: LogEntry[] = JSON.parse(storedLogs);
+      // Transform ActivityLog to LogEntry format using type-safe conversion
+      const logsData: LogEntry[] = storedLogs.map((log: unknown) => {
+        // Type guard to ensure we have an ActivityLog
+        if (log && typeof log === 'object' && 'id' in log && 'action' in log && 'timestamp' in log) {
+          return UnifiedStorage.convertActivityLogToLogEntry(log as ActivityLog);
+        }
+        // Fallback for malformed logs
+        return {
+          id: Date.now() + Math.random(),
+          action: 'unknown',
+          operatorName: 'Unknown',
+          targetType: 'patient' as const,
+          timestamp: new Date().toISOString(),
+        };
+      });
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -78,17 +107,34 @@ const ActivityLogsSettings: React.FC = () => {
         return logDate >= sevenDaysAgo;
       });
 
-      // Update localStorage with filtered logs
-      localStorage.setItem('activity_logs', JSON.stringify(recentLogs));
+      // Transform LogEntry back to ActivityLog format for storage
+      const activityLogs = recentLogs.map(log => ({
+        id: log.id.toString(),
+        timestamp: log.timestamp,
+        action: log.action,
+        userId: log.details ? log.operatorName : undefined,
+        details: {
+          operatorName: log.operatorName,
+          targetType: log.targetType,
+          targetId: log.targetId,
+          targetName: log.targetName,
+          patientId: log.patientId,
+          patientName: log.patientName,
+          description: log.details
+        }
+      }));
+
+      // Update storage with filtered logs
+      await storage.storeActivityLogs(activityLogs);
 
       // If any logs were removed, update the last seen timestamp if necessary
       if (recentLogs.length < logsData.length) {
-        const lastSeen = localStorage.getItem('logs_last_seen') || '0';
+        const lastSeen = await storage.getLogsLastSeen();
         const latestLogId = recentLogs.length > 0 ? Math.max(...recentLogs.map(log => log.id)) : 0;
 
         // Only update if the old last seen ID is no longer present in recent logs
         if (parseInt(lastSeen) > latestLogId) {
-          localStorage.setItem('logs_last_seen', latestLogId.toString());
+          await storage.setLogsLastSeen(latestLogId.toString());
         }
       }
     } catch (error) {
@@ -96,19 +142,19 @@ const ActivityLogsSettings: React.FC = () => {
     }
   };
 
-  const markAsRead = () => {
+  const markAsRead = async () => {
     if (logs.length > 0) {
       const latestLogId = Math.max(...logs.map(log => log.id));
-      localStorage.setItem('logs_last_seen', latestLogId.toString());
+      await storage.setLogsLastSeen(latestLogId.toString());
       setUnreadCount(0);
     }
   };
 
-  const clearAllLogs = () => {
+  const clearAllLogs = async () => {
     if (window.confirm('Are you sure you want to clear all activity logs? This action cannot be undone.')) {
       try {
-        localStorage.removeItem('activity_logs');
-        localStorage.setItem('logs_last_seen', '0');
+        await storage.storeActivityLogs([]);
+        await storage.setLogsLastSeen('0');
         setLogs([]);
         setUnreadCount(0);
       } catch (error) {

@@ -1,355 +1,292 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Sheet from '@mui/joy/Sheet';
 import IconButton from '@mui/joy/IconButton';
 import Typography from '@mui/joy/Typography';
-import List from '@mui/joy/List';
-import ListItem from '@mui/joy/ListItem';
-import ListItemButton from '@mui/joy/ListItemButton';
-import ListItemContent from '@mui/joy/ListItemContent';
 import Menu from '@mui/icons-material/Menu';
-import People from '@mui/icons-material/People';
 import Dashboard from '@mui/icons-material/Dashboard';
-import Settings from '@mui/icons-material/Settings';
+import People from '@mui/icons-material/People';
 import CalendarMonth from '@mui/icons-material/CalendarMonth';
 import Receipt from '@mui/icons-material/Receipt';
 import Assessment from '@mui/icons-material/Assessment';
+import Settings from '@mui/icons-material/Settings';
 import { useSidebar } from '../../hooks/useSidebar';
+import '../../styles/animations.css';
 
 const Sidebar: React.FC = () => {
-  const { isCollapsed, toggleSidebar, isMobile } = useSidebar();
+  const { isCollapsed, toggleSidebar } = useSidebar();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
 
-  const NavContent: React.FC = () => (
-    <>
-      {/* Header - Hidden on mobile */}
-      {!isMobile && (
-        <Box
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Activate staggered animations
+  useEffect(() => {
+    const staggerItems = document.querySelectorAll('.stagger-item');
+    staggerItems.forEach((item, index) => {
+      setTimeout(() => {
+        item.classList.add('active');
+      }, index * 50);
+    });
+  }, [location.pathname]);
+
+  // Auto-collapse on smaller screens
+  const shouldCollapse = windowWidth < 900 || isCollapsed;
+  const isMobileView = windowWidth < 900; // Show navbar for screens smaller than 900px
+
+  const navItems = [
+    { icon: Dashboard, label: 'Dashboard', path: '/' },
+    { icon: People, label: 'Patients', path: '/patients' },
+    { icon: CalendarMonth, label: 'Appointments', path: '/appointments' },
+    { icon: Receipt, label: 'Invoices', path: '/invoices' },
+  ];
+
+  const bottomNavItems = [
+    { icon: Assessment, label: 'Reports', path: '/reports' },
+    { icon: Settings, label: 'Settings', path: '/settings' },
+  ];
+
+  const NavButton: React.FC<{ icon: React.ElementType; label: string; path: string; isMobile?: boolean }> = ({
+    icon: Icon,
+    label,
+    path,
+    isMobile = false
+  }) => {
+    const isActive = location.pathname === path;
+
+    return (
+      <Box
+        component="button"
+        onClick={() => navigate(path)}
+        className={`button-press ${isActive ? 'spring-in' : ''}`}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isMobile ? 'center' : (shouldCollapse ? 'center' : 'flex-start'),
+          flexDirection: isMobile ? 'column' : 'row',
+          minWidth: '48px',
+          minHeight: '48px',
+          width: { xs: 'auto', md: '100%' },
+          backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+          border: isActive ? '1px solid rgba(255, 255, 255, 0.2)' : 'none',
+          cursor: 'pointer',
+          borderRadius: '8px',
+          color: '#ffffff',
+          px: { xs: 1, md: shouldCollapse ? 1 : 2 },
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            backgroundColor: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+            transform: 'translateX(4px)',
+          },
+          '&:active': {
+            transform: 'translateX(2px) scale(0.98)',
+          },
+          // Only show gradient effect for active items
+          ...(isActive && {
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: -100,
+              width: '100%',
+              height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
+              transition: 'left 0.5s',
+            },
+            '&:hover::before': {
+              left: '100%',
+            }
+          })
+        }}
+      >
+        <Icon sx={{
+          color: '#ffffff',
+          fontSize: '24px',
+          mb: isMobile ? 0.5 : 0,
+          mr: isMobile ? 0 : (shouldCollapse ? 0 : 1),
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        }} />
+        <Typography
+          level="body-sm"
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: isCollapsed ? 'center' : 'space-between',
-            mb: 2,
-            flexShrink: 0,
+            display: { xs: 'none', md: shouldCollapse ? 'none' : 'block' },
+            color: '#ffffff',
+            fontSize: { xs: '10px', md: '14px' },
+            fontWeight: isActive ? '600' : '400',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          <Typography
-            level="h4"
+          {label}
+        </Typography>
+      </Box>
+    );
+  };
+
+  // Mobile Navbar (bottom)
+  if (isMobileView) {
+    return (
+      <Sheet
+        className="slide-in-up"
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '60px',
+          backgroundColor: 'background.surface',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          px: 1,
+          pb: 2, // Safe area for Android nav bar
+          zIndex: 9999,
+          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)',
+        }}
+      >
+        {[...navItems, ...bottomNavItems].map((item, index) => (
+          <Box
+            key={item.path}
+            className="stagger-item"
             sx={{
-              display: isCollapsed ? 'none' : 'block',
-              color: '#ffffff',
-              fontWeight: 'bold',
-            }}
-          >
-            MedRec
-          </Typography>
-          <IconButton 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleSidebar();
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            variant="plain" 
-            sx={{ 
-              color: '#ffffff',
-              minWidth: '48px',
-              minHeight: '48px',
-              cursor: 'pointer',
-              zIndex: 101,
-              pointerEvents: 'auto',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              },
-              '&:active': {
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              '&.active': {
+                animationDelay: `${index * 50}ms`,
               }
             }}
           >
-            <Menu sx={{ color: '#ffffff', pointerEvents: 'none' }} />
-          </IconButton>
-        </Box>
-      )}
+            <NavButton
+              icon={item.icon}
+              label={item.label}
+              path={item.path}
+              isMobile={true}
+            />
+          </Box>
+        ))}
+      </Sheet>
+    );
+  }
 
-      {/* Main Navigation - Combined with Bottom Navigation on mobile */}
-      <Box sx={{ 
-        flex: { xs: 1, md: 1 }, 
-        overflow: 'auto', 
-        px: 0, 
-        py: 0,
-        display: 'flex',
-        flexDirection: { xs: 'row', md: 'column' },
-        width: { xs: '100%', md: 'auto' },
-        alignItems: { xs: 'center', md: 'stretch' },
-        justifyContent: { xs: 'space-around', md: 'flex-start' },
-      }}>
-        <List
-          sx={{
-            '--ListItem-radius': '8px',
-            '--ListItem-minHeight': { xs: '48px', md: '48px' },
-            display: 'flex',
-            flexDirection: { xs: 'row', md: 'column' },
-            width: { xs: '100%', md: 'auto' },
-            gap: { xs: 0, md: 0 },
-            px: { xs: 0, md: 0 },
-            py: 0,
-            justifyContent: { xs: 'space-around', md: 'flex-start' },
-          }}
-        >
-          <ListItem sx={{ width: { xs: 'auto', md: '100%' }, flexShrink: 0 }}>
-            <ListItemButton
-              component={NavLink}
-              to="/"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: 'center',
-                px: { xs: 1, md: (isCollapsed ? 1 : 2) },
-                minWidth: { xs: '48px', md: 'auto' },
-                minHeight: { xs: '48px', md: 'auto' },
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <Dashboard sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: { xs: 0, md: 2 }, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Dashboard
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-          <ListItem sx={{ width: { xs: 'auto', md: '100%' }, flexShrink: 0 }}>
-            <ListItemButton
-              component={NavLink}
-              to="/patients"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: 'center',
-                px: { xs: 1, md: (isCollapsed ? 1 : 2) },
-                minWidth: { xs: '48px', md: 'auto' },
-                minHeight: { xs: '48px', md: 'auto' },
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <People sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: { xs: 0, md: 2 }, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Patients
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-          <ListItem sx={{ width: { xs: 'auto', md: '100%' }, flexShrink: 0 }}>
-            <ListItemButton
-              component={NavLink}
-              to="/appointments"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: 'center',
-                px: { xs: 1, md: (isCollapsed ? 1 : 2) },
-                minWidth: { xs: '48px', md: 'auto' },
-                minHeight: { xs: '48px', md: 'auto' },
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <CalendarMonth sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: { xs: 0, md: 2 }, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Appointments
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-          <ListItem sx={{ width: { xs: 'auto', md: '100%' }, flexShrink: 0 }}>
-            <ListItemButton
-              component={NavLink}
-              to="/invoices"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: 'center',
-                px: { xs: 1, md: (isCollapsed ? 1 : 2) },
-                minWidth: { xs: '48px', md: 'auto' },
-                minHeight: { xs: '48px', md: 'auto' },
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <Receipt sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: { xs: 0, md: 2 }, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Invoices
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-          {/* Reports & Settings - Included in same list on mobile */}
-          <ListItem sx={{ width: { xs: 'auto', md: '100%' }, flexShrink: 0, display: { xs: 'flex', md: 'none' } }}>
-            <ListItemButton
-              component={NavLink}
-              to="/reports"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: 'center',
-                px: { xs: 1, md: (isCollapsed ? 1 : 2) },
-                minWidth: { xs: '48px', md: 'auto' },
-                minHeight: { xs: '48px', md: 'auto' },
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <Assessment sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: { xs: 0, md: 2 }, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Reports
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-          <ListItem sx={{ width: { xs: 'auto', md: '100%' }, flexShrink: 0, display: { xs: 'flex', md: 'none' } }}>
-            <ListItemButton
-              component={NavLink}
-              to="/settings"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: 'center',
-                px: { xs: 1, md: (isCollapsed ? 1 : 2) },
-                minWidth: { xs: '48px', md: 'auto' },
-                minHeight: { xs: '48px', md: 'auto' },
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <Settings sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: { xs: 0, md: 2 }, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Settings
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-        </List>
-      </Box>
-
-      {/* Bottom Navigation - Reports & Settings (Desktop only) */}
-      <Box sx={{ 
-        flexShrink: 0, 
-        borderTop: { xs: 'none', md: '1px solid' },
-        borderColor: 'divider', 
-        pt: { xs: 0, md: 1 },
-        px: 0,
-        display: { xs: 'none', md: 'block' },
-      }}>
-        <List
-          sx={{
-            '--ListItem-radius': '8px',
-            '--ListItem-minHeight': { xs: '48px', md: '48px' },
-          }}
-        >
-          <ListItem>
-            <ListItemButton
-              component={NavLink}
-              to="/reports"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: (isCollapsed || isMobile) ? 'center' : 'flex-start',
-                px: (isCollapsed || isMobile) ? 1 : 2,
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <Assessment sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: 2, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Reports
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-          <ListItem>
-            <ListItemButton
-              component={NavLink}
-              to="/settings"
-              sx={(theme) => ({
-                color: '#ffffff',
-                justifyContent: (isCollapsed || isMobile) ? 'center' : 'flex-start',
-                px: (isCollapsed || isMobile) ? 1 : 2,
-                '&.active': {
-                  backgroundColor: theme.vars.palette.primary.solidBg,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.vars.palette.primary.solidHoverBg,
-                  },
-                },
-              })}
-            >
-              <Settings sx={{ color: '#ffffff' }} />
-              <ListItemContent sx={{ ml: 2, display: (isCollapsed || isMobile) ? 'none' : 'block', color: '#ffffff' }}>
-                Settings
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-        </List>
-      </Box>
-    </>
-  );
-
+  // Desktop Sidebar
   return (
-    <>
-      {/* Sidebar - Always visible, collapsed on mobile, at bottom on mobile */}
-      <Sheet
+    <Sheet
+      className={`${shouldCollapse ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        height: '100vh',
+        width: shouldCollapse ? 'auto' : 'auto',
+        minWidth: shouldCollapse ? '60px' : '200px',
+        maxWidth: shouldCollapse ? '60px' : '300px',
+        backgroundColor: 'background.surface',
+        borderRight: '1px solid',
+        borderColor: 'divider',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '4px 0 20px rgba(0, 0, 0, 0.1)',
+        zIndex: 9999,
+      }}
+    >
+      {/* Header with toggle */}
+      <Box
         sx={{
-          position: { xs: 'fixed', md: 'sticky' },
-          top: { xs: 'auto', md: 0 },
-          bottom: { xs: 0, md: 'auto' },
-          left: { xs: 0, md: 'auto' },
-          right: { xs: 0, md: 'auto' },
-          height: { xs: '60px', md: '100vh' },
-          width: { xs: '100%', md: isCollapsed ? 60 : 250 },
-          p: { xs: 0.5, md: isCollapsed ? 1 : 2 },
-          borderRight: { xs: 'none', md: '1px solid' },
-          borderTop: { xs: '1px solid', md: 'none' },
-          borderBottom: { xs: 'none', md: 'none' },
-          borderColor: 'divider',
-          backgroundColor: 'background.surface',
-          transition: 'width 0.2s',
-          overflow: 'hidden',
           display: 'flex',
-          flexDirection: { xs: 'row', md: 'column' },
-          alignItems: { xs: 'center', md: 'stretch' },
-          justifyContent: { xs: 'space-around', md: 'flex-start' },
-          zIndex: 100,
-          flexShrink: 0,
+          alignItems: 'center',
+          justifyContent: shouldCollapse ? 'center' : 'space-between',
+          p: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          minHeight: '60px',
         }}
       >
-        <NavContent />
-      </Sheet>
-    </>
+        <Typography
+          level="h4"
+          sx={{
+            display: shouldCollapse ? 'none' : 'block',
+            color: '#ffffff',
+            fontWeight: 'bold',
+          }}
+        >
+          MedRec
+        </Typography>
+        <IconButton
+          onClick={toggleSidebar}
+          variant="plain"
+          className="button-press"
+          sx={{
+            color: '#ffffff',
+            minWidth: '40px',
+            minHeight: '40px',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              transform: 'rotate(180deg)',
+            },
+            '&:active': {
+              transform: 'rotate(180deg) scale(0.95)',
+            }
+          }}
+        >
+          <Menu
+            sx={{
+              color: '#ffffff',
+              transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
+        </IconButton>
+      </Box>
+
+      {/* Main Navigation */}
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          py: 1,
+        }}
+      >
+        {navItems.map((item) => (
+          <NavButton
+            key={item.path}
+            icon={item.icon}
+            label={item.label}
+            path={item.path}
+          />
+        ))}
+      </Box>
+
+      {/* Bottom Navigation */}
+      <Box
+        sx={{
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          py: 1,
+        }}
+      >
+        {bottomNavItems.map((item) => (
+          <NavButton
+            key={item.path}
+            icon={item.icon}
+            label={item.label}
+            path={item.path}
+          />
+        ))}
+      </Box>
+    </Sheet>
   );
 };
 

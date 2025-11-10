@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedRecPlus - Massive Appointment Data Generator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning-box h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+
+        .warning-box ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .warning-box li {
+            margin: 5px 0;
+            color: #856404;
+        }
+
+        .info-box {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .info-box h3 {
+            margin-top: 0;
+            color: #0c5460;
+        }
+
+        .info-box ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .info-box li {
+            margin: 5px 0;
+            color: #0c5460;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+        }
+
+        button.danger:hover {
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        button.warning {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        }
+
+        button.warning:hover {
+            box-shadow: 0 10px 20px rgba(255, 193, 7, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #output {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .capacity-info {
+            background: #e7f3ff;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9em;
+        }
+
+        .capacity-info p {
+            margin: 5px 0;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 MedRecPlus</h1>
+        <p class="subtitle">Massive Appointment Data Generator</p>
+
+        <div class="warning-box">
+            <h3>⚠️ WARNING: Resource-Intensive Operation</h3>
+            <ul>
+                <li>Will generate 400,000 appointments + 400,000 invoices (800,000 total records)</li>
+                <li>Estimated time: 5-15 minutes</li>
+                <li>Memory usage: 200-500MB during generation</li>
+                <li>Storage size: 100-200MB final dataset</li>
+                <li>Browser may become temporarily unresponsive</li>
+                <li>Requires 8GB+ system RAM recommended</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>📊 What This Generator Creates:</h3>
+            <ul>
+                <li>Realistic appointment scheduling over the last 2 years</li>
+                <li>Random patient selection from existing database</li>
+                <li>Random operator assignment from 800 medical professionals</li>
+                <li>1-4 treatments per appointment with proper pricing</li>
+                <li>Age-appropriate vital signs generation</li>
+                <li>Realistic invoice status distribution (65% paid, 15% unpaid, 12% pending, 8% void)</li>
+                <li>Business hours appointment scheduling (8AM-6PM)</li>
+            </ul>
+        </div>
+
+        <div class="capacity-info" id="capacityInfo">
+            <p><strong>System Capacity Check:</strong></p>
+            <p id="memoryInfo">• Memory: Checking...</p>
+            <p id="storageInfo">• Storage: Checking...</p>
+            <p id="browserInfo">• Browser: Checking...</p>
+        </div>
+
+        <div class="button-group">
+            <button id="checkCapacityBtn" onclick="checkSystemCapacity()">
+                🔍 Check System Capacity
+            </button>
+            <button id="generateBtn" onclick="generateMassiveData()">
+                🚀 Generate 400,000 Appointments + Invoices
+            </button>
+            <button id="clearBtn" class="danger" onclick="clearAllData()">
+                🗑️ Clear All Appointment & Invoice Data
+            </button>
+            <button id="checkDataBtn" class="warning" onclick="checkExistingData()">
+                📊 Check Existing Data Size
+            </button>
+        </div>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Generating massive dataset... This will take several minutes.</p>
+            <p id="progressText">Please do not close this tab.</p>
+        </div>
+
+        <div id="output"></div>
+
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalAppointments">0</div>
+                <div class="stat-label">Total Appointments</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalInvoices">0</div>
+                <div class="stat-label">Total Invoices</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="dataSize">0MB</div>
+                <div class="stat-label">Data Size</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="generationTime">0s</div>
+                <div class="stat-label">Generation Time</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isGenerating = false;
+
+        // Mock DataService for standalone HTML usage
+        const mockDataService = {
+            async getData(key) {
+                const existing = localStorage.getItem(key);
+                return existing ? JSON.parse(existing) : [];
+            },
+
+            async saveData(key, data) {
+                localStorage.setItem(key, JSON.stringify(data));
+                return Promise.resolve();
+            }
+        };
+
+        // Vital signs ranges
+        const VITAL_RANGES = {
+            bloodPressure: {
+                normal: ['110/70', '115/75', '120/80', '118/76', '122/78', '125/82'],
+                elevated: ['130/85', '135/88', '140/90', '145/95', '150/100'],
+                low: ['90/60', '95/65', '100/68', '105/70']
+            },
+            heartRate: { min: 45, max: 120 },
+            respirationRate: { min: 10, max: 30 },
+            borgScale: { min: 1, max: 10 }
+        };
+
+        const INVOICE_STATUS_DISTRIBUTION = {
+            paid: 0.65,
+            unpaid: 0.15,
+            pending: 0.12,
+            void: 0.08
+        };
+
+        // Check system capacity
+        function checkSystemCapacity() {
+            const memoryInfo = document.getElementById('memoryInfo');
+            const storageInfo = document.getElementById('storageInfo');
+            const browserInfo = document.getElementById('browserInfo');
+
+            // Memory check
+            if ('memory' in performance) {
+                const memory = performance.memory;
+                const usedMB = (memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+                const totalMB = (memory.totalJSHeapSize / 1024 / 1024).toFixed(2);
+                const limitMB = (memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2);
+
+                memoryInfo.textContent = `• Memory: ${usedMB}MB used / ${totalMB}MB allocated (Limit: ${limitMB}MB)`;
+
+                if (parseFloat(usedMB) > 1000) {
+                    memoryInfo.textContent += ' ⚠️ High memory usage';
+                }
+            } else {
+                memoryInfo.textContent = '• Memory: Info not available';
+            }
+
+            // Storage check
+            let storageAvailable = true;
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                storageInfo.textContent = '• Storage: Available';
+            } catch (error) {
+                storageAvailable = false;
+                storageInfo.textContent = '• Storage: Not Available';
+            }
+
+            // Browser info
+            const userAgent = navigator.userAgent;
+            const browserName = userAgent.includes('Chrome') ? 'Chrome' :
+                               userAgent.includes('Firefox') ? 'Firefox' :
+                               userAgent.includes('Safari') ? 'Safari' : 'Unknown';
+            browserInfo.textContent = `• Browser: ${browserName}`;
+
+            log('✅ System capacity check completed');
+        }
+
+        // Generate random date within last 2 years
+        function generateRandomDate() {
+            const now = new Date();
+            const twoYearsAgo = new Date(now.getTime() - (2 * 365 * 24 * 60 * 60 * 1000));
+            const randomTime = twoYearsAgo.getTime() + Math.random() * (now.getTime() - twoYearsAgo.getTime());
+            const date = new Date(randomTime);
+
+            // Business hours (8 AM - 6 PM)
+            const randomHour = Math.floor(Math.random() * 10) + 8;
+            const randomMinute = Math.floor(Math.random() * 60);
+            date.setHours(randomHour, randomMinute, 0, 0);
+
+            return date.toISOString();
+        }
+
+        // Generate vital signs
+        function generateVitalSigns(patientAge) {
+            const heartRate = Math.floor(Math.random() * (VITAL_RANGES.heartRate.max - VITAL_RANGES.heartRate.min + 1)) + VITAL_RANGES.heartRate.min;
+            const respirationRate = Math.floor(Math.random() * (VITAL_RANGES.respirationRate.max - VITAL_RANGES.respirationRate.min + 1)) + VITAL_RANGES.respirationRate.min;
+            const borgScale = Math.floor(Math.random() * (VITAL_RANGES.borgScale.max - VITAL_RANGES.borgScale.min + 1)) + VITAL_RANGES.borgScale.min;
+
+            let bloodPressureArray = VITAL_RANGES.bloodPressure.normal;
+            if (patientAge > 60 || Math.random() < 0.2) {
+                bloodPressureArray = [...bloodPressureArray, ...VITAL_RANGES.bloodPressure.elevated];
+            }
+            const bloodPressure = bloodPressureArray[Math.floor(Math.random() * bloodPressureArray.length)];
+
+            return {
+                bloodPressure,
+                respirationRate,
+                heartRate,
+                borgScale
+            };
+        }
+
+        // Select random treatments
+        function selectRandomTreatments(allTreatments) {
+            if (allTreatments.length === 0) return [];
+
+            const numTreatments = Math.floor(Math.random() * 4) + 1;
+            const selectedTreatments = [];
+            const availableTreatments = [...allTreatments];
+
+            for (let i = 0; i < Math.min(numTreatments, availableTreatments.length); i++) {
+                const randomIndex = Math.floor(Math.random() * availableTreatments.length);
+                selectedTreatments.push(availableTreatments[randomIndex]);
+                availableTreatments.splice(randomIndex, 1);
+            }
+
+            return selectedTreatments;
+        }
+
+        // Select invoice status
+        function selectInvoiceStatus() {
+            const random = Math.random();
+            let cumulative = 0;
+
+            for (const [status, probability] of Object.entries(INVOICE_STATUS_DISTRIBUTION)) {
+                cumulative += probability;
+                if (random <= cumulative) {
+                    return status;
+                }
+            }
+            return 'pending';
+        }
+
+        // Main generation function
+        async function generateMassiveData() {
+            if (isGenerating) return;
+
+            if (!confirm(
+                'Are you ready to generate 400,000 appointments with invoices?\n\n' +
+                'This will:\n' +
+                '• Take 5-15 minutes to complete\n' +
+                '• Create 800,000 total records\n' +
+                '• Use 200-500MB of memory\n' +
+                '• Store 100-200MB of data\n\n' +
+                'The browser may become slow during generation.\n\n' +
+                'Continue?'
+            )) {
+                return;
+            }
+
+            isGenerating = true;
+            const btn = document.getElementById('generateBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const output = document.getElementById('output');
+            const loading = document.getElementById('loading');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const stats = document.getElementById('stats');
+
+            btn.disabled = true;
+            clearBtn.disabled = true;
+            output.style.display = 'block';
+            loading.style.display = 'block';
+            progressBar.style.display = 'block';
+            stats.style.display = 'none';
+
+            const log = (message) => {
+                output.textContent += message + '\n';
+                output.scrollTop = output.scrollHeight;
+            };
+
+            const startTime = Date.now();
+
+            log('🏥 MedRecPlus Massive Appointment Data Generator');
+            log('================================================');
+            log('🚀 Starting generation of 400,000 appointments with invoices...');
+
+            try {
+                // Load existing data
+                log('📊 Loading existing data...');
+                const [patients, operators, treatments] = await Promise.all([
+                    mockDataService.getData('patient_management_data'),
+                    mockDataService.getData('operators'),
+                    mockDataService.getData('treatments')
+                ]);
+
+                log(`   ✅ Loaded ${patients.length} patients`);
+                log(`   ✅ Loaded ${operators.length} operators`);
+                log(`   ✅ Loaded ${treatments.length} treatments`);
+
+                if (patients.length === 0 || operators.length === 0 || treatments.length === 0) {
+                    throw new Error('Insufficient data to generate appointments');
+                }
+
+                // Get existing appointments
+                let startId = 1;
+                try {
+                    const existingAppointments = await mockDataService.getData('appointments');
+                    if (existingAppointments.length > 0) {
+                        const maxId = Math.max(...existingAppointments.map(apt => apt.id || 0));
+                        startId = maxId + 1;
+                        log(`📈 Found ${existingAppointments.length} existing appointments, starting from ID: ${startId}`);
+                    }
+                } catch (error) {
+                    log('ℹ️  No existing appointments found, starting fresh');
+                }
+
+                const totalAppointments = 400000;
+                const batchSize = 5000;
+                const allAppointments = [];
+                const allInvoices = [];
+
+                log(`🔄 Generating ${totalAppointments} appointments in batches of ${batchSize}...`);
+
+                for (let batch = 0; batch < totalAppointments / batchSize; batch++) {
+                    const batchStart = batch * batchSize;
+                    const batchEnd = Math.min(batchStart + batchSize, totalAppointments);
+                    const batchAppointments = [];
+                    const batchInvoices = [];
+
+                    // Progress reporting
+                    if (batchStart % 20000 === 0) {
+                        const progress = ((batchStart / totalAppointments) * 100).toFixed(1);
+                        progressFill.style.width = progress + '%';
+                        log(`📝 Progress: ${progress}% (${batchStart}/${totalAppointments})`);
+
+                        // Allow UI to update
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+
+                    for (let i = batchStart; i < batchEnd; i++) {
+                        const appointmentId = startId + i;
+
+                        const patient = patients[Math.floor(Math.random() * patients.length)];
+                        const operator = operators[Math.floor(Math.random() * operators.length)];
+                        const selectedTreatments = selectRandomTreatments(treatments);
+                        const appointmentDate = generateRandomDate();
+                        const vitalSigns = generateVitalSigns(patient.age || 50);
+                        const totalPrice = selectedTreatments.reduce((sum, t) => sum + t.price, 0);
+
+                        const appointment = {
+                            id: appointmentId,
+                            patientName: patient.name,
+                            patientId: patient.id || appointmentId,
+                            operatorName: operator.name,
+                            operatorId: operator.id || Math.floor(Math.random() * 1000000),
+                            date: appointmentDate,
+                            vitalSigns,
+                            treatments: selectedTreatments,
+                            totalPrice,
+                            notes: `Generated appointment for ${patient.name}`,
+                            description: `Consultation with ${operator.name}`,
+                            created_at: appointmentDate
+                        };
+
+                        batchAppointments.push(appointment);
+
+                        const invoiceStatus = selectInvoiceStatus();
+                        const invoice = {
+                            id: appointmentId,
+                            invoiceNumber: `INV20250404${String(appointmentId).padStart(6, '0')}`,
+                            appointmentId: appointmentId,
+                            patientName: patient.name,
+                            patientId: patient.id || appointmentId,
+                            operatorName: operator.name,
+                            operatorId: operator.id || Math.floor(Math.random() * 1000000),
+                            date: appointmentDate,
+                            appointmentDate: appointmentDate,
+                            vitalSigns,
+                            treatments: selectedTreatments,
+                            totalAmount: totalPrice,
+                            status: invoiceStatus,
+                            created_at: appointmentDate,
+                            updated_at: invoiceStatus === 'paid' ? appointmentDate : undefined
+                        };
+
+                        batchInvoices.push(invoice);
+                    }
+
+                    allAppointments.push(...batchAppointments);
+                    allInvoices.push(...batchInvoices);
+
+                    // Periodic save
+                    if ((batch + 1) % 5 === 0 || batch === Math.floor(totalAppointments / batchSize) - 1) {
+                        log(`💾 Saving progress: ${allAppointments.length} appointments, ${allInvoices.length} invoices...`);
+                        await Promise.all([
+                            mockDataService.saveData('appointments', allAppointments),
+                            mockDataService.saveData('invoices', allInvoices)
+                        ]);
+                    }
+                }
+
+                progressFill.style.width = '100%';
+
+                // Final save and statistics
+                await Promise.all([
+                    mockDataService.saveData('appointments', allAppointments),
+                    mockDataService.saveData('invoices', allInvoices)
+                ]);
+
+                const endTime = Date.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(2);
+                const rate = (totalAppointments / parseFloat(duration)).toFixed(0);
+                const dataSize = (JSON.stringify(allAppointments).length + JSON.stringify(allInvoices).length) / 1024 / 1024;
+
+                log(`✅ Successfully generated ${totalAppointments.toLocaleString()} appointments!`);
+                log(`✅ Successfully generated ${allInvoices.length.toLocaleString()} invoices!`);
+                log(`⏱️  Total time: ${duration} seconds`);
+                log(`🚀 Generation rate: ${rate} appointments/second`);
+                log(`💾 Data size: ${dataSize.toFixed(2)}MB`);
+
+                // Update stats display
+                document.getElementById('totalAppointments').textContent = totalAppointments.toLocaleString();
+                document.getElementById('totalInvoices').textContent = allInvoices.length.toLocaleString();
+                document.getElementById('dataSize').textContent = `${dataSize.toFixed(1)}MB`;
+                document.getElementById('generationTime').textContent = `${duration}s`;
+                stats.style.display = 'grid';
+
+                log('');
+                log('🎉 MASSIVE DATASET GENERATION COMPLETED!');
+                log('💾 Data saved successfully to browser storage');
+                log('');
+                log('🔄 Next Steps:');
+                log('   1. Refresh the MedRecPlus appointments page');
+                log('   2. Allow extra time for initial page load');
+                log('   3. Test pagination and search performance');
+
+            } catch (error) {
+                log('❌ Error during generation: ' + error.message);
+                log('💡 This may be due to browser memory limits or storage constraints.');
+            } finally {
+                loading.style.display = 'none';
+                btn.disabled = false;
+                clearBtn.disabled = false;
+                isGenerating = false;
+            }
+        }
+
+        // Clear all data
+        async function clearAllData() {
+            if (isGenerating) return;
+
+            const appointments = localStorage.getItem('appointments');
+            const invoices = localStorage.getItem('invoices');
+
+            let appointmentCount = 0;
+            let invoiceCount = 0;
+
+            if (appointments) {
+                appointmentCount = JSON.parse(appointments).length;
+            }
+            if (invoices) {
+                invoiceCount = JSON.parse(invoices).length;
+            }
+
+            if (!confirm(
+                `This will delete ALL appointment and invoice data:\n\n` +
+                `• ${appointmentCount.toLocaleString()} appointments\n` +
+                `• ${invoiceCount.toLocaleString()} invoices\n\n` +
+                `This action cannot be undone!\n\n` +
+                `Continue?`
+            )) {
+                return;
+            }
+
+            const btn = document.getElementById('generateBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const output = document.getElementById('output');
+            const stats = document.getElementById('stats');
+
+            btn.disabled = true;
+            clearBtn.disabled = true;
+            output.style.display = 'block';
+            output.textContent = '';
+            stats.style.display = 'none';
+
+            output.textContent = '🗑️ Clearing all appointment and invoice data...\n';
+
+            try {
+                await Promise.all([
+                    mockDataService.saveData('appointments', []),
+                    mockDataService.saveData('invoices', [])
+                ]);
+                output.textContent += '✅ All appointment and invoice data cleared successfully!\n';
+            } catch (error) {
+                output.textContent += '❌ Error clearing data: ' + error.message + '\n';
+            } finally {
+                btn.disabled = false;
+                clearBtn.disabled = false;
+            }
+        }
+
+        // Check existing data
+        async function checkExistingData() {
+            const output = document.getElementById('output');
+            output.style.display = 'block';
+            output.textContent = '📊 Checking existing data...\n\n';
+
+            try {
+                const appointments = await mockDataService.getData('appointments');
+                const invoices = await mockDataService.getData('invoices');
+
+                output.textContent += `Appointments: ${appointments.length.toLocaleString()} records\n`;
+                output.textContent += `Invoices: ${invoices.length.toLocaleString()} records\n`;
+                output.textContent += `Total: ${(appointments.length + invoices.length).toLocaleString()} records\n\n`;
+
+                if (appointments.length > 0) {
+                    const appointmentDataSize = JSON.stringify(appointments).length / 1024 / 1024;
+                    output.textContent += `Appointments data size: ${appointmentDataSize.toFixed(2)}MB\n`;
+                }
+
+                if (invoices.length > 0) {
+                    const invoiceDataSize = JSON.stringify(invoices).length / 1024 / 1024;
+                    output.textContent += `Invoices data size: ${invoiceDataSize.toFixed(2)}MB\n`;
+                }
+
+                if (appointments.length > 0) {
+                    const dates = appointments.map(apt => new Date(apt.date));
+                    const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+                    const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+                    output.textContent += `\nDate range: ${earliest.toLocaleDateString()} - ${latest.toLocaleDateString()}\n`;
+                }
+
+            } catch (error) {
+                output.textContent += '❌ Error checking data: ' + error.message + '\n';
+            }
+        }
+
+        // Initialize capacity check on load
+        window.addEventListener('load', checkSystemCapacity);
+
+        // Console output for advanced users
+        console.log('🏥 MedRecPlus Massive Appointment Generator Loaded');
+        console.log('📋 Available functions:');
+        console.log('   • generateMassiveData() - Generate 400,000 appointments with invoices');
+        console.log('   • clearAllData() - Clear all appointment and invoice data');
+        console.log('   • checkExistingData() - Check existing data size');
+        console.log('   • checkSystemCapacity() - Check browser resources');
+        console.log('');
+        console.log('⚠️  WARNING: This is a resource-intensive operation!');
+        console.log('💾 Ensure you have sufficient system resources (8GB+ RAM recommended)');
+    </script>
+</body>
+</html>

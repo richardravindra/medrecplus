@@ -1,14 +1,31 @@
 import { IndexedDBStorage } from './IndexedDBStorage';
-import { Patient, Invoice } from '../types';
+import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
 
-// Generic type for data entities
-type DataEntity = Record<string, unknown>;
+// Generic type for data entities - includes all possible types with index signature
+type DataEntity = (Patient & Record<string, unknown>) |
+                   (Invoice & Record<string, unknown>) |
+                   (Appointment & Record<string, unknown>) |
+                   (Operator & Record<string, unknown>) |
+                   (CustomExamination & Record<string, unknown>) |
+                   (ReceiptConfig & Record<string, unknown>) |
+                   (Record<string, unknown> & {
+  patientName?: string;
+  patientId?: number;
+  operatorName?: string;
+  operatorId?: number;
+  date?: string;
+  invoiceNumber?: string;
+  status?: string;
+  totalAmount?: number;
+  vitalSigns?: VitalSigns;
+  treatments?: Treatment[];
+});
 
 interface BackupData {
-  operators: DataEntity[];
-  treatments: DataEntity[];
+  operators: Operator[];
+  treatments: Treatment[];
   patients: Patient[];
-  appointments: DataEntity[];
+  appointments: Appointment[];
   invoices: Invoice[];
   backupDate: string;
   version: string;
@@ -152,7 +169,7 @@ export class ChunkedDataRestore {
     const stages = [
       { name: 'operators', data: backupData.operators, key: 'operators' },
       { name: 'treatments', data: backupData.treatments, key: 'treatments' },
-      { name: 'patients', data: backupData.patients, key: 'patient_management_data' },
+      { name: 'patients', data: backupData.patients, key: 'patients' },
       { name: 'appointments', data: backupData.appointments, key: 'appointments' },
       { name: 'invoices', data: backupData.invoices, key: 'invoices' }
     ];
@@ -171,7 +188,7 @@ export class ChunkedDataRestore {
       });
 
       try {
-        await this.processDataChunk(stage.data, stage.key, onProgress);
+        await this.processDataChunk(stage.data as DataEntity[], stage.key, onProgress);
         console.log(`✅ Completed processing ${stage.name}`);
       } catch (error) {
         console.error(`❌ Failed to process ${stage.name}:`, error);

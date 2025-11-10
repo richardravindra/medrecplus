@@ -11,15 +11,14 @@ import Print from '@mui/icons-material/Print';
 import Select from '@mui/joy/Select';
 import Option from '@mui/joy/Option';
 import Divider from '@mui/joy/Divider';
-import Modal from '@mui/joy/Modal';
-import ModalDialog from '@mui/joy/ModalDialog';
-import ModalClose from '@mui/joy/ModalClose';
-import Textarea from '@mui/joy/Textarea';
-import Alert from '@mui/joy/Alert';
-import ShareIcon from '@mui/icons-material/Share';
+import Delete from '@mui/icons-material/Delete';
 import { Invoice } from '../types';
 import { Patient } from '../types';
-import { DataService } from '../services/DataService';
+import SimpleDataService from '../services/SimpleDataService';
+import { log } from '../utils/logger';
+import { useCurrency, formatCurrencyForPrint } from '../utils/currencyUtils';
+import { isTauriEnvironment, importTauriShell, createPrintFile, printInvoiceWithDataURL } from '../utils/tauriUtils';
+import { storage } from '../services/UnifiedStorage';
 
 interface ReceiptConfig {
   header: string;
@@ -35,14 +34,12 @@ Semoga kesehatan selalu menyertai anda`;
 const InvoiceDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [currency] = useCurrency();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showShareDialog, setShowShareDialog] = useState(false);
-  const [invoiceTextForShare, setInvoiceTextForShare] = useState('');
-  const [copySuccess, setCopySuccess] = useState(false);
   const [receiptConfig, setReceiptConfig] = useState<ReceiptConfig>({
     header: defaultHeader,
     footer: defaultFooter
@@ -50,11 +47,8 @@ const InvoiceDetails: React.FC = () => {
 
   const loadInvoice = useCallback(async (invoiceId: number) => {
     try {
-      console.log('🧾 Loading invoice details using DataService...');
-      const invoices: Invoice[] = await DataService.getData('invoices');
-      console.log(`📊 Retrieved ${invoices.length} invoices from DataService`);
-
-      const foundInvoice = invoices.find(inv => inv.id === invoiceId);
+      console.log('🧾 Loading invoice details using SimpleDataService...');
+      const foundInvoice = await SimpleDataService.getInvoiceById(invoiceId);
 
       if (foundInvoice) {
         console.log(`✅ Found invoice ${invoiceId}:`, foundInvoice.invoiceNumber);
@@ -62,11 +56,11 @@ const InvoiceDetails: React.FC = () => {
         // Load the patient data
         await loadPatient(foundInvoice.patientId);
       } else {
-        console.warn(`⚠️ Invoice ${invoiceId} not found in ${invoices.length} invoices`);
+        console.warn(`⚠️ Invoice ${invoiceId} not found`);
         setError('Invoice not found');
       }
     } catch (error) {
-      console.error('❌ Failed to load invoice:', error);
+      log.error('Failed to load invoice', { error, invoiceId }, 'InvoiceDetails');
       setError('Failed to load invoice');
     } finally {
       setLoading(false);
@@ -85,17 +79,14 @@ const InvoiceDetails: React.FC = () => {
 
   const loadPatient = async (patientId: number) => {
     try {
-      console.log(`👤 Loading patient ${patientId} using DataService...`);
-      const patients: Patient[] = await DataService.getPatients();
-      console.log(`📊 Retrieved ${patients.length} patients from DataService`);
-
-      const foundPatient = patients.find(p => p.id === patientId);
+      console.log(`👤 Loading patient ${patientId} using SimpleDataService...`);
+      const foundPatient = await SimpleDataService.getPatientById(patientId);
       if (foundPatient) {
         console.log(`✅ Found patient ${patientId}:`, foundPatient.name);
       } else {
         console.warn(`⚠️ Patient ${patientId} not found`);
       }
-      setPatient(foundPatient || null);
+      setPatient(foundPatient);
     } catch (error) {
       console.error('❌ Error loading patient:', error);
     }
@@ -103,31 +94,34 @@ const InvoiceDetails: React.FC = () => {
 
   const loadReceiptConfig = async () => {
     try {
-      const receiptConfigs = await DataService.getData('receipt_config');
-      if (receiptConfigs && receiptConfigs.length > 0) {
-        const config: ReceiptConfig = receiptConfigs[0];
-        setReceiptConfig(config);
+      console.log('📄 Loading receipt config from UnifiedStorage...');
+      const storedConfig = await storage.getReceiptConfig();
+      if (storedConfig && Object.keys(storedConfig).length > 0) {
+        setReceiptConfig(storedConfig as ReceiptConfig);
+        console.log('✅ Loaded receipt config from UnifiedStorage:', storedConfig);
+      } else {
+        console.log('📄 No receipt config found, using defaults');
       }
     } catch (error) {
       console.error('Error loading receipt config:', error);
     }
   };
 
-  const updateInvoiceStatus = async (newStatus: 'paid' | 'unpaid' | 'void' | 'pending') => {
+  const updateInvoiceStatus = async (newStatus: 'paid' | 'unpaid' | 'void') => {
     if (!invoice) return;
 
     setIsUpdating(true);
     try {
       console.log(`🔄 Updating invoice ${invoice.id} status to ${newStatus}`);
-      const invoices: Invoice[] = await DataService.getData('invoices');
-      const updatedInvoices = invoices.map(inv =>
-        inv.id === invoice.id
-          ? { ...inv, status: newStatus, updated_at: new Date().toISOString() }
-          : inv
-      );
-      await DataService.saveData('invoices', updatedInvoices);
-      setInvoice({ ...invoice, status: newStatus, updated_at: new Date().toISOString() });
-      console.log(`✅ Invoice ${invoice.id} status updated to ${newStatus}`);
+      const updatedInvoice = await SimpleDataService.updateInvoice(invoice.id, {
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      });
+
+      if (updatedInvoice) {
+        setInvoice(updatedInvoice);
+        console.log(`✅ Invoice ${invoice.id} status updated to ${newStatus}`);
+      }
     } catch (error) {
       console.error('❌ Error updating invoice status:', error);
     } finally {
@@ -135,14 +129,35 @@ const InvoiceDetails: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const handleDeleteInvoice = async () => {
+    if (!invoice) return;
+
+    if (window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      try {
+        // Log invoice deletion
+        log.info('Invoice deleted', {
+          id: invoice.id,
+          patientId: invoice.patientId,
+          patientName: invoice.patientName,
+          operatorName: invoice.operatorName
+        }, 'InvoiceDetails');
+
+        const success = await SimpleDataService.deleteInvoice(invoice.id);
+        if (success) {
+          console.log(`✅ Deleted invoice ${invoice.id}`);
+          alert('Invoice deleted successfully.');
+          navigate('/invoices');
+        } else {
+          alert('Invoice not found or already deleted.');
+        }
+      } catch (error) {
+        console.error('❌ Error deleting invoice:', error);
+        alert('Failed to delete invoice. Please try again.');
+      }
+    }
   };
+
+  // Currency formatting now handled by the imported utility functions
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -164,13 +179,17 @@ const InvoiceDetails: React.FC = () => {
     return `${formattedDate} ${hours}:${minutes}`;
   };
 
-  const generateInvoiceText = () => {
-    if (!invoice || !patient) return '';
+  
+  const handlePrint = async () => {
+    if (!invoice || !patient) {
+      return;
+    }
 
+    // Generate invoice text directly
     const treatmentsText = invoice.treatments.map(treatment => {
       let text = `- ${treatment.name.toUpperCase()}`;
       if (treatment.price) {
-        text += ` - ${formatCurrency(treatment.price).replace('Rp', 'RP')}`;
+        text += ` - ${formatCurrencyForPrint(treatment.price, currency).replace(currency.symbol, currency.symbol.toUpperCase())}`;
       }
       if (treatment.notes && treatment.notes.trim()) {
         text += `\n  Notes: ${treatment.notes}`;
@@ -178,7 +197,7 @@ const InvoiceDetails: React.FC = () => {
       return text;
     }).join('\n');
 
-    return `${receiptConfig.header}
+    const invoiceText = `${receiptConfig.header}
 
 TREATMENT RECEIPT
 
@@ -193,7 +212,7 @@ TREATMENTS:
 ${treatmentsText}
 
 ${'═'.repeat(50)}
-TOTAL: RP ${formatCurrency(invoice.totalAmount).replace('Rp', '').replace(/\s/g, '')}
+TOTAL: ${formatCurrencyForPrint(invoice.totalAmount, currency).replace(currency.symbol, currency.symbol.toUpperCase())}
 
 INVOICE NUMBER: ${invoice.invoiceNumber}
 OPERATOR: ${invoice.operatorName}
@@ -202,159 +221,71 @@ STATUS: ${invoice.status.toUpperCase()}
 ${'═'.repeat(50)}
 
 ${receiptConfig.footer}`;
-  };
 
-  const handleCopyToClipboard = async () => {
-    if (!invoiceTextForShare) return;
+    console.log('🖨️ Starting print process...');
 
-    // Try modern clipboard API first
-    if (navigator.clipboard && navigator.clipboard.writeText) {
+    // Try Tauri native print first
+    if (isTauriEnvironment()) {
       try {
-        await navigator.clipboard.writeText(invoiceTextForShare);
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 3000);
-        return;
-      } catch (error) {
-        console.error('Error copying to clipboard:', error);
-      }
-    }
+        console.log('📱 Tauri environment detected, attempting native print...');
 
-    // Fallback to execCommand
-    try {
-      const textArea = document.createElement('textarea');
-      textArea.value = invoiceTextForShare;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      
-      const successful = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      
-      if (successful) {
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 3000);
-      }
-    } catch (error) {
-      console.error('Error using execCommand copy:', error);
-    }
-  };
+        // Create temporary HTML file
+        const tempFilePath = await createPrintFile(invoiceText);
+        console.log('📁 Created temporary print file:', tempFilePath);
 
-  const handlePrint = async () => {
-    if (!invoice || !patient) {
-      return;
-    }
+        // Use shell to open the file with default application
+        console.log('🔄 Importing Tauri shell module...');
+        const shellModule = await importTauriShell();
+        console.log('✅ Shell module imported:', typeof shellModule);
 
-    // Store original body content
-    const originalContent = document.body.innerHTML;
+        const { open } = shellModule as { open: (path: string) => Promise<void> };
+        console.log('🔄 Opening file with default application:', tempFilePath);
+        await open(tempFilePath);
 
-    const headerLines = receiptConfig.header.split('\n');
-    const footerLines = receiptConfig.footer.split('\n');
+        console.log('✅ Native print dialog opened successfully');
 
-    const printContent = `${headerLines.map(line => `<div style="text-align: center;">${line}</div>`).join('\n')}
-<div style="text-align: center;">TREATMENT RECEIPT</div>
-_____________________________________________________________
-DATE: ${formatDateForPrint(invoice.date)}
-RECORD NUMBER: ${patient?.record_number || 'N/A'}
-Patient Name: ${invoice.patientName}
-<span style="font-size: 10px;">Address: ${patient.address || 'No address recorded'}</span>
-_____________________________________________________________
-TREATMENTS:
-${invoice.treatments.map(treatment => {
-  let treatmentText = `${treatment.name.toUpperCase()}`;
-  if (treatment.price) {
-    treatmentText += ` - ${formatCurrency(treatment.price).replace('Rp', 'RP')}`;
-  }
-  if (treatment.notes && treatment.notes.trim()) {
-    treatmentText += `\n<span style="font-size: 10px;">notes: ${treatment.notes}</span>`;
-  }
-  return treatmentText;
-}).join('\n')}
-_____________________________________________________________
-<span style="font-size: 14px; font-weight: bold;">TOTAL RP ${formatCurrency(invoice.totalAmount).replace('Rp', '').replace(/\s/g, '')}</span>
-
-INVOICE NUMBER: ${invoice.invoiceNumber}
-OPERATOR: ${invoice.operatorName}
-STATUS: ${invoice.status.toUpperCase() === 'PAID' ? 'PAID' : invoice.status.toUpperCase()}
-
-${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${line}</div>`).join('\n')}`;
-
-    // Replace body content with print content
-    document.body.innerHTML = `<div style="font-family: monospace; font-size: 12px; line-height: 1.0; color: black; background: white; margin: 0; padding: 0; white-space: pre; letter-spacing: 1px; word-wrap: break-word; overflow-wrap: break-word;">${printContent}</div>`;
-
-    // Add print styles to head
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-      @media print {
-        @page {
-          margin: 0.05in 0.2in 0 0;
-          size: 10in 11in;
-        }
-        html {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          display: block;
-        }
-        body {
-          margin: 0;
-          padding: 0;
-          width: 10in;
-          height: 11in;
-          text-align: left;
-          display: flex;
-          align-items: flex-start;
-          justify-content: flex-start;
-        }
-      }
-    `;
-    document.head.appendChild(styleElement);
-
-    // Check if window.print() is available
-    if (typeof window.print === 'function') {
-      // Trigger system print dialog
-      window.print();
-
-      // Restore original content after print
-      const restoreContent = () => {
-        document.body.innerHTML = originalContent;
-        if (document.head.contains(styleElement)) {
-          document.head.removeChild(styleElement);
-        }
-      };
-
-      // Listen for print completion
-      const mediaQueryList = window.matchMedia('print');
-      const handlePrintEnd = (mql: MediaQueryListEvent) => {
-        if (!mql.matches) {
-          restoreContent();
-          mediaQueryList.removeListener(handlePrintEnd);
-          // Navigate back to invoices list after print is completed
+        // Navigate back after a short delay
+        setTimeout(() => {
           navigate('/invoices');
+        }, 1000);
+        return;
+
+      } catch (error) {
+        console.error('❌ Tauri native print failed:', error);
+        console.error('❌ Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : 'No stack trace'
+        });
+        console.log('🔄 Falling back to iframe method...');
+
+        // Fallback to data URL method
+        try {
+          await printInvoiceWithDataURL(invoiceText);
+
+          // Navigate back after a short delay
+          setTimeout(() => {
+            navigate('/invoices');
+          }, 1000);
+          return;
+        } catch (fallbackError) {
+          console.error('❌ Fallback print also failed:', fallbackError);
+          alert(`Failed to print: ${fallbackError}. Please try again.`);
+          return;
         }
-      };
-      mediaQueryList.addListener(handlePrintEnd);
-
-      // Fallback: restore content and navigate back after 3 seconds
-      setTimeout(() => {
-        restoreContent();
-        navigate('/invoices');
-      }, 3000);
-    } else {
-      // window.print() not available - restore content immediately and show share dialog
-      document.body.innerHTML = originalContent;
-      if (document.head.contains(styleElement)) {
-        document.head.removeChild(styleElement);
       }
+    } else {
+      // Web environment - use data URL method
+      console.log('🌐 Web environment detected, using data URL print...');
+      try {
+        await printInvoiceWithDataURL(invoiceText);
 
-      // Show share dialog as fallback
-      const invoiceText = generateInvoiceText();
-      if (invoiceText) {
-        setInvoiceTextForShare(invoiceText);
-        setShowShareDialog(true);
+        // Navigate back after a short delay
+        setTimeout(() => {
+          navigate('/invoices');
+        }, 1000);
+      } catch (error) {
+        console.error('❌ Web print failed:', error);
+        alert(`Failed to print: ${error}. Please try again.`);
       }
     }
   };
@@ -441,6 +372,56 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
         </Button>
       </Box>
 
+      {/* Invoice Status Control */}
+      <Card sx={{ mb: 2, maxWidth: '600px', width: '100%', p: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1 }}>
+          <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            Invoice Status:
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Select
+              value={invoice.status}
+              onChange={(_, newValue) => {
+                if (newValue && (newValue === 'paid' || newValue === 'unpaid' || newValue === 'void')) {
+                  updateInvoiceStatus(newValue);
+                }
+              }}
+              disabled={isUpdating}
+              sx={{
+                minWidth: 120,
+                color: '#ffffff',
+                py: 0.75, // 6px top and bottom padding
+                '& .MuiSelect-select': {
+                  color: '#ffffff !important'
+                }
+              }}
+            >
+              <Option value="unpaid" sx={{ color: '#ffffff' }}>Unpaid</Option>
+              <Option value="paid" sx={{ color: '#ffffff' }}>Paid</Option>
+              <Option value="void" sx={{ color: '#ffffff' }}>Void</Option>
+            </Select>
+            {isUpdating && (
+              <Typography level="body-sm" color="primary">Updating...</Typography>
+            )}
+            <Button
+              variant="solid"
+              color="danger"
+              startDecorator={<Delete />}
+              onClick={handleDeleteInvoice}
+              sx={{
+                borderRadius: 'sm',
+                backgroundColor: '#dc2626',
+                '&:hover': {
+                  backgroundColor: '#b91c1c',
+                }
+              }}
+            >
+              Delete Invoice
+            </Button>
+          </Box>
+        </Box>
+      </Card>
+
       {/* Receipt Layout */}
       <Box
         sx={{
@@ -511,7 +492,7 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
                   {treatment.name.toUpperCase()}
                 </Typography>
                 <Typography level="body-sm" sx={{ color: '#000000' }}>
-                  {formatCurrency(treatment.price).replace('Rp', 'RP')}
+                  {formatCurrencyForPrint(treatment.price, currency)}
                 </Typography>
               </Box>
               {treatment.notes && (
@@ -528,7 +509,7 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography level="body-sm" sx={{ fontWeight: 'bold', color: '#000000' }}>TOTAL</Typography>
             <Typography level="body-sm" sx={{ fontWeight: 'bold', color: '#000000' }}>
-              {formatCurrency(invoice.totalAmount).replace('Rp', 'RP')}
+              {formatCurrencyForPrint(invoice.totalAmount, currency)}
             </Typography>
           </Box>
         </Box>
@@ -566,40 +547,7 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
         ))}
       </Box>
 
-      {/* Invoice Status Control */}
-      <Card sx={{ mt: 2, maxWidth: '600px', width: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2 }}>
-          <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-            Invoice Status:
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Select
-              value={invoice.status}
-              onChange={(_, newValue) => {
-                if (newValue && (newValue === 'paid' || newValue === 'unpaid' || newValue === 'void')) {
-                  updateInvoiceStatus(newValue);
-                }
-              }}
-              disabled={isUpdating}
-              sx={{
-                minWidth: 120,
-                color: '#ffffff',
-                '& .MuiSelect-select': {
-                  color: '#ffffff !important'
-                }
-              }}
-            >
-              <Option value="unpaid" sx={{ color: '#ffffff' }}>Unpaid</Option>
-              <Option value="paid" sx={{ color: '#ffffff' }}>Paid</Option>
-              <Option value="void" sx={{ color: '#ffffff' }}>Void</Option>
-            </Select>
-            {isUpdating && (
-              <Typography level="body-sm" color="primary">Updating...</Typography>
-            )}
-          </Box>
-        </Box>
-      </Card>
-
+  
       {/* Footer Info */}
       <Card sx={{ mt: 2, maxWidth: '600px', width: '100%' }}>
         <Typography level="body-xs" sx={{ textAlign: 'center', color: '#ffffff' }}>
@@ -608,88 +556,7 @@ ${footerLines.map(line => `<div style="text-align: center; font-size: 10px;">${l
         </Typography>
       </Card>
 
-      {/* Share Invoice Dialog for Android */}
-      <Modal 
-        open={showShareDialog} 
-        onClose={() => { 
-          setShowShareDialog(false); 
-          setCopySuccess(false); 
-        }}
-      >
-        <ModalDialog sx={{ maxWidth: '90vw', width: '500px', zIndex: 9999 }}>
-          <ModalClose />
-          <Typography level="h4" sx={{ mb: 2, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ShareIcon /> Share Invoice
-          </Typography>
-          {copySuccess && (
-            <Alert color="success" sx={{ mb: 2 }}>
-              Invoice text copied to clipboard!
-            </Alert>
-          )}
-          <Typography level="body-sm" sx={{ mb: 2, color: '#ffffff' }}>
-            Use the buttons below to share or copy the invoice:
-          </Typography>
-          <Textarea
-            value={invoiceTextForShare}
-            readOnly
-            minRows={15}
-            maxRows={20}
-            sx={{
-              fontFamily: 'monospace',
-              fontSize: '12px',
-              whiteSpace: 'pre-wrap',
-              backgroundColor: '#1e1e1e',
-              color: '#ffffff',
-              '& textarea': {
-                color: '#ffffff',
-              },
-            }}
-            onFocus={(e) => {
-              e.target.select();
-            }}
-          />
-          <Box sx={{ display: 'flex', gap: 2, mt: 2, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <Stack direction="row" spacing={2} sx={{ flex: 1 }}>
-              <Button
-                variant="solid"
-                startDecorator={<ShareIcon />}
-                onClick={async () => {
-                  if (navigator.share && typeof navigator.share === 'function') {
-                    try {
-                      await navigator.share({
-                        title: `Invoice ${invoice?.invoiceNumber}`,
-                        text: invoiceTextForShare,
-                      });
-                      setShowShareDialog(false);
-                    } catch (error: unknown) {
-                      if (error instanceof Error && error.name !== 'AbortError') {
-                        console.error('Error sharing:', error);
-                      }
-                    }
-                  } else {
-                    // Try clipboard as fallback
-                    await handleCopyToClipboard();
-                  }
-                }}
-                sx={{ flex: 1 }}
-              >
-                Share
-              </Button>
-              <Button
-                variant="soft"
-                onClick={handleCopyToClipboard}
-                sx={{ flex: 1 }}
-              >
-                Copy Text
-              </Button>
-            </Stack>
-            <Button variant="outlined" onClick={() => { setShowShareDialog(false); setCopySuccess(false); }}>
-              Close
-            </Button>
-          </Box>
-        </ModalDialog>
-      </Modal>
-    </Box>
+      </Box>
   );
 };
 

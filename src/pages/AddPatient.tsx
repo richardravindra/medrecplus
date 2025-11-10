@@ -14,8 +14,8 @@ import ArrowBack from '@mui/icons-material/ArrowBack';
 import Save from '@mui/icons-material/Save';
 import Info from '@mui/icons-material/Info';
 import { Patient } from '../types';
-import { databaseService } from '../services/database';
-import logService from '../services/logService';
+import SimpleDataService from '../services/SimpleDataService';
+import { log } from '../utils/logger';
 
 const AddPatient: React.FC = () => {
   const navigate = useNavigate();
@@ -36,10 +36,10 @@ const AddPatient: React.FC = () => {
 
   const loadRecordNumber = async () => {
     try {
-      const number = await databaseService.generateRecordNumber();
+      const number = await SimpleDataService.generateRecordNumber();
       setRecordNumber(number);
     } catch (error) {
-      console.error('Error generating record number:', error);
+      log.error('Error generating record number', { error }, 'AddPatient');
     }
   };
 
@@ -78,15 +78,27 @@ const AddPatient: React.FC = () => {
         initial_diagnosis: formData.initial_diagnosis.trim() || undefined,
       };
 
-      const newPatientId = await databaseService.addPatient(patientData);
+      console.log('💾 About to save patient:', patientData);
+      const newPatient = await SimpleDataService.savePatient(patientData);
+      console.log('✅ Patient saved successfully:', newPatient);
+
+      // Debug storage after saving
+      await SimpleDataService.debugPatientStorage();
 
       // Log patient creation
-      logService.logPatientCreated(newPatientId, patientData.name);
+      log.info('Patient created successfully', {
+        id: newPatient.id,
+        name: patientData.name
+      }, 'AddPatient');
 
-      navigate(`/patients/${newPatientId}`);
+      if (newPatient.id) {
+        navigate(`/patients/${newPatient.id}`);
+      } else {
+        throw new Error('Patient ID not returned from save operation');
+      }
     } catch (error) {
       setError('Failed to add patient. Please try again.');
-      console.error('Error adding patient:', error);
+      log.error('Error adding patient', { error, formData }, 'AddPatient');
     } finally {
       setLoading(false);
     }

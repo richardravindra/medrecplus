@@ -8,7 +8,6 @@ import Chip from '@mui/joy/Chip';
 import Stack from '@mui/joy/Stack';
 import CircularProgress from '@mui/joy/CircularProgress';
 import ArrowBack from '@mui/icons-material/ArrowBack';
-import CalendarMonth from '@mui/icons-material/CalendarMonth';
 import People from '@mui/icons-material/People';
 import MedicalServices from '@mui/icons-material/MedicalServices';
 import MonitorHeart from '@mui/icons-material/MonitorHeart';
@@ -19,22 +18,18 @@ import Close from '@mui/icons-material/Close';
 import Save from '@mui/icons-material/Save';
 import Delete from '@mui/icons-material/Delete';
 import Warning from '@mui/icons-material/Warning';
+import Science from '@mui/icons-material/Science';
 import Modal from '@mui/joy/Modal';
 import ModalDialog from '@mui/joy/ModalDialog';
 import Textarea from '@mui/joy/Textarea';
 import FormLabel from '@mui/joy/FormLabel';
 import DialogContent from '@mui/joy/DialogContent';
 import FormControl from '@mui/joy/FormControl';
-import logService from '../services/logService';
-import { Invoice } from '../types';
-import { DataService } from '../services/DataService';
+import { Invoice, Appointment, Treatment } from '../types';
+import SimpleDataService from '../services/SimpleDataService';
+import { log } from '../utils/logger';
+import { formatCurrencyWhole } from '../utils/currencyUtils';
 
-interface VitalSigns {
-  bloodPressure: string;
-  respirationRate: number;
-  heartRate: number;
-  borgScale: number;
-}
 
 interface AppointmentTreatment {
   id: number;
@@ -43,18 +38,6 @@ interface AppointmentTreatment {
   notes?: string;
 }
 
-interface Appointment {
-  id: number;
-  patientName: string;
-  patientId: number;
-  operatorName: string;
-  operatorId: number;
-  date: string;
-  vitalSigns: VitalSigns;
-  treatments: AppointmentTreatment[];
-  totalPrice: number;
-  created_at: string;
-}
 
 const AppointmentDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -72,19 +55,26 @@ const AppointmentDetails: React.FC = () => {
 
   const loadAppointment = useCallback(async (appointmentId: number) => {
     try {
-      const appointments = await DataService.getData('appointments');
-      const foundAppointment = appointments.find(a => a.id === appointmentId);
+      console.log(`📅 Loading appointment ${appointmentId} using SimpleDataService...`);
+      const foundAppointment = await SimpleDataService.getAppointmentById(appointmentId);
 
       if (foundAppointment) {
-        setAppointment(foundAppointment);
-        setEditedTreatments(foundAppointment.treatments);
-        await checkIfInvoiceExists(foundAppointment.id);
+        // Ensure the appointment has a created_at field
+        const appointmentWithDate = {
+          ...foundAppointment,
+          created_at: foundAppointment.created_at || foundAppointment.date || new Date().toISOString()
+        };
+        setAppointment(appointmentWithDate);
+        setEditedTreatments(appointmentWithDate.treatments);
+        await checkIfInvoiceExists(appointmentWithDate.id);
+        log.debug('Appointment loaded successfully', { id: appointmentId }, 'AppointmentDetails');
       } else {
         setError('Appointment not found');
+        log.warn('Appointment not found', { id: appointmentId }, 'AppointmentDetails');
       }
     } catch (error) {
       setError('Failed to load appointment');
-      console.error('Error loading appointment:', error);
+      log.error('Error loading appointment', { error, appointmentId }, 'AppointmentDetails');
     } finally {
       setLoading(false);
     }
@@ -96,21 +86,56 @@ const AppointmentDetails: React.FC = () => {
     }
   }, [id, loadAppointment]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  
+  const formatDate = (dateString: string) => {
+    if (!dateString) {
+      return 'Date not available';
+    }
+
+    try {
+      const date = new Date(dateString);
+      // Check if the date is invalid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+
+      // Format: "Friday, 7 November 2025 23:21"
+      const options: Intl.DateTimeFormatOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      };
+
+      return date.toLocaleDateString('en-GB', options);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+  // Extract custom examinations from vital signs
+  const getCustomExaminations = () => {
+    if (!appointment?.vitalSigns) return [];
+
+    const customExams: Array<{ name: string; value: string; unit: string }> = [];
+    Object.entries(appointment.vitalSigns).forEach(([key, value]) => {
+      if (key.startsWith('custom_') && value) {
+        const examData = value as { name: string; value: string; unit?: string };
+        if (typeof examData === 'object' && examData.name && examData.value) {
+          customExams.push({
+            name: examData.name,
+            value: examData.value,
+            unit: examData.unit || ''
+          });
+        }
+      }
     });
+
+    return customExams;
   };
 
   const getBorgScaleColor = (scale: number) => {
@@ -129,12 +154,13 @@ const AppointmentDetails: React.FC = () => {
 
   const checkIfInvoiceExists = async (appointmentId: number) => {
     try {
-      const invoices = await DataService.getData('invoices');
-      const existingInvoice = invoices.find((inv: Invoice) => inv.appointmentId === appointmentId);
+      const result = await SimpleDataService.getInvoices({ limit: 10000 });
+      const existingInvoice = result.data.find(inv => inv.appointmentId === appointmentId);
       setHasInvoice(!!existingInvoice);
       return existingInvoice;
     } catch (error) {
       console.error('❌ Error checking invoice existence:', error);
+      log.error('Error checking invoice existence', { error, appointmentId }, 'AppointmentDetails');
       setHasInvoice(false);
       return null;
     }
@@ -142,14 +168,15 @@ const AppointmentDetails: React.FC = () => {
 
   const generateInvoiceNumber = async () => {
     try {
-      const invoices = await DataService.getData('invoices');
-      const invoiceCount = invoices.length + 1;
+      const result = await SimpleDataService.getInvoices({ limit: 10000 });
+      const invoiceCount = result.data.length + 1;
       const date = new Date();
       const year = date.getFullYear();
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       return `INV-${year}${month}-${invoiceCount.toString().padStart(4, '0')}`;
     } catch (error) {
       console.error('❌ Error generating invoice number:', error);
+      log.error('Error generating invoice number', { error }, 'AppointmentDetails');
       // Fallback to simple timestamp if error occurs
       const date = new Date();
       const year = date.getFullYear();
@@ -168,7 +195,6 @@ const AppointmentDetails: React.FC = () => {
     }
 
     const newInvoice = {
-      id: Date.now(),
       invoiceNumber: await generateInvoiceNumber(),
       appointmentId: appointment.id,
       patientName: appointment.patientName,
@@ -185,20 +211,23 @@ const AppointmentDetails: React.FC = () => {
     };
 
     try {
-      const invoices = await DataService.getData('invoices');
-      invoices.push(newInvoice);
-      await DataService.saveData('invoices', invoices);
+      const savedInvoice = await SimpleDataService.saveInvoice(newInvoice as Omit<Invoice, 'id'>);
+      log.info('Invoice created successfully', {
+        id: savedInvoice.id,
+        appointmentId: appointment.id,
+        patientId: appointment.patientId,
+        patientName: appointment.patientName,
+        operatorName: appointment.operatorName
+      }, 'AppointmentDetails');
+
+      setHasInvoice(true);
+      navigate(`/invoices/${savedInvoice.id}`);
     } catch (error) {
       console.error('❌ Error generating invoice:', error);
+      log.error('Error generating invoice', { error, appointmentId: appointment.id }, 'AppointmentDetails');
       alert('Failed to generate invoice. Please try again.');
       return;
     }
-
-    // Log invoice creation
-    logService.logInvoiceCreated(newInvoice.id, appointment.id, appointment.patientId, appointment.patientName, appointment.operatorName);
-
-    setHasInvoice(true);
-    navigate(`/invoices/${newInvoice.id}`);
   };
 
   const viewPatient = () => {
@@ -232,21 +261,31 @@ const AppointmentDetails: React.FC = () => {
     setDeleting(true);
     try {
       // Log the deletion before removing
-      logService.logAppointmentDeleted(appointment.id, appointment.patientId, appointment.patientName);
+      log.info('Appointment deleted', {
+        id: appointment.id,
+        patientId: appointment.patientId,
+        patientName: appointment.patientName
+      }, 'AppointmentDetails');
 
-      // Remove appointment using DataService
-      const appointments = await DataService.getData('appointments');
-      const updatedAppointments = appointments.filter(apt => apt.id !== appointment.id);
-      await DataService.saveData('appointments', updatedAppointments);
+      // Remove appointment using SimpleDataService
+      const success = await SimpleDataService.deleteAppointment(appointment.id);
 
-      // Remove associated invoice if it exists
-      const invoices = await DataService.getData('invoices');
-      const updatedInvoices = invoices.filter((inv: Invoice) => inv.appointmentId !== appointment.id);
-      await DataService.saveData('invoices', updatedInvoices);
+      if (success) {
+        // Remove associated invoice if it exists
+        const result = await SimpleDataService.getInvoices({ limit: 10000 });
+        const associatedInvoices = result.data.filter(inv => inv.appointmentId === appointment.id);
 
-      navigate('/appointments');
+        for (const invoice of associatedInvoices) {
+          await SimpleDataService.deleteInvoice(invoice.id);
+        }
+
+        navigate('/appointments');
+      } else {
+        setError('Appointment not found or already deleted.');
+      }
     } catch (error) {
       console.error('Error deleting appointment:', error);
+      log.error('Error deleting appointment', { error, appointmentId: appointment.id }, 'AppointmentDetails');
       setError('Failed to delete appointment. Please try again.');
     } finally {
       setDeleting(false);
@@ -265,23 +304,26 @@ const AppointmentDetails: React.FC = () => {
 
     setEditedTreatments(updatedTreatments);
 
-    // Update appointment using DataService
+    // Update appointment using SimpleDataService
     try {
-      const appointments = await DataService.getData('appointments');
-      const updatedAppointments = appointments.map(apt =>
-        apt.id === appointment.id
-          ? { ...apt, treatments: updatedTreatments }
-          : apt
-      );
-      await DataService.saveData('appointments', updatedAppointments);
+      const updatedAppointment = await SimpleDataService.updateAppointment(appointment.id, {
+        treatments: updatedTreatments as Treatment[]
+      });
 
-      // Update local appointment state
-      setAppointment({ ...appointment, treatments: updatedTreatments });
+      if (updatedAppointment) {
+        // Update local appointment state
+        setAppointment(updatedAppointment);
+        setEditedTreatments(updatedAppointment.treatments);
 
-      // Log appointment update (treatment notes)
-      logService.logAppointmentUpdated(appointment.id, appointment.patientId, appointment.patientName);
+        log.info('Appointment updated (treatment notes)', {
+          id: appointment.id,
+          patientId: appointment.patientId,
+          patientName: appointment.patientName
+        }, 'AppointmentDetails');
+      }
     } catch (error) {
       console.error('Error saving treatment notes:', error);
+      log.error('Error saving treatment notes', { error, appointmentId: appointment.id }, 'AppointmentDetails');
     }
 
     closeNotesModal();
@@ -292,7 +334,7 @@ const AppointmentDetails: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography level="body-lg">Loading appointment details...</Typography>
+          <Typography level="body-lg" sx={{ color: '#ffffff' }}>Loading appointment details...</Typography>
         </Stack>
       </Box>
     );
@@ -316,7 +358,7 @@ const AppointmentDetails: React.FC = () => {
             <Typography level="h4" color="danger" sx={{ mb: 2 }}>
               {error || 'Appointment not found'}
             </Typography>
-            <Typography level="body-sm" color="neutral" sx={{ mb: 3 }}>
+            <Typography level="body-sm" sx={{ mb: 3, color: '#ffffff' }}>
               The appointment you're looking for doesn't exist or has been removed.
             </Typography>
             <Button
@@ -386,7 +428,7 @@ const AppointmentDetails: React.FC = () => {
                 onClick={openDeleteModal}
                 sx={{ borderRadius: 'sm' }}
               >
-                Delete
+                Delete Appointment
               </Button>
             </Box>
           </Box>
@@ -400,10 +442,7 @@ const AppointmentDetails: React.FC = () => {
               <Typography level="body-sm" fontWeight="bold">{appointment.operatorName}</Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-                <CalendarMonth sx={{ fontSize: 16, mr: 1, color: '#ffffff' }} />
-                Date:
-              </Typography>
+              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Appointment date:</Typography>
               <Typography level="body-sm" fontWeight="bold">
                 {formatDate(appointment.date)}
               </Typography>
@@ -461,6 +500,45 @@ const AppointmentDetails: React.FC = () => {
           </Stack>
         </Card>
 
+        {/* Additional Examinations */}
+        {getCustomExaminations().length > 0 && (
+          <Card sx={{ maxWidth: '800px', width: '100%' }}>
+            <Typography level="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1 }}>
+              <Science sx={{ color: '#ffffff' }} />
+              Additional Examinations
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+              {getCustomExaminations().map((exam, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    p: 2,
+                    backgroundColor: 'background.level1',
+                    borderRadius: 'sm',
+                    border: '1px solid',
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Box>
+                    <Typography level="body-sm" fontWeight="bold" sx={{ color: '#ffffff' }}>
+                      {exam.name}
+                    </Typography>
+                    <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.7 }}>
+                      Value: {exam.value}
+                    </Typography>
+                  </Box>
+                  <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                    {exam.unit}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Card>
+        )}
+
         {/* Treatments */}
         <Card sx={{ maxWidth: '800px', width: '100%' }}>
           <Typography level="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1 }}>
@@ -496,7 +574,7 @@ const AppointmentDetails: React.FC = () => {
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography level="body-sm" color="success" fontWeight="bold">
-                      {formatCurrency(treatment.price)}
+                      {formatCurrencyWhole(treatment.price)}
                     </Typography>
                     <Button
                       variant="outlined"
@@ -519,7 +597,7 @@ const AppointmentDetails: React.FC = () => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Typography level="h4">Total Price:</Typography>
             <Typography level="h3" color="success" fontWeight="bold">
-              {formatCurrency(appointment.totalPrice)}
+              {formatCurrencyWhole(appointment.totalPrice)}
             </Typography>
           </Box>
         </Card>
@@ -527,7 +605,7 @@ const AppointmentDetails: React.FC = () => {
         {/* Appointment Info */}
         <Card sx={{ maxWidth: '800px', width: '100%' }}>
           <Typography level="body-xs" sx={{ textAlign: 'left', color: '#ffffff' }}>
-            Created on {formatDate(appointment.created_at)}
+            Created on {formatDate(appointment.created_at || appointment.date)}
           </Typography>
         </Card>
       </Stack>
@@ -559,7 +637,7 @@ const AppointmentDetails: React.FC = () => {
               <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
                 <strong>Patient:</strong> {appointment?.patientName}<br />
                 <strong>Date:</strong> {appointment ? formatDate(appointment.date) : ''}<br />
-                <strong>Total:</strong> {appointment ? formatCurrency(appointment.totalPrice) : ''}
+                <strong>Total:</strong> {appointment ? formatCurrencyWhole(appointment.totalPrice) : ''}
               </Typography>
               {hasInvoice && (
                 <Typography level="body-xs" color="danger" sx={{ mt: 1 }}>

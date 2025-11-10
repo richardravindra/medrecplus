@@ -60,3 +60,13 @@ patient-new.txt
 old.json
 new-format.json
 master.json
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Deprecated folders
+src/pages/deprecated/

@@ -1,7 +1,24 @@
-import { Patient, Invoice } from '../types';
+import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
 
-// Generic type for data entities
-type DataEntity = Patient | Invoice | Record<string, unknown>;
+// Generic type for data entities - includes all possible types with index signature
+type DataEntity = (Patient & Record<string, unknown>) |
+                   (Invoice & Record<string, unknown>) |
+                   (Appointment & Record<string, unknown>) |
+                   (Operator & Record<string, unknown>) |
+                   (CustomExamination & Record<string, unknown>) |
+                   (ReceiptConfig & Record<string, unknown>) |
+                   (Record<string, unknown> & {
+  patientName?: string;
+  patientId?: number;
+  operatorName?: string;
+  operatorId?: number;
+  date?: string;
+  invoiceNumber?: string;
+  status?: string;
+  totalAmount?: number;
+  vitalSigns?: VitalSigns;
+  treatments?: Treatment[];
+});
 
 interface StorageItem {
   id?: number;
@@ -61,14 +78,12 @@ export class IndexedDBStorage {
       for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
 
-        for (const item of chunk) {
-          const storageItem: StorageItem = {
-            data: item,
-            timestamp: Date.now(),
-            type: type
-          };
-          store.add(storageItem);
-        }
+        const storageItem: StorageItem = {
+          data: chunk,
+          timestamp: Date.now(),
+          type: type
+        };
+        store.add(storageItem);
       }
 
       return new Promise((resolve, reject) => {
@@ -97,7 +112,13 @@ export class IndexedDBStorage {
       return new Promise((resolve, reject) => {
         request.onsuccess = () => {
           const items = request.result;
-          const data = items.map(item => item.data);
+          const data: DataEntity[] = [];
+
+          // Flatten all chunks
+          for (const item of items) {
+            data.push(...item.data);
+          }
+
           resolve(data);
         };
         request.onerror = () => reject(request.error);
@@ -143,6 +164,7 @@ export class IndexedDBStorage {
     types: { type: string; count: number }[];
     quotaUsed: number;
     quotaAvailable: number;
+    available: boolean;
   }> {
     try {
       if ('storage' in navigator && 'estimate' in navigator.storage) {
@@ -177,7 +199,8 @@ export class IndexedDBStorage {
                 totalSize: `${(quotaUsed / 1024 / 1024).toFixed(2)} MB`,
                 types: typesArray,
                 quotaUsed,
-                quotaAvailable
+                quotaAvailable,
+                available: true
               });
             }
           };
@@ -189,7 +212,8 @@ export class IndexedDBStorage {
           totalSize: 'Unknown',
           types: [],
           quotaUsed: 0,
-          quotaAvailable: 0
+          quotaAvailable: 0,
+          available: false
         };
       }
     } catch (error) {
@@ -199,7 +223,8 @@ export class IndexedDBStorage {
         totalSize: 'Unknown',
         types: [],
         quotaUsed: 0,
-        quotaAvailable: 0
+        quotaAvailable: 0,
+        available: false
       };
     }
   }

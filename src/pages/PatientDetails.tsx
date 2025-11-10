@@ -23,8 +23,9 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import Pagination from '@mui/material/Pagination';
 import { Patient, Appointment } from '../types';
-import { databaseService } from '../services/database';
-import { DataService } from '../services/DataService';
+import SimpleDataService from '../services/SimpleDataService';
+import { log } from '../utils/logger';
+import { formatCurrencyWhole } from '../utils/currencyUtils';
 
 const PatientDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,7 +34,7 @@ const PatientDetails: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAppointmentsCollapsed, setIsAppointmentsCollapsed] = useState(false);
+  const [isAppointmentsCollapsed, setIsAppointmentsCollapsed] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [appointmentsPerPage] = useState(10);
 
@@ -47,17 +48,18 @@ const PatientDetails: React.FC = () => {
   const loadPatient = async (patientId: number) => {
     try {
       setLoading(true);
-      const patients = await databaseService.getPatients();
-      const foundPatient = patients.find(p => p.id === patientId);
+      const foundPatient = await SimpleDataService.getPatientById(patientId);
 
       if (foundPatient) {
         setPatient(foundPatient);
+        log.debug('Patient loaded successfully', { id: patientId }, 'PatientDetails');
       } else {
         setError('Patient not found');
+        log.warn('Patient not found', { id: patientId }, 'PatientDetails');
       }
     } catch (error) {
       setError('Failed to load patient details');
-      console.error('Error loading patient:', error);
+      log.error('Error loading patient', { error, patientId }, 'PatientDetails');
     } finally {
       setLoading(false);
     }
@@ -65,9 +67,10 @@ const PatientDetails: React.FC = () => {
 
   const loadAppointments = async (patientId: number) => {
     try {
-      const allAppointments = await DataService.getAppointments();
-      const patientAppointments = allAppointments
-        .filter((apt) => apt.patientId === patientId)
+      const appointmentsResult = await SimpleDataService.getAppointments({
+        filters: { patientId }
+      });
+      const patientAppointments = appointmentsResult.data
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort from latest to oldest
       setAppointments(patientAppointments);
       setCurrentPage(1); // Reset to first page when loading new data
@@ -80,15 +83,7 @@ const PatientDetails: React.FC = () => {
     setCurrentPage(value);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
+  
   const formatAppointmentDate = (dateString: string) => {
     const date = new Date(dateString);
     const day = date.getDate().toString().padStart(2, '0');
@@ -190,7 +185,7 @@ const PatientDetails: React.FC = () => {
           {/* Patient Header */}
           <Box>
             <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
-              <Person sx={{ fontSize: 36, color: 'primary' }} />
+              <Person sx={{ fontSize: 36, color: '#ffffff' }} />
               <Box>
                 <Typography level="h2" sx={{ mb: 0.25 }}>
                   {patient.name}
@@ -279,16 +274,25 @@ const PatientDetails: React.FC = () => {
 
           {/* Appointment History */}
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Typography level="h4" sx={{ color: 'primary' }}>
                 Appointment History ({appointments.length} total)
               </Typography>
               <IconButton
                 variant="outlined"
                 onClick={() => setIsAppointmentsCollapsed(!isAppointmentsCollapsed)}
-                sx={{ color: '#ffffff' }}
+                sx={{
+                  color: '#ffffff',
+                  backgroundColor: '#ffffff',
+                  borderColor: '#ffffff',
+                  ml: 1,
+                  '&:hover': {
+                    backgroundColor: '#f5f5f5',
+                    borderColor: '#f5f5f5'
+                  }
+                }}
               >
-                {isAppointmentsCollapsed ? <ExpandMore /> : <ExpandLess />}
+                {isAppointmentsCollapsed ? <ExpandMore sx={{ color: '#000000' }} /> : <ExpandLess sx={{ color: '#000000' }} />}
               </IconButton>
             </Box>
 
@@ -417,7 +421,7 @@ const PatientDetails: React.FC = () => {
                                   </td>
                                   <td style={{ padding: '8px', textAlign: 'right' }}>
                                     <Chip color="success" variant="soft" size="sm">
-                                      {formatCurrency(appointment.totalPrice)}
+                                      {formatCurrencyWhole(appointment.totalPrice)}
                                     </Chip>
                                   </td>
                                   <td style={{ padding: '8px', textAlign: 'center' }}>

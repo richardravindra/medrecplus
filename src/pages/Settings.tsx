@@ -11,6 +11,8 @@ import History from '@mui/icons-material/History';
 import SettingsIcon from '@mui/icons-material/Settings';
 import Receipt from '@mui/icons-material/Receipt';
 import Science from '@mui/icons-material/Science';
+import CurrencyExchange from '@mui/icons-material/CurrencyExchange';
+import Security from '@mui/icons-material/Security';
 import { useNavigate } from 'react-router-dom';
 
 interface LogEntry {
@@ -97,6 +99,18 @@ const Settings: React.FC = () => {
       description: 'Manage custom examination fields for patient appointments',
       icon: <Science sx={{ fontSize: 24, color: '#ffffff' }} />,
       path: '/settings/custom-examinations'
+    },
+    {
+      title: 'Password and Security',
+      description: 'Manage app password, lockscreen settings and security preferences',
+      icon: <Security sx={{ fontSize: 24, color: '#ffffff' }} />,
+      path: '/settings/security'
+    },
+    {
+      title: 'Change Currency Unit',
+      description: 'Select and configure the currency used throughout the application',
+      icon: <CurrencyExchange sx={{ fontSize: 24, color: '#ffffff' }} />,
+      path: '/settings/currency'
     }
   ];
 
@@ -118,7 +132,7 @@ const Settings: React.FC = () => {
       </Box>
 
       {/* Settings Menu Grid */}
-      <Stack spacing={3}>
+      <Stack spacing={0.75}>
         {settingsMenuItems.map((item) => (
           <Card
             key={item.path}
@@ -133,7 +147,7 @@ const Settings: React.FC = () => {
             }}
             onClick={() => navigate(item.path)}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 0.75 }}>
               <Box sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -148,7 +162,7 @@ const Settings: React.FC = () => {
               </Box>
 
               <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
                   <Typography level="h4" sx={{ color: '#ffffff' }}>
                     {item.title}
                   </Typography>

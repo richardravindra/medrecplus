@@ -12,6 +12,8 @@ use rusqlite::{Connection, Result, params};
 use std::sync::{Arc, Mutex};
 use tauri::State;
 use chrono::Datelike;
+mod encryption;
+use encryption::{EncryptionManager, setup_encrypted_connection, migrate_to_encrypted};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Patient {
@@ -26,6 +28,7 @@ pub struct Patient {
 
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
+    pub encryption_manager: Arc<Mutex<Option<EncryptionManager>>>,
 }
 
 #[tauri::command]
@@ -141,6 +144,172 @@ async fn print_invoice(_text: String, _job_name: Option<String>) -> Result<Strin
     Err("Printing only available on Android".to_string())
 }
 
+// Encryption-related commands
+#[tauri::command]
+async fn setup_encryption(password: String, state: State<'_, AppState>) -> Result<String, String> {
+    // Validate password strength
+    if password.len() < 8 {
+        return Err("Password must be at least 8 characters long".to_string());
+    }
+
+    if !password.chars().any(|c| c.is_numeric()) {
+        return Err("Password must contain at least one number".to_string());
+    }
+
+    if !password.chars().any(|c| c.is_alphabetic()) {
+        return Err("Password must contain at least one letter".to_string());
+    }
+
+    let encryption_manager = EncryptionManager::new();
+    let key = encryption_manager.derive_key(&password)?;
+
+    // Save encryption config
+    let config_path = if cfg!(target_os = "android") {
+        match std::env::var("HOME") {
+            Ok(home) => format!("{}/.medrec_encryption", home),
+            Err(_) => ".medrec_encryption".to_string(),
+        }
+    } else {
+        ".medrec_encryption".to_string()
+    };
+
+    encryption_manager.save_config(std::path::Path::new(&config_path))
+        .map_err(|e| format!("Failed to save encryption config: {}", e))?;
+
+    // Update the database connection to use encryption
+    {
+        let db = state.db.lock().unwrap();
+        setup_encrypted_connection(&*db, &key)
+            .map_err(|e| format!("Failed to setup encryption: {}", e))?;
+    }
+
+    // Store encryption manager in state
+    {
+        let mut em = state.encryption_manager.lock().unwrap();
+        *em = Some(encryption_manager);
+    }
+
+    Ok("Encryption setup completed successfully".to_string())
+}
+
+#[tauri::command]
+async fn unlock_database(password: String, state: State<'_, AppState>) -> Result<String, String> {
+    // Load encryption config
+    let config_path = if cfg!(target_os = "android") {
+        match std::env::var("HOME") {
+            Ok(home) => format!("{}/.medrec_encryption", home),
+            Err(_) => ".medrec_encryption".to_string(),
+        }
+    } else {
+        ".medrec_encryption".to_string()
+    };
+
+    let config = EncryptionManager::load_config(std::path::Path::new(&config_path))
+        .map_err(|e| format!("Failed to load encryption config: {}", e))?
+        .ok_or("No encryption configuration found".to_string())?;
+
+    let encryption_manager = EncryptionManager::with_salt(config.salt);
+    let key = encryption_manager.derive_key(&password)?;
+
+    // Test the key by attempting to setup encryption
+    {
+        let db = state.db.lock().unwrap();
+        setup_encrypted_connection(&*db, &key)
+            .map_err(|_e| "Invalid password or corrupted database".to_string())?;
+    }
+
+    // Store encryption manager in state
+    {
+        let mut em = state.encryption_manager.lock().unwrap();
+        *em = Some(encryption_manager);
+    }
+
+    Ok("Database unlocked successfully".to_string())
+}
+
+#[tauri::command]
+async fn is_database_encrypted() -> Result<bool, String> {
+    let config_path = if cfg!(target_os = "android") {
+        match std::env::var("HOME") {
+            Ok(home) => format!("{}/.medrec_encryption", home),
+            Err(_) => ".medrec_encryption".to_string(),
+        }
+    } else {
+        ".medrec_encryption".to_string()
+    };
+
+    let config = EncryptionManager::load_config(std::path::Path::new(&config_path))
+        .map_err(|e| format!("Failed to check encryption status: {}", e))?;
+
+    Ok(config.is_some_and(|c| c.is_encrypted))
+}
+
+#[tauri::command]
+async fn migrate_to_encrypted_database(password: String, state: State<'_, AppState>) -> Result<String, String> {
+    // Validate password strength
+    if password.len() < 8 {
+        return Err("Password must be at least 8 characters long".to_string());
+    }
+
+    // Setup new encryption
+    let encryption_manager = EncryptionManager::new();
+    let key = encryption_manager.derive_key(&password)?;
+
+    let db_path = if cfg!(target_os = "android") {
+        match std::env::var("HOME") {
+            Ok(home) => format!("{}/patients.db", home),
+            Err(_) => "patients.db".to_string(),
+        }
+    } else {
+        "patients.db".to_string()
+    };
+
+    let encrypted_path = format!("{}.encrypted", db_path);
+
+    // Create encrypted database
+    let encrypted_conn = migrate_to_encrypted(
+        &state.db.lock().unwrap(),
+        &encrypted_path,
+        &key
+    ).map_err(|e| format!("Failed to migrate to encrypted database: {}", e))?;
+
+    // Save encryption config
+    let config_path = if cfg!(target_os = "android") {
+        match std::env::var("HOME") {
+            Ok(home) => format!("{}/.medrec_encryption", home),
+            Err(_) => ".medrec_encryption".to_string(),
+        }
+    } else {
+        ".medrec_encryption".to_string()
+    };
+
+    encryption_manager.save_config(std::path::Path::new(&config_path))
+        .map_err(|e| format!("Failed to save encryption config: {}", e))?;
+
+    // Update state with new encrypted connection
+    {
+        let mut db = state.db.lock().unwrap();
+        *db = encrypted_conn;
+    }
+
+    {
+        let mut em = state.encryption_manager.lock().unwrap();
+        *em = Some(encryption_manager);
+    }
+
+    // Backup old database and replace with encrypted one
+    if cfg!(not(target_os = "android")) {
+        let backup_path = format!("{}.backup", db_path);
+        std::fs::rename(&db_path, &backup_path)
+            .map_err(|e| format!("Failed to backup old database: {}", e))?;
+
+        std::fs::rename(&encrypted_path, &db_path)
+            .map_err(|e| format!("Failed to replace database with encrypted version: {}", e))?;
+    }
+
+    Ok("Database migration completed successfully".to_string())
+}
+
 fn init_database() -> Result<Connection> {
     // On Android, try to use the app's data directory
     // On desktop, use the current working directory
@@ -167,6 +336,27 @@ fn init_database() -> Result<Connection> {
             e
         })?;
 
+    // Check if database is encrypted
+    let config_path = if cfg!(target_os = "android") {
+        match std::env::var("HOME") {
+            Ok(home) => format!("{}/.medrec_encryption", home),
+            Err(_) => ".medrec_encryption".to_string(),
+        }
+    } else {
+        ".medrec_encryption".to_string()
+    };
+
+    // Try to load encryption config
+    if let Ok(Some(config)) = EncryptionManager::load_config(std::path::Path::new(&config_path)) {
+        if config.is_encrypted {
+            println!("Database is encrypted. Waiting for password to unlock...");
+            // Database is encrypted, but we can't unlock it here without the password
+            // The database will be unlocked when unlock_database is called
+            return Ok(conn);
+        }
+    }
+
+    // Database is not encrypted, create tables normally
     conn.execute(
         "CREATE TABLE IF NOT EXISTS patients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,17 +416,24 @@ pub async fn main() {
 
     let app_state = AppState {
         db: Arc::new(Mutex::new(conn)),
+        encryption_manager: Arc::new(Mutex::new(None)),
     };
 
     tauri::Builder::default()
         .manage(app_state)
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             get_patients,
             add_patient,
             update_patient,
             delete_patient,
             generate_record_number,
-            print_invoice
+            print_invoice,
+            setup_encryption,
+            unlock_database,
+            is_database_encrypted,
+            migrate_to_encrypted_database
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

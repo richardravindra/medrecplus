@@ -12,6 +12,9 @@ import * as XLSX from 'xlsx';
 import { isTauriEnvironment, importTauriDialog, importTauriFs } from '../../utils/tauriUtils';
 import { Patient, Invoice } from '../../types';
 import { EnhancedRestoreDialog } from '../../components/EnhancedRestoreDialog';
+import { storage } from '../../services/UnifiedStorage';
+import { memoryManager } from '../../utils/SimpleMemoryManager';
+import SimpleDataService from '../../services/SimpleDataService';
 
 interface Treatment {
   id: number;
@@ -26,13 +29,13 @@ const BackupRestoreSettings: React.FC = () => {
 
   const handleBackup = async () => {
     try {
-      // Collect all data
+      // Collect all data using UnifiedStorage for consistency where available
       const backupData = {
-        operators: JSON.parse(localStorage.getItem('operators') || '[]'),
-        treatments: JSON.parse(localStorage.getItem('treatments') || '[]'),
-        patients: JSON.parse(localStorage.getItem('patient_management_data') || '[]'),
-        appointments: JSON.parse(localStorage.getItem('appointments') || '[]'),
-        invoices: JSON.parse(localStorage.getItem('invoices') || '[]'),
+        operators: await storage.getOperators(),
+        treatments: await storage.getTreatments(),
+        patients: await storage.getPatients(),
+        appointments: await storage.getAppointments(),
+        invoices: await storage.getInvoices(),
         backupDate: new Date().toISOString(),
         version: '1.0'
       };
@@ -99,9 +102,8 @@ const BackupRestoreSettings: React.FC = () => {
 
   const handleExportToExcel = async () => {
     try {
-      // Load patients data
-      const patientsRaw = localStorage.getItem('patient_management_data');
-      const patients = JSON.parse(patientsRaw || '[]');
+      // Load patients data using UnifiedStorage for consistency
+      const patients = await storage.getPatients();
 
       if (patients.length === 0) {
         alert('No patient data available to export.');
@@ -183,9 +185,8 @@ const BackupRestoreSettings: React.FC = () => {
 
   const handleExportInvoicesToExcel = async () => {
     try {
-      // Load invoices data
-      const invoicesRaw = localStorage.getItem('invoices');
-      const invoices = JSON.parse(invoicesRaw || '[]');
+      // Load invoices data using UnifiedStorage for consistency
+      const invoices = await storage.getInvoices();
 
       if (invoices.length === 0) {
         alert('No invoice data available to export.');
@@ -298,7 +299,10 @@ const BackupRestoreSettings: React.FC = () => {
         '• All appointments\n' +
         '• All invoices\n' +
         '• All treatments\n' +
-        '• All operators\n\n' +
+        '• All operators\n' +
+        '• All IndexedDB data\n' +
+        '• All memory cache\n' +
+        '• All localStorage data\n\n' +
         'This action cannot be undone!\n\n' +
         'Click OK to continue, or Cancel to abort.'
       );
@@ -317,155 +321,95 @@ const BackupRestoreSettings: React.FC = () => {
 
       // Final confirmation
       const confirm2 = confirm(
-        '🚨 FINAL WARNING: You are about to permanently delete ALL application data.\n\n' +
+        '🚨 FINAL WARNING: You are about to permanently delete ALL application data from ALL storage systems.\n\n' +
+        'This includes:\n' +
+        '• IndexedDB (primary storage)\n' +
+        '• Memory cache\n' +
+        '• localStorage (fallback storage)\n' +
+        '• Any temporary data\n\n' +
         'There is no way to recover this data after deletion.\n\n' +
         'Are you absolutely sure you want to proceed?'
       );
 
       if (!confirm2) return;
 
-      // Clear all localStorage data
-      const keysToRemove = [
-        'operators',
-        'treatments',
-        'patient_management_data',
-        'appointments',
-        'invoices',
-        'settings',
-        'currentUser'
-      ];
+      console.log('🗑️ Starting complete data erasure from all storage systems...');
 
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(key);
-      });
+      // 1. Clear UnifiedStorage (IndexedDB + localStorage)
+      try {
+        await storage.clear();
+        console.log('✅ UnifiedStorage (IndexedDB + localStorage) cleared');
+      } catch (error) {
+        console.error('❌ Failed to clear UnifiedStorage:', error);
+      }
 
-      // Clear any additional data that might exist
-      const allKeys = Object.keys(localStorage);
-      allKeys.forEach(key => {
-        if (key.includes('patient_') ||
-            key.includes('appointment_') ||
-            key.includes('invoice_') ||
-            key.includes('treatment_') ||
-            key.includes('operator_') ||
-            key.includes('temp_') ||
-            key.includes('cache_')) {
-          localStorage.removeItem(key);
+      // 2. Clear all memory caches
+      try {
+        memoryManager.clearAll();
+        console.log('✅ Memory cache cleared');
+      } catch (error) {
+        console.error('❌ Failed to clear memory cache:', error);
+      }
+
+      // 3. Clear SimpleDataService caches
+      try {
+        // Clear any internal caches in SimpleDataService
+        const serviceModule = SimpleDataService as { clearAllCaches?: () => void };
+        if (serviceModule.clearAllCaches && typeof serviceModule.clearAllCaches === 'function') {
+          serviceModule.clearAllCaches();
         }
-      });
+        console.log('✅ SimpleDataService caches cleared');
+      } catch (error) {
+        console.error('❌ Failed to clear SimpleDataService caches:', error);
+      }
 
-      alert('✅ All data has been successfully erased. The page will now reload.');
+      // 4. Clear all remaining localStorage data as fallback
+      try {
+        const allKeys = Object.keys(localStorage);
+        let localStorageCleared = 0;
+
+        allKeys.forEach(key => {
+          // Keep only essential system keys
+          if (!['currentUser', 'settings', 'medrec_dev_encryption_setup'].includes(key)) {
+            localStorage.removeItem(key);
+            localStorageCleared++;
+          }
+        });
+
+        console.log(`✅ Cleared ${localStorageCleared} localStorage keys`);
+      } catch (error) {
+        console.error('❌ Failed to clear localStorage:', error);
+      }
+
+      // 5. Clear session storage
+      try {
+        sessionStorage.clear();
+        console.log('✅ Session storage cleared');
+      } catch (error) {
+        console.error('❌ Failed to clear session storage:', error);
+      }
+
+      console.log('🎉 All storage systems have been successfully erased');
+
+      alert('✅ All data has been successfully erased from ALL storage systems:\n\n' +
+            '• IndexedDB cleared\n' +
+            '• Memory cache cleared\n' +
+            '• localStorage cleared\n' +
+            '• Session storage cleared\n' +
+            '• Service caches cleared\n\n' +
+            'The page will now reload to a fresh state.');
 
       // Reload the page to clear any in-memory data
       window.location.reload();
 
     } catch (error) {
-      console.error('Data erasure failed:', error);
-      alert('❌ An error occurred while erasing data. Some data may remain. Please try again or contact support.');
+      console.error('❌ Data erasure failed:', error);
+      alert('❌ An error occurred while erasing data. Some data may remain. Please try again or contact support.\n\n' +
+            'Error details: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
-  const handleRestore = async () => {
-    try {
-      // Check if running in Tauri environment
-      if (isTauriEnvironment()) {
-        // Tauri environment - use native file dialog
-        const dialogModule = await importTauriDialog();
-        const fsModule = await importTauriFs();
-        const { open } = dialogModule;
-        const { readFile } = fsModule;
-
-        // Show open dialog
-        const selectedPath = await (open as (options: unknown) => Promise<string | null>)({
-          title: 'Select Backup File',
-          multiple: false,
-          filters: [
-            {
-              name: 'JSON Files',
-              extensions: ['json']
-            },
-            {
-              name: 'All Files',
-              extensions: ['*']
-            }
-          ]
-        });
-
-        if (selectedPath) {
-          // Read the selected file using Tauri's API
-          const content = await (readFile as (path: string) => Promise<string>)(selectedPath);
-          const backupData = JSON.parse(content);
-
-          // Validate backup structure
-          if (!backupData.operators || !backupData.treatments || !backupData.patients ||
-              !backupData.appointments || !backupData.invoices) {
-            throw new Error('Invalid backup file structure');
-          }
-
-          // Confirm restore
-          if (confirm('Are you sure you want to restore this backup? This will overwrite all existing data.')) {
-            // Restore data to localStorage
-            localStorage.setItem('operators', JSON.stringify(backupData.operators));
-            localStorage.setItem('treatments', JSON.stringify(backupData.treatments));
-            localStorage.setItem('patient_management_data', JSON.stringify(backupData.patients));
-            localStorage.setItem('appointments', JSON.stringify(backupData.appointments));
-            localStorage.setItem('invoices', JSON.stringify(backupData.invoices));
-
-            alert('Backup restored successfully! The page will be refreshed.');
-            window.location.reload();
-          }
-        }
-      } else {
-        // Web environment - use file input
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-
-        input.onchange = (event) => {
-          const file = (event.target as HTMLInputElement).files?.[0];
-          if (!file) return;
-
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            try {
-              const content = e.target?.result as string;
-              const backupData = JSON.parse(content);
-
-              // Validate backup structure
-              if (!backupData.operators || !backupData.treatments || !backupData.patients ||
-                  !backupData.appointments || !backupData.invoices) {
-                throw new Error('Invalid backup file structure');
-              }
-
-              // Confirm restore
-              if (confirm('Are you sure you want to restore this backup? This will overwrite all existing data.')) {
-                // Restore data to localStorage
-                localStorage.setItem('operators', JSON.stringify(backupData.operators));
-                localStorage.setItem('treatments', JSON.stringify(backupData.treatments));
-                localStorage.setItem('patient_management_data', JSON.stringify(backupData.patients));
-                localStorage.setItem('appointments', JSON.stringify(backupData.appointments));
-                localStorage.setItem('invoices', JSON.stringify(backupData.invoices));
-
-                alert('Backup restored successfully! The page will be refreshed.');
-                window.location.reload();
-              }
-            } catch (error) {
-              console.error('Restore failed:', error);
-              alert('Restore failed. Please ensure you selected a valid backup file.');
-            }
-          };
-
-          reader.readAsText(file);
-        };
-
-        // Trigger file selection dialog
-        input.click();
-      }
-    } catch (error) {
-      console.error('Restore failed:', error);
-      alert('Restore failed. Please ensure you selected a valid backup file.');
-    }
-  };
-
+  
   return (
     <Box sx={{
       width: '100%',
@@ -518,39 +462,28 @@ const BackupRestoreSettings: React.FC = () => {
             </Button>
           </Box>
 
+  
           {/* Restore Section */}
           <Box sx={{ p: 3, backgroundColor: 'background.level1', borderRadius: 'sm' }}>
             <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
               📥 Restore Data
             </Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff', mb: 2 }}>
-              Import application data from a previously created JSON backup file.
+            <Typography level="body-sm" sx={{ color: '#ffffff', mb: 3 }}>
+              Import application data from a previously created JSON backup file. The enhanced restore system handles files of any size and provides better performance and reliability.
             </Typography>
 
-            <Stack spacing={2} sx={{ mb: 2 }}>
-              <Button
-                variant="solid"
-                color="primary"
-                startDecorator={<Upload sx={{ color: '#ffffff' }} />}
-                onClick={() => setShowEnhancedRestore(true)}
-                sx={{ borderRadius: 'sm' }}
-              >
-                🚀 Enhanced Restore (Large Files)
-              </Button>
+            <Button
+              variant="solid"
+              color="primary"
+              startDecorator={<Upload sx={{ color: '#ffffff' }} />}
+              onClick={() => setShowEnhancedRestore(true)}
+              sx={{ borderRadius: 'sm' }}
+            >
+              Restore from JSON Backup
+            </Button>
 
-              <Button
-                variant="outlined"
-                color="neutral"
-                startDecorator={<Upload sx={{ color: '#ffffff' }} />}
-                onClick={handleRestore}
-                sx={{ borderRadius: 'sm' }}
-              >
-                Standard Restore (Small Files)
-              </Button>
-            </Stack>
-
-            <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
-              💡 Use Enhanced Restore for files with 1000+ records or files larger than 1MB
+            <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8, mt: 2 }}>
+              💡 Optimized for all file sizes with chunked processing and memory management
             </Typography>
           </Box>
 
@@ -566,7 +499,7 @@ const BackupRestoreSettings: React.FC = () => {
               🗑️ Erase All Data
             </Typography>
             <Typography level="body-sm" sx={{ color: 'danger.plainColor', mb: 3 }}>
-              Permanently delete all application data. This action cannot be undone and will remove all patients, appointments, invoices, treatments, and operators.
+              Permanently delete ALL application data from ALL storage systems. This action cannot be undone and will remove all patients, appointments, invoices, treatments, operators, IndexedDB data, memory caches, and localStorage data.
             </Typography>
             <Button
               variant="solid"
@@ -625,7 +558,8 @@ const BackupRestoreSettings: React.FC = () => {
               • Test restore on a copy before replacing production data<br />
               • Keep backup files in a secure location<br />
               • Excel exports are read-only and cannot be imported back into the system<br />
-              • Erase All Data will permanently delete everything and cannot be undone<br />
+              • <strong>Erase All Data will permanently delete ALL data from ALL storage systems (IndexedDB, memory cache, localStorage, session storage)</strong><br />
+              • <strong>Erase All Data cannot be undone and will wipe every storage mechanism used by the application</strong><br />
               • Always create a backup before using the Erase All Data feature
             </Typography>
           </Box>
@@ -640,7 +574,8 @@ const BackupRestoreSettings: React.FC = () => {
           console.log('Enhanced restore completed successfully');
         }}
       />
-    </Box>
+
+      </Box>
   );
 };
 

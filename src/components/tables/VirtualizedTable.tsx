@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { FixedSizeList as List } from 'react-window';
+import { List } from 'react-window';
 import {
   Box,
   Typography,
@@ -14,7 +14,6 @@ import {
   IconButton,
   Sheet
 } from '@mui/joy';
-import { Appointment, Invoice } from '../../types';
 import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 
@@ -35,67 +34,14 @@ export interface Column<T> {
   key: keyof T;
   label: string;
   width: number;
-  render?: (value: any, item: T) => React.ReactNode;
+  render?: (value: T[keyof T], item: T) => React.ReactNode;
   sortable?: boolean;
   dataType?: 'string' | 'number' | 'date';
+  align?: 'left' | 'center' | 'right';
+  minWidth?: string;
+  maxWidth?: string;
 }
 
-// Row component for virtualization
-const Row = React.memo(({
-  index,
-  style,
-  data
-}: {
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    items: any[];
-    columns: Column<any>[];
-    onItemClick?: (item: any) => void;
-  }
-}) => {
-  const item = data.items[index];
-
-  const handleClick = useCallback(() => {
-    if (data.onItemClick) {
-      data.onItemClick(item);
-    }
-  }, [item, data.onItemClick]);
-
-  return (
-    <div style={style}>
-      <tr
-        style={{
-          cursor: data.onItemClick ? 'pointer' : 'default'
-        }}
-        onClick={handleClick}
-      >
-        {data.columns.map((column) => (
-          <td
-            key={`${String(column.key)}-${item.id || index}`}
-            style={{
-              width: column.width,
-              minWidth: column.width,
-              maxWidth: column.width,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              padding: '8px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-            }}
-          >
-            {column.render
-              ? column.render(item[column.key], item)
-              : String(item[column.key] || '')
-            }
-          </td>
-        ))}
-      </tr>
-    </div>
-  );
-});
-
-Row.displayName = 'VirtualizedRow';
 
 export function VirtualizedTable<T extends { id?: number | string }>({
   data,
@@ -114,19 +60,19 @@ export function VirtualizedTable<T extends { id?: number | string }>({
   // Sorting logic
   const sortedData = useMemo(() => {
     if (!sortKey) return filteredData;
-    
+
     return [...filteredData].sort((a, b) => {
       const aValue = a[sortKey];
       const bValue = b[sortKey];
-      
+
       // Handle different data types
       if (aValue === undefined || bValue === undefined) return 0;
-      
+
       const column = columns.find(col => col.key === sortKey);
       const dataType = column?.dataType || 'string';
-      
+
       let comparison = 0;
-      
+
       switch (dataType) {
         case 'number':
           comparison = (Number(aValue) || 0) - (Number(bValue) || 0);
@@ -137,7 +83,7 @@ export function VirtualizedTable<T extends { id?: number | string }>({
         default:
           comparison = String(aValue).localeCompare(String(bValue));
       }
-      
+
       return sortDirection === 'desc' ? -comparison : comparison;
     });
   }, [filteredData, sortKey, sortDirection, columns]);
@@ -163,17 +109,18 @@ export function VirtualizedTable<T extends { id?: number | string }>({
     setFilteredData(filtered);
   }, [data, searchQuery]);
 
-  // Memoize row data to prevent unnecessary re-renders
-  const rowData = useMemo(() => ({
-    items: sortedData,
-    columns,
-    onItemClick
-  }), [sortedData, columns, onItemClick]);
+  
+  // Memoized click handler for rows
+  const handleItemClick = useCallback((item: T) => {
+    if (onItemClick) {
+      onItemClick(item);
+    }
+  }, [onItemClick]);
 
   // Handle header click for sorting
   const handleHeaderClick = useCallback((column: Column<T>) => {
     if (!column.sortable || !onSort) return;
-    
+
     const newDirection = sortKey === column.key && sortDirection === 'desc' ? 'asc' : 'desc';
     onSort(column.key, newDirection);
   }, [sortKey, sortDirection, onSort]);
@@ -267,10 +214,47 @@ export function VirtualizedTable<T extends { id?: number | string }>({
           height={height - 60}
           itemCount={sortedData.length}
           itemSize={rowHeight}
-          itemData={rowData}
           overscanCount={5} // Render 5 extra rows above/below for smooth scrolling
         >
-          {Row}
+          {/* @ts-expect-error - react-window List children function type compatibility */}
+          {({ index, style }: { index: number; style: React.CSSProperties }) => {
+            const item = sortedData[index];
+
+            return (
+              <div style={style}>
+                <tr
+                  style={{
+                    cursor: onItemClick ? 'pointer' : 'default',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}
+                  onClick={() => handleItemClick(item)}
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={String(column.key)}
+                      style={{
+                        padding: '12px',
+                        fontSize: '14px',
+                        color: '#ffffff',
+                        textAlign: column.align || 'left',
+                        minWidth: column.minWidth || 'auto',
+                        maxWidth: column.maxWidth || '200px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        borderRight: '1px solid rgba(255, 255, 255, 0.05)'
+                      }}
+                    >
+                      {column.render
+                        ? column.render(item[column.key], item)
+                        : String(item[column.key] || '')
+                      }
+                    </td>
+                  ))}
+                </tr>
+              </div>
+            );
+          }}
         </List>
       </Box>
 
@@ -296,144 +280,8 @@ export function VirtualizedTable<T extends { id?: number | string }>({
   );
 }
 
-// Appointment-specific columns
-export const appointmentColumns: Column<Appointment>[] = [
-  {
-    key: 'date',
-    label: 'Date & Time',
-    width: 180,
-    render: (value: string) => {
-      try {
-        const date = new Date(value);
-        return date.toLocaleString('en-US', {
-          month: '2-digit',
-          day: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      } catch {
-        return value;
-      }
-    }
-  },
-  {
-    key: 'patientName',
-    label: 'Patient',
-    width: 200,
-    render: (value: string) => (
-      <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {value}
-      </Box>
-    )
-  },
-  {
-    key: 'totalPrice',
-    label: 'Total Price',
-    width: 120,
-    render: (value: number) => (
-      <Typography fontWeight="medium">
-        Rp {value?.toLocaleString('id-ID') || '0'}
-      </Typography>
-    )
-  },
-  {
-    key: 'operatorName',
-    label: 'Operator',
-    width: 200,
-    render: (value: string) => (
-      <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {value}
-      </Box>
-    )
-  },
-  {
-    key: 'treatments',
-    label: 'Treatments',
-    width: 250,
-    render: (value: any[]) => (
-      <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {value?.slice(0, 2).map((t: any) => t.name).join(', ')}
-        {value?.length > 2 && ` (+${value.length - 2})`}
-      </Box>
-    )
-  }
-];
-
-// Invoice-specific columns
-export const invoiceColumns: Column<Invoice>[] = [
-  {
-    key: 'invoiceNumber',
-    label: 'Invoice #',
-    width: 150
-  },
-  {
-    key: 'patientName',
-    label: 'Patient',
-    width: 180
-  },
-  {
-    key: 'date',
-    label: 'Date & Time',
-    width: 160,
-    sortable: true,
-    dataType: 'date',
-    render: (value: string) => {
-      try {
-        const date = new Date(value);
-        return date.toLocaleString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
-      } catch {
-        return value;
-      }
-    }
-  },
-  {
-    key: 'operatorName',
-    label: 'Operator',
-    width: 180
-  },
-  {
-    key: 'totalAmount',
-    label: 'Total Amount',
-    width: 120,
-    render: (value: number) => (
-      <Typography fontWeight="medium">
-        Rp {value?.toLocaleString('id-ID') || '0'}
-      </Typography>
-    )
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    width: 100,
-    render: (value: string) => (
-      <Box
-        sx={{
-          px: 1,
-          py: 0.5,
-          borderRadius: 'sm',
-          backgroundColor: value === 'paid' ? 'success.softBg' :
-                           value === 'pending' ? 'warning.softBg' :
-                           value === 'void' ? 'danger.softBg' : 'neutral.softBg',
-          color: value === 'paid' ? 'success.softColor' :
-                 value === 'pending' ? 'warning.softColor' :
-                 value === 'void' ? 'danger.softColor' : 'neutral.softColor',
-          fontSize: 'sm',
-          fontWeight: 'medium',
-          textAlign: 'center'
-        }}
-      >
-        {value?.charAt(0).toUpperCase() + value?.slice(1)}
-      </Box>
-    )
-  }
-];
-
 export default VirtualizedTable;
+
+// Note: Column configurations are available in separate files:
+// - appointmentColumns in './appointmentColumns'
+// - invoiceColumns in './invoiceColumns'

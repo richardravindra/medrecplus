@@ -7,9 +7,11 @@ import Button from '@mui/joy/Button';
 import Stack from '@mui/joy/Stack';
 import Add from '@mui/icons-material/Add';
 import MonetizationOn from '@mui/icons-material/MonetizationOn';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DataService } from '../services/DataService';
+import { LazyLineChart } from '../components/charts/LazyLineChart';
+import SimpleDataService from '../services/SimpleDataService';
+import { log } from '../utils/logger';
 import { Invoice } from '../types';
+import { useCurrency, formatCurrency } from '../utils/currencyUtils';
 
 interface PatientStats {
   totalPatients: number;
@@ -57,6 +59,7 @@ interface Appointment {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [currency] = useCurrency();
   const [stats, setStats] = useState<PatientStats>({
     totalPatients: 0,
     newThisMonth: 0,
@@ -79,8 +82,9 @@ const Dashboard: React.FC = () => {
 
   const loadStats = async () => {
     try {
-      // Load patient statistics using DataService
-      const patients = await DataService.getPatients();
+      // Load patient statistics using SimpleDataService
+      const patientsResult = await SimpleDataService.getPatients({ limit: 10000 });
+      const patients = patientsResult.data;
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -116,8 +120,9 @@ const Dashboard: React.FC = () => {
         monthlyData: patientMonthlyData
       });
 
-      // Load appointment statistics using DataService
-      const appointments = await DataService.getAppointments();
+      // Load appointment statistics using SimpleDataService
+      const appointmentsResult = await SimpleDataService.getAppointments({ limit: 10000 });
+      const appointments = appointmentsResult.data;
 
       // Calculate appointments this month
       const appointmentsThisMonth = appointments.filter((appointment: Appointment) => {
@@ -148,8 +153,9 @@ const Dashboard: React.FC = () => {
         monthlyData: appointmentMonthlyData
       });
 
-      // Load invoice statistics and calculate revenue using DataService
-      const invoices = await DataService.getInvoices();
+      // Load invoice statistics and calculate revenue using SimpleDataService
+      const invoicesResult = await SimpleDataService.getInvoices({ limit: 10000 });
+      const invoices = invoicesResult.data;
       const paidInvoices = invoices.filter((invoice: Invoice) => invoice.status === 'paid');
 
       // Calculate revenue this month
@@ -186,29 +192,31 @@ const Dashboard: React.FC = () => {
       });
 
     } catch (error) {
-      console.error('Error loading stats:', error);
+      log.error('Error loading dashboard stats', { error }, 'Dashboard');
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  // Currency formatting now handled by the imported utility functions
 
 
   return (
     <Box sx={{
       width: '100%',
       minHeight: '100%',
+      maxHeight: '100vh',
       p: { xs: 1, md: 1.5 },
       pt: { xs: 0, md: 1.5 },
       pr: { xs: 2, md: 1.5 },
+      pb: { xs: 1, md: 1.5 }, // Add bottom padding to ensure content doesn't overlap with button
       boxSizing: 'border-box',
-      minWidth: 0
+      minWidth: 0,
+      overflowY: 'auto', // Enable scrolling within the container
+      overflowX: 'hidden', // Prevent horizontal scrolling
+      position: 'relative', // Ensure positioning context for the button
+      // Ensure proper scrolling on mobile devices
+      WebkitOverflowScrolling: 'touch',
+      // Handle safe areas on mobile
+      paddingBottom: { xs: 'max(16px, env(safe-area-inset-bottom))', md: '1.5rem' },
     }}>
       <Box sx={{ mb: 1 }}>
         <Typography level="h2" sx={{ mb: 1 }}>
@@ -273,49 +281,13 @@ const Dashboard: React.FC = () => {
               border: '1px solid',
               borderColor: 'divider'
             }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={stats.monthlyData}
-                  margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--joy-palette-neutral-outlinedBorder)"
-                    strokeOpacity={0.5}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    stroke="var(--joy-palette-text-secondary)"
-                    tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 12 }}
-                  />
-                  <YAxis
-                    stroke="var(--joy-palette-text-secondary)"
-                    tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--joy-palette-background-level1)',
-                      border: '1px solid var(--joy-palette-neutral-outlinedBorder)',
-                      borderRadius: '8px',
-                      color: 'var(--joy-palette-text-primary)'
-                    }}
-                    labelStyle={{ color: 'var(--joy-palette-text-primary)' }}
-                  />
-                    <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke="var(--joy-palette-primary-500)"
-                    strokeWidth={3}
-                    dot={{
-                      fill: 'var(--joy-palette-primary-500)',
-                      strokeWidth: 2,
-                      r: 5
-                    }}
-                    activeDot={{ r: 7 }}
-                    name="New Patients"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <LazyLineChart
+                data={stats.monthlyData}
+                dataKey="count"
+                stroke="var(--joy-palette-primary-500)"
+                height={220}
+                title="Patient Registration Trend"
+              />
             </Box>
           </Box>
           </Card>
@@ -354,49 +326,13 @@ const Dashboard: React.FC = () => {
               border: '1px solid',
               borderColor: 'divider'
             }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={appointmentStats.monthlyData}
-                  margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--joy-palette-neutral-outlinedBorder)"
-                    strokeOpacity={0.5}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    stroke="var(--joy-palette-text-secondary)"
-                    tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 12 }}
-                  />
-                  <YAxis
-                    stroke="var(--joy-palette-text-secondary)"
-                    tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--joy-palette-background-level1)',
-                      border: '1px solid var(--joy-palette-neutral-outlinedBorder)',
-                      borderRadius: '8px',
-                      color: 'var(--joy-palette-text-primary)'
-                    }}
-                    labelStyle={{ color: 'var(--joy-palette-text-primary)' }}
-                  />
-                    <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke="var(--joy-palette-success-500)"
-                    strokeWidth={3}
-                    dot={{
-                      fill: 'var(--joy-palette-success-500)',
-                      strokeWidth: 2,
-                      r: 5
-                    }}
-                    activeDot={{ r: 7 }}
-                    name="Appointments"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <LazyLineChart
+                data={appointmentStats.monthlyData}
+                dataKey="count"
+                stroke="var(--joy-palette-success-500)"
+                height={220}
+                title="Appointments Trend"
+              />
             </Box>
           </Box>
           </Card>
@@ -426,10 +362,10 @@ const Dashboard: React.FC = () => {
                 Revenue This Month
               </Typography>
               <Typography level="h2" color="success" sx={{ mb: 0.5 }}>
-                {formatCurrency(revenueStats.thisMonth)}
+                {formatCurrency(revenueStats.thisMonth, currency)}
               </Typography>
               <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-                Total revenue: {formatCurrency(revenueStats.totalRevenue)}
+                Total revenue: {formatCurrency(revenueStats.totalRevenue, currency)}
               </Typography>
             </Box>
 
@@ -459,51 +395,13 @@ const Dashboard: React.FC = () => {
               border: '1px solid',
               borderColor: 'divider'
             }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={revenueStats.monthlyData}
-                  margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--joy-palette-neutral-outlinedBorder)"
-                    strokeOpacity={0.5}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    stroke="var(--joy-palette-text-secondary)"
-                    tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 12 }}
-                  />
-                  <YAxis
-                    stroke="var(--joy-palette-text-secondary)"
-                    tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 12 }}
-                    tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--joy-palette-background-level1)',
-                      border: '1px solid var(--joy-palette-neutral-outlinedBorder)',
-                      borderRadius: '8px',
-                      color: 'var(--joy-palette-text-primary)'
-                    }}
-                    labelStyle={{ color: 'var(--joy-palette-text-primary)' }}
-                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
-                  />
-                    <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="var(--joy-palette-primary-500)"
-                    strokeWidth={3}
-                    dot={{
-                      fill: 'var(--joy-palette-primary-500)',
-                      strokeWidth: 2,
-                      r: 5
-                    }}
-                    activeDot={{ r: 7 }}
-                    name="Revenue"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <LazyLineChart
+                data={revenueStats.monthlyData}
+                dataKey="revenue"
+                stroke="var(--joy-palette-primary-500)"
+                height={220}
+                title="Revenue Trend"
+              />
             </Box>
           </Box>
           </Card>
@@ -519,8 +417,8 @@ const Dashboard: React.FC = () => {
         startDecorator={<Add />}
         sx={{
           position: 'fixed',
-          bottom: { xs: 84, md: 24 },
-          right: { xs: 16, md: 24 },
+          bottom: { xs: '80px', md: '24px' }, // Positioned above mobile navbar (60px + safe area)
+          right: { xs: '16px', md: '24px' },
           zIndex: 1000,
           borderRadius: 28,
           fontSize: '14px',
@@ -528,6 +426,20 @@ const Dashboard: React.FC = () => {
           padding: { xs: '10px 16px', md: '12px 20px' },
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
           transition: 'all 0.3s ease',
+          maxWidth: '90vw', // Ensure button doesn't overflow on small screens
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          // Ensure button stays within safe areas on mobile devices
+          '@media screen and (max-aspect-ratio: 9/16)': {
+            bottom: '80px',
+            right: '16px',
+          },
+          // Handle notched screens and safe areas
+          '@supports (padding: max(0px))': {
+            paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+            marginRight: 'max(16px, env(safe-area-inset-right))',
+          },
           '&:hover': {
             transform: 'scale(1.05)',
             boxShadow: '0 6px 20px rgba(0, 0, 0, 0.4)'

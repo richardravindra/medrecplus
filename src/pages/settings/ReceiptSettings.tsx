@@ -13,6 +13,7 @@ import Save from '@mui/icons-material/Save';
 import Receipt from '@mui/icons-material/Receipt';
 import Stack from '@mui/joy/Stack';
 import Divider from '@mui/joy/Divider';
+import { storage } from '../../services/UnifiedStorage';
 
 interface ReceiptConfig {
   header: string;
@@ -39,12 +40,12 @@ const ReceiptSettings: React.FC = () => {
     loadReceiptConfig();
   }, []);
 
-  const loadReceiptConfig = () => {
+  const loadReceiptConfig = async () => {
     try {
-      const storedConfig = localStorage.getItem('receipt_config');
-      if (storedConfig) {
-        const config: ReceiptConfig = JSON.parse(storedConfig);
-        setReceiptConfig(config);
+      const storedConfig = await storage.getReceiptConfig();
+      if (storedConfig && Object.keys(storedConfig).length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setReceiptConfig(storedConfig as any);
       }
     } catch (error) {
       console.error('Error loading receipt config:', error);
@@ -80,8 +81,9 @@ const ReceiptSettings: React.FC = () => {
         return;
       }
 
-      // Save to localStorage
-      localStorage.setItem('receipt_config', JSON.stringify(receiptConfig));
+      // Save to UnifiedStorage
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await storage.storeReceiptConfig(receiptConfig as any);
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);

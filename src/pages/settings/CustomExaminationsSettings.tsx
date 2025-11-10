@@ -23,13 +23,9 @@ import Delete from '@mui/icons-material/Delete';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Science from '@mui/icons-material/Science';
-
-interface CustomExamination {
-  id: number;
-  name: string;
-  unit: string;
-  created_at: string;
-}
+import { storage } from '../../services/UnifiedStorage';
+import SimpleDataService from '../../services/SimpleDataService';
+import { CustomExamination } from '../../types';
 
 const CustomExaminationsSettings: React.FC = () => {
   const navigate = useNavigate();
@@ -49,13 +45,29 @@ const CustomExaminationsSettings: React.FC = () => {
     loadExaminations();
   }, []);
 
-  const loadExaminations = () => {
+  const loadExaminations = async () => {
     try {
-      const storedExaminations = localStorage.getItem('custom_examinations');
-      if (storedExaminations) {
-        const examinationsData: CustomExamination[] = JSON.parse(storedExaminations);
-        setExaminations(examinationsData);
-      }
+      const examinationsData = await storage.getCustomExaminations();
+      // Type-safe validation and conversion
+      const validExaminations: CustomExamination[] = Array.isArray(examinationsData)
+        ? examinationsData.filter((item): item is CustomExamination => {
+            return item &&
+                   typeof item === 'object' &&
+                   'id' in item &&
+                   typeof item.id === 'number' &&
+                   'name' in item &&
+                   typeof item.name === 'string' &&
+                   'unit' in item &&
+                   typeof item.unit === 'string';
+          })
+          .map(item => ({
+            id: item.id,
+            name: item.name,
+            unit: item.unit,
+            created_at: item.created_at || new Date().toISOString()
+          }))
+        : [];
+      setExaminations(validExaminations);
     } catch (error) {
       console.error('Error loading examinations:', error);
       setError('Failed to load examinations');
@@ -132,9 +144,11 @@ const CustomExaminationsSettings: React.FC = () => {
     setSuccess(null);
 
     try {
+      let updatedExaminations;
+
       if (editingExamination) {
         // Update existing examination
-        const updatedExaminations = examinations.map(exam =>
+        updatedExaminations = examinations.map(exam =>
           exam.id === editingExamination.id
             ? {
                 ...exam,
@@ -143,8 +157,6 @@ const CustomExaminationsSettings: React.FC = () => {
               }
             : exam
         );
-        setExaminations(updatedExaminations);
-        localStorage.setItem('custom_examinations', JSON.stringify(updatedExaminations));
         setSuccess('Examination updated successfully!');
       } else {
         // Add new examination
@@ -154,11 +166,15 @@ const CustomExaminationsSettings: React.FC = () => {
           unit: formData.unit.trim(),
           created_at: new Date().toISOString()
         };
-        const updatedExaminations = [...examinations, newExamination];
-        setExaminations(updatedExaminations);
-        localStorage.setItem('custom_examinations', JSON.stringify(updatedExaminations));
+        updatedExaminations = [...examinations, newExamination];
         setSuccess('Examination added successfully!');
       }
+
+      setExaminations(updatedExaminations);
+      await storage.storeCustomExaminations(updatedExaminations);
+
+      // Clear the cache to ensure fresh data is loaded next time
+      SimpleDataService.clearCustomExaminationsCache();
 
       setTimeout(() => {
         closeModal();
@@ -171,12 +187,22 @@ const CustomExaminationsSettings: React.FC = () => {
     }
   };
 
-  const handleDelete = (examination: CustomExamination) => {
+  const handleDelete = async (examination: CustomExamination) => {
     if (window.confirm(`Are you sure you want to delete "${examination.name}"? This action cannot be undone.`)) {
       try {
         const updatedExaminations = examinations.filter(exam => exam.id !== examination.id);
         setExaminations(updatedExaminations);
-        localStorage.setItem('custom_examinations', JSON.stringify(updatedExaminations));
+
+        // If no examinations left, completely remove the data from both storages
+        if (updatedExaminations.length === 0) {
+          await storage.remove('custom_examinations');
+        } else {
+          await storage.storeCustomExaminations(updatedExaminations);
+        }
+
+        // Clear the cache to ensure fresh data is loaded next time
+        SimpleDataService.clearCustomExaminationsCache();
+
         setSuccess('Examination deleted successfully!');
         setTimeout(() => setSuccess(null), 3000);
       } catch (error) {
@@ -280,7 +306,7 @@ const CustomExaminationsSettings: React.FC = () => {
                     Unit: {examination.unit}
                   </Typography>
                   <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.6, mt: 0.5 }}>
-                    Added: {new Date(examination.created_at).toLocaleDateString()}
+                    Added: {new Date(examination.created_at || new Date()).toLocaleDateString()}
                   </Typography>
                 </ListItemContent>
                 <Box sx={{ display: 'flex', gap: 1 }}>

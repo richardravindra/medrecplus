@@ -23,14 +23,17 @@ const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) => {
 
   React.useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 900;
       setIsMobile(mobile);
       // Always collapsed on mobile (show icons only)
+      // Expanded on desktop (900px or wider)
       if (mobile) {
         setIsCollapsed(true);
+      } else {
+        setIsCollapsed(false);
       }
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);

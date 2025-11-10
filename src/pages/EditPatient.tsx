@@ -15,8 +15,8 @@ import ArrowBack from '@mui/icons-material/ArrowBack';
 import Save from '@mui/icons-material/Save';
 import Info from '@mui/icons-material/Info';
 import { Patient } from '../types';
-import { databaseService } from '../services/database';
-import logService from '../services/logService';
+import SimpleDataService from '../services/SimpleDataService';
+import { log } from '../utils/logger';
 
 const EditPatient: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,8 +42,7 @@ const EditPatient: React.FC = () => {
   const loadPatient = async (patientId: number) => {
     try {
       setFetching(true);
-      const patients = await databaseService.getPatients();
-      const foundPatient = patients.find(p => p.id === patientId);
+      const foundPatient = await SimpleDataService.getPatientById(patientId);
 
       if (foundPatient) {
         setPatient(foundPatient);
@@ -54,12 +53,14 @@ const EditPatient: React.FC = () => {
           phone_number: foundPatient.phone_number,
           initial_diagnosis: foundPatient.initial_diagnosis || '',
         });
+        log.debug('Patient loaded successfully for editing', { id: patientId }, 'EditPatient');
       } else {
         setError('Patient not found');
+        log.warn('Patient not found for editing', { id: patientId }, 'EditPatient');
       }
     } catch (error) {
       setError('Failed to load patient details');
-      console.error('Error loading patient:', error);
+      log.error('Error loading patient', { error, patientId }, 'EditPatient');
     } finally {
       setFetching(false);
     }
@@ -105,15 +106,22 @@ const EditPatient: React.FC = () => {
         initial_diagnosis: formData.initial_diagnosis.trim() || undefined,
       };
 
-      await databaseService.updatePatient(patient.id, patientData);
+      const updatedPatient = await SimpleDataService.updatePatient(patient.id, patientData);
 
       // Log patient update
-      logService.logPatientUpdated(patient.id, patientData.name);
+      log.info('Patient updated successfully', {
+        id: patient.id,
+        name: patientData.name
+      }, 'EditPatient');
 
-      navigate(`/patients/${patient.id}`);
+      if (updatedPatient) {
+        navigate(`/patients/${patient.id}`);
+      } else {
+        setError('Patient not found');
+      }
     } catch (error) {
       setError('Failed to update patient. Please try again.');
-      console.error('Error updating patient:', error);
+      log.error('Error updating patient', { error, patientId: patient.id }, 'EditPatient');
     } finally {
       setLoading(false);
     }

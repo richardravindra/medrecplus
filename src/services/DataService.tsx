@@ -1,9 +1,51 @@
 import { IndexedDBStorage } from '../utils/IndexedDBStorage';
 import { ChunkedDataRestore } from '../utils/ChunkedDataRestore';
-import { Patient, Invoice } from '../types';
+import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
 
-// Generic type for data entities
-type DataEntity = Patient | Invoice | Record<string, unknown>;
+// Type guard functions
+function isPatient(entity: DataEntity): entity is Patient {
+  return 'record_number' in entity && 'name' in entity && 'age' in entity;
+}
+
+function isInvoice(entity: DataEntity): entity is Invoice {
+  return 'invoiceNumber' in entity && 'appointmentId' in entity;
+}
+
+function isAppointment(entity: DataEntity): entity is Appointment {
+  return 'patientName' in entity && 'operatorName' in entity && 'date' in entity && 'vitalSigns' in entity;
+}
+
+function isOperator(entity: DataEntity): entity is Operator {
+  return 'role' in entity && 'id' in entity && 'name' in entity && !('record_number' in entity);
+}
+
+function isCustomExamination(entity: DataEntity): entity is CustomExamination {
+  return 'unit' in entity && 'id' in entity && 'name' in entity && !('record_number' in entity);
+}
+
+function isReceiptConfig(entity: DataEntity): entity is ReceiptConfig {
+  return 'header' in entity && 'footer' in entity;
+}
+
+// Generic type for data entities - includes all possible types with index signature
+export type DataEntity = (Patient & Record<string, unknown>) |
+                   (Invoice & Record<string, unknown>) |
+                   (Appointment & Record<string, unknown>) |
+                   (Operator & Record<string, unknown>) |
+                   (CustomExamination & Record<string, unknown>) |
+                   (ReceiptConfig & Record<string, unknown>) |
+                   (Record<string, unknown> & {
+  patientName?: string;
+  patientId?: number;
+  operatorName?: string;
+  operatorId?: number;
+  date?: string;
+  invoiceNumber?: string;
+  status?: string;
+  totalAmount?: number;
+  vitalSigns?: VitalSigns;
+  treatments?: Treatment[];
+});
 
 export class DataService {
   // Universal data retrieval - tries IndexedDB first, then localStorage
@@ -50,49 +92,97 @@ export class DataService {
     return [];
   }
 
-  // Get operators
-  static async getOperators(): Promise<DataEntity[]> {
-    return this.getData('operators');
-  }
-
-  static getOperatorsSync(): DataEntity[] {
-    return this.getDataSync('operators');
-  }
-
-  // Get treatments
-  static async getTreatments(): Promise<DataEntity[]> {
-    return this.getData('treatments');
-  }
-
-  static getTreatmentsSync(): DataEntity[] {
-    return this.getDataSync('treatments');
-  }
-
+  
   // Get patients
   static async getPatients(): Promise<Patient[]> {
-    return this.getData('patient_management_data') as Patient[];
+    const data = await this.getData('patient_management_data');
+    return data.filter(isPatient);
   }
 
   static getPatientsSync(): Patient[] {
-    return this.getDataSync('patient_management_data') as Patient[];
+    const data = this.getDataSync('patient_management_data');
+    return data.filter(isPatient);
   }
 
   // Get appointments
-  static async getAppointments(): Promise<DataEntity[]> {
-    return this.getData('appointments');
+  static async getAppointments(): Promise<Appointment[]> {
+    const data = await this.getData('appointments');
+    return data.filter(isAppointment);
   }
 
-  static getAppointmentsSync(): DataEntity[] {
-    return this.getDataSync('appointments');
+  static getAppointmentsSync(): Appointment[] {
+    const data = this.getDataSync('appointments');
+    return data.filter(isAppointment);
   }
 
   // Get invoices
   static async getInvoices(): Promise<Invoice[]> {
-    return this.getData('invoices') as Invoice[];
+    const data = await this.getData('invoices');
+    return data.filter(isInvoice);
   }
 
   static getInvoicesSync(): Invoice[] {
-    return this.getDataSync('invoices') as Invoice[];
+    const data = this.getDataSync('invoices');
+    return data.filter(isInvoice);
+  }
+
+  // Get operators
+  static async getOperators(): Promise<Operator[]> {
+    const data = await this.getData('operators');
+    return data.filter(isOperator);
+  }
+
+  static getOperatorsSync(): Operator[] {
+    const data = this.getDataSync('operators');
+    return data.filter(isOperator);
+  }
+
+  // Get custom examinations
+  static async getCustomExaminations(): Promise<CustomExamination[]> {
+    const data = await this.getData('custom_examinations');
+    return data.filter(isCustomExamination);
+  }
+
+  static getCustomExaminationsSync(): CustomExamination[] {
+    const data = this.getDataSync('custom_examinations');
+    return data.filter(isCustomExamination);
+  }
+
+  // Get receipt config
+  static async getReceiptConfig(): Promise<ReceiptConfig | null> {
+    const data = await this.getData('receipt_config');
+    const configs = data.filter(isReceiptConfig);
+    return configs.length > 0 ? configs[0] : null;
+  }
+
+  static getReceiptConfigSync(): ReceiptConfig | null {
+    const data = this.getDataSync('receipt_config');
+    const configs = data.filter(isReceiptConfig);
+    return configs.length > 0 ? configs[0] : null;
+  }
+
+  // Get treatments
+  static async getTreatments(): Promise<Treatment[]> {
+    const data = await this.getData('treatments');
+    // Cast to Treatment[] after validation
+    return data.filter((item): item is Treatment => {
+      if (typeof item !== 'object' || item === null) return false;
+      const candidate = item as Record<string, unknown>;
+      return typeof candidate.id === 'number' &&
+             typeof candidate.name === 'string' &&
+             typeof candidate.price === 'number';
+    });
+  }
+
+  static getTreatmentsSync(): Treatment[] {
+    const data = this.getDataSync('treatments');
+    return data.filter((item): item is Treatment => {
+      if (typeof item !== 'object' || item === null) return false;
+      const candidate = item as Record<string, unknown>;
+      return typeof candidate.id === 'number' &&
+             typeof candidate.name === 'string' &&
+             typeof candidate.price === 'number';
+    });
   }
 
   // Save data (uses appropriate storage based on size)
@@ -142,7 +232,7 @@ export class DataService {
 
   // Get data with search and pagination for appointments
   static async getAppointmentsPaginated(search?: string, page = 1, pageSize = 50): Promise<{
-    appointments: DataEntity[];
+    appointments: Appointment[];
     totalCount: number;
     totalPages: number;
   }> {
@@ -217,7 +307,7 @@ export class DataService {
   }
 
   // Get appointments by patient ID
-  static async getAppointmentsByPatientId(patientId: number): Promise<DataEntity[]> {
+  static async getAppointmentsByPatientId(patientId: number): Promise<Appointment[]> {
     const appointments = await this.getAppointments();
     return appointments
       .filter(appointment => appointment.patientId === patientId)
