@@ -83,7 +83,7 @@ const Dashboard: React.FC = () => {
   const loadStats = async () => {
     try {
       // Load patient statistics using SimpleDataService
-      const patientsResult = await SimpleDataService.getPatients({ limit: 10000 });
+      const patientsResult = await SimpleDataService.getPatients({ limit: 100000 });
       const patients = patientsResult.data;
       const now = new Date();
       const currentMonth = now.getMonth();
@@ -121,7 +121,7 @@ const Dashboard: React.FC = () => {
       });
 
       // Load appointment statistics using SimpleDataService
-      const appointmentsResult = await SimpleDataService.getAppointments({ limit: 10000 });
+      const appointmentsResult = await SimpleDataService.getAppointments({ limit: 100000 });
       const appointments = appointmentsResult.data;
 
       // Calculate appointments this month
@@ -154,7 +154,7 @@ const Dashboard: React.FC = () => {
       });
 
       // Load invoice statistics and calculate revenue using SimpleDataService
-      const invoicesResult = await SimpleDataService.getInvoices({ limit: 10000 });
+      const invoicesResult = await SimpleDataService.getInvoices({ limit: 100000 });
       const invoices = invoicesResult.data;
       const paidInvoices = invoices.filter((invoice: Invoice) => invoice.status === 'paid');
 
@@ -196,8 +196,33 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Currency formatting now handled by the imported utility functions
+  // Helper function to format numbers with shortened units
+  const formatNumber = (value: number): string => {
+    if (value >= 1000000000) {
+      return (value / 1000000000).toFixed(1) + 'B';
+    } else if (value >= 1000000) {
+      return (value / 1000000).toFixed(1) + 'M';
+    } else if (value >= 1000) {
+      return (value / 1000).toFixed(1) + 'K';
+    } else {
+      return value.toString();
+    }
+  };
 
+  // Helper function to format currency with shortened units
+  const formatCurrencyShort = (value: number): string => {
+    if (value >= 1000000000) {
+      return currency.symbol + (value / 1000000000).toFixed(1) + 'B';
+    } else if (value >= 1000000) {
+      return currency.symbol + (value / 1000000).toFixed(1) + 'M';
+    } else if (value >= 1000) {
+      return currency.symbol + (value / 1000).toFixed(1) + 'K';
+    } else {
+      return formatCurrency(value, currency);
+    }
+  };
+
+  // Currency formatting now handled by the imported utility functions
 
   return (
     <Box sx={{
@@ -287,6 +312,8 @@ const Dashboard: React.FC = () => {
                 stroke="var(--joy-palette-primary-500)"
                 height={220}
                 title="Patient Registration Trend"
+                formatYAxis={formatNumber}
+                formatTooltip={formatNumber}
               />
             </Box>
           </Box>
@@ -332,6 +359,8 @@ const Dashboard: React.FC = () => {
                 stroke="var(--joy-palette-success-500)"
                 height={220}
                 title="Appointments Trend"
+                formatYAxis={formatNumber}
+                formatTooltip={formatNumber}
               />
             </Box>
           </Box>
@@ -401,6 +430,8 @@ const Dashboard: React.FC = () => {
                 stroke="var(--joy-palette-primary-500)"
                 height={220}
                 title="Revenue Trend"
+                formatYAxis={formatCurrencyShort}
+                formatTooltip={formatCurrencyShort}
               />
             </Box>
           </Box>

@@ -43,7 +43,7 @@ const OptimizedInvoices: React.FC = () => {
     appointmentDate: true,
     totalAmount: true,
     status: true,
-    date: true,
+    date: false,
   });
   const [sortField, setSortField] = useState<keyof Invoice | null>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -193,6 +193,10 @@ const OptimizedInvoices: React.FC = () => {
     navigate(`/patients/${patientId}`);
   }, [navigate]);
 
+  const handleAppointmentClick = useCallback((appointmentId: number) => {
+    navigate(`/appointments/${appointmentId}`);
+  }, [navigate]);
+
   const toggleColumnVisibility = useCallback((column: keyof typeof columnVisibility) => {
     setColumnVisibility(prev => ({
       ...prev,
@@ -312,6 +316,7 @@ const OptimizedInvoices: React.FC = () => {
             onView={(invoice) => navigate(`/invoices/${invoice.id}`)}
             onDelete={handleDelete}
             onPatientClick={handlePatientClick}
+            onAppointmentClick={handleAppointmentClick}
             onSort={handleSort}
             sortField={sortField}
             sortDirection={sortDirection}

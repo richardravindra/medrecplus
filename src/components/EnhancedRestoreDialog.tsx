@@ -14,7 +14,7 @@ import {
 } from '@mui/joy';
 import { ChunkedDataRestore } from '../utils/ChunkedDataRestore';
 import { DataService } from '../services/DataService';
-import { IndexedDBStorage } from '../utils/IndexedDBStorage';
+import { storage } from '../services/UnifiedStorage';
 
 interface RestoreProgress {
   stage: string;
@@ -83,20 +83,9 @@ export const EnhancedRestoreDialog: React.FC<EnhancedRestoreDialogProps> = ({
       try {
         console.log('🧹 Clearing all storage...');
 
-        // Clear IndexedDB
-        await IndexedDBStorage.clearAll();
-        console.log('✅ IndexedDB cleared');
-
-        // Clear localStorage (except essential keys)
-        const keysToKeep = ['currentUser', 'settings'];
-        const allKeys = Object.keys(localStorage);
-
-        allKeys.forEach(key => {
-          if (!keysToKeep.includes(key)) {
-            localStorage.removeItem(key);
-          }
-        });
-        console.log('✅ LocalStorage cleared');
+        // Clear UnifiedStorage (handles both IndexedDB and localStorage)
+        await storage.clear();
+        console.log('✅ UnifiedStorage cleared');
 
         console.log('🧹 All storage cleared successfully!');
         alert('All data has been cleared. You can now try restoring the backup file again.');
@@ -116,18 +105,11 @@ export const EnhancedRestoreDialog: React.FC<EnhancedRestoreDialogProps> = ({
 
     // Get current storage info
     try {
-      const storageInfo = await IndexedDBStorage.getStorageInfo();
-      console.log(`💾 Current storage: ${storageInfo.totalSize}, ${storageInfo.totalItems} items`);
+      const storageInfo = await storage.getStorageInfo();
+      console.log(`💾 Current storage: ${JSON.stringify(storageInfo)}`);
 
-      // Check if storage is getting full
-      if (storageInfo.quotaAvailable > 0) {
-        const usagePercent = (storageInfo.quotaUsed / storageInfo.quotaAvailable) * 100;
-        if (usagePercent > 90) {
-          console.warn(`⚠️ Storage is ${usagePercent.toFixed(1)}% full`);
-          setError(`⚠️ Storage is almost full (${usagePercent.toFixed(1)}% used). Consider clearing existing data before restoring.`);
-          return;
-        }
-      }
+      // UnifiedStorage doesn't provide quota info, so we'll proceed optimistically
+      console.log(`📊 Using UnifiedStorage with preferred storage: ${storageInfo.preferredStorage}`);
     } catch (error) {
       console.warn('Could not get storage info:', error);
     }

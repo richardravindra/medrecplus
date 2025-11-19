@@ -21,6 +21,8 @@ interface LazyLineChartProps {
   minHeight?: number;
   title?: string;
   color?: string;
+  formatYAxis?: (value: number) => string;
+  formatTooltip?: (value: number) => string;
 }
 
 const ChartComponent: React.FC<LazyLineChartProps> = ({
@@ -31,7 +33,9 @@ const ChartComponent: React.FC<LazyLineChartProps> = ({
   width,
   minWidth = 200,
   minHeight = 200,
-  color = '#1976d2'
+  color = '#1976d2',
+  formatYAxis,
+  formatTooltip
 }) => {
   return (
     <Box>
@@ -58,6 +62,7 @@ const ChartComponent: React.FC<LazyLineChartProps> = ({
           <YAxis
             tick={{ fill: '#ffffff', fontSize: 12 }}
             axisLine={{ stroke: '#666' }}
+            tickFormatter={formatYAxis}
           />
           <Tooltip
             contentStyle={{
@@ -68,6 +73,15 @@ const ChartComponent: React.FC<LazyLineChartProps> = ({
             }}
             labelStyle={{ color: '#ffffff' }}
             itemStyle={{ color: '#ffffff' }}
+            formatter={(value: number) => {
+              if (formatTooltip) {
+                return formatTooltip(value);
+              }
+              if (formatYAxis) {
+                return formatYAxis(value);
+              }
+              return value.toString();
+            }}
           />
           <Line
             type="monotone"

@@ -28,6 +28,7 @@ interface LazyInvoiceTableProps {
   onView: (invoice: Invoice) => void;
   onDelete: (id: number) => void;
   onPatientClick?: (patientId: number) => void;
+  onAppointmentClick?: (appointmentId: number) => void;
   onSort?: (field: keyof Invoice) => void;
   sortField?: keyof Invoice | null;
   sortDirection?: 'asc' | 'desc';
@@ -42,6 +43,7 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
   onView,
   onDelete,
   onPatientClick,
+  onAppointmentClick,
   onSort,
   sortField,
   sortDirection,
@@ -58,6 +60,10 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
   const memoizedOnPatientClick = useCallback((patientId: number) => {
     onPatientClick?.(patientId);
   }, [onPatientClick]);
+
+  const memoizedOnAppointmentClick = useCallback((appointmentId: number) => {
+    onAppointmentClick?.(appointmentId);
+  }, [onAppointmentClick]);
   // Note: invoices array is already paginated from the server, so no need to slice again
   const paginatedInvoices = invoices;
 
@@ -241,7 +247,24 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
               )}
               {columnVisibility.appointmentDate && (
                 <td style={{ padding: '12px' }}>
-                  {formatDateTime(invoice.appointmentDate)}
+                  {invoice.appointmentId ? (
+                    <Typography
+                      sx={{
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        '&:hover': {
+                          textDecoration: 'none',
+                          color: '#1976d2'
+                        }
+                      }}
+                      onClick={() => memoizedOnAppointmentClick(invoice.appointmentId)}
+                    >
+                      {formatDateTime(invoice.appointmentDate)}
+                    </Typography>
+                  ) : (
+                    <Typography>{formatDateTime(invoice.appointmentDate)}</Typography>
+                  )}
                 </td>
               )}
               {columnVisibility.totalAmount && (

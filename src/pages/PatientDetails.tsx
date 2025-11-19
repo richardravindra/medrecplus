@@ -22,10 +22,50 @@ import Visibility from '@mui/icons-material/Visibility';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import Pagination from '@mui/material/Pagination';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Patient, Appointment } from '../types';
 import SimpleDataService from '../services/SimpleDataService';
 import { log } from '../utils/logger';
 import { formatCurrencyWhole } from '../utils/currencyUtils';
+
+// Create a Material-UI theme for the Pagination component
+const muiTheme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#1d293d',
+      light: '#1A2332',
+      dark: '#13171E',
+    },
+    background: {
+      default: '#020618',
+      paper: '#0f172b',
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: '#ffffff',
+    },
+    action: {
+      active: '#1d293d',
+      hover: 'rgba(29, 41, 61, 0.08)',
+      selected: 'rgba(29, 41, 61, 0.16)',
+      disabled: 'rgba(255, 255, 255, 0.38)',
+      disabledBackground: 'rgba(255, 255, 255, 0.12)',
+    },
+    divider: 'rgba(255, 255, 255, 0.12)',
+  },
+  transitions: {
+    duration: {
+      shortest: 150,
+      shorter: 200,
+      short: 250,
+      standard: 300,
+      complex: 375,
+      enteringScreen: 225,
+      leavingScreen: 195,
+    },
+  },
+});
 
 const PatientDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -443,21 +483,18 @@ const PatientDetails: React.FC = () => {
 
                     {appointments.length > appointmentsPerPage && (
                       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-                        <Pagination
-                          count={Math.ceil(appointments.length / appointmentsPerPage)}
-                          page={currentPage}
-                          onChange={handlePageChange}
-                          color="primary"
-                          sx={{
-                            '& .MuiPaginationItem-root': {
-                              color: '#ffffff',
-                              '&.Mui-selected': {
-                                backgroundColor: 'primary.main',
-                                color: '#ffffff'
-                              }
-                            }
-                          }}
-                        />
+                        <ThemeProvider theme={muiTheme}>
+                          <Pagination
+                            count={Math.ceil(appointments.length / appointmentsPerPage)}
+                            page={currentPage}
+                            onChange={handlePageChange}
+                            size="medium"
+                            shape="rounded"
+                            showFirstButton
+                            showLastButton
+                            color="primary"
+                          />
+                        </ThemeProvider>
                       </Box>
                     )}
                   </>

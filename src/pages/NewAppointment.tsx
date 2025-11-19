@@ -18,6 +18,7 @@ import Save from '@mui/icons-material/Save';
 import Info from '@mui/icons-material/Info';
 import Search from '@mui/icons-material/Search';
 import Refresh from '@mui/icons-material/Refresh';
+import Clear from '@mui/icons-material/Clear';
 import { Patient, Operator, CustomExamination, Treatment, VitalSigns } from '../types';
 import SimpleDataService from '../services/SimpleDataService';
 import { log } from '../utils/logger';
@@ -640,18 +641,7 @@ const NewAppointment: React.FC = () => {
     loadData(preSelectedPatientId !== null); // Pass true if we have a pre-selected patient
   };
 
-  // Add manual operators refresh function
-  const refreshOperators = async () => {
-    try {
-      console.log('🔄 Manually refreshing operators...');
-      const freshOperators = await SimpleDataService.getOperatorsFresh();
-      console.log('📋 Refreshed operators:', freshOperators.length);
-      setOperators(freshOperators);
-    } catch (error) {
-      console.error('❌ Error refreshing operators:', error);
-    }
-  };
-
+  
   // Effect to handle pre-selected patient after patients are loaded
   useEffect(() => {
     console.log('🔍 Pre-selected patient check:', {
@@ -774,6 +764,21 @@ const NewAppointment: React.FC = () => {
 
     // Also update debounced search to ensure filtering works
     setDebouncedPatientSearch(patient.name);
+  };
+
+  const handleClearPatientSelection = () => {
+    console.log('🗑️ Clearing patient selection');
+    setSelectedPatient(null);
+    setPatientSearch('');
+    setDebouncedPatientSearch('');
+    setFormData(prev => ({
+      ...prev,
+      patientId: ''
+    }));
+    setShowPatientDropdown(false);
+    if (patientInputRef.current) {
+      patientInputRef.current.focus();
+    }
   };
 
   const validateForm = (): boolean => {
@@ -924,6 +929,26 @@ const NewAppointment: React.FC = () => {
                   <Input
                     ref={patientInputRef}
                     startDecorator={<Search sx={{ color: 'white' }} />}
+                    endDecorator={
+                      patientSearch ? (
+                        <IconButton
+                          size="sm"
+                          variant="plain"
+                          onClick={handleClearPatientSelection}
+                          sx={{
+                            color: 'white !important',
+                            '&:hover': {
+                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            },
+                            '& svg': {
+                              color: 'white !important'
+                            }
+                          }}
+                        >
+                          <Clear sx={{ fontSize: '16px', color: 'white' }} />
+                        </IconButton>
+                      ) : null
+                    }
                     placeholder="Search and select a patient..."
                     value={patientSearch}
                     onChange={(e) => handlePatientSearch(e.target.value)}
@@ -937,6 +962,21 @@ const NewAppointment: React.FC = () => {
                       }
                     }}
                   />
+
+                  {/* Selected Patient Indicator */}
+                  {selectedPatient && (
+                    <Typography
+                      level="body-xs"
+                      sx={{
+                        mt: 0.5,
+                        color: '#ccc',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Selected: <span style={{ color: 'white' }}>{selectedPatient.name}</span>
+                      {selectedPatient.record_number && ` (${selectedPatient.record_number})`}
+                    </Typography>
+                  )}
 
                   {/* Patient Dropdown - Using Portal to render outside normal flow */}
                   {showPatientDropdown && createPortal(
@@ -1021,18 +1061,7 @@ const NewAppointment: React.FC = () => {
 
               {/* Operator Selection */}
               <FormControl sx={{ maxWidth: '600px' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <FormLabel>Operator *</FormLabel>
-                  <IconButton
-                    size="sm"
-                    variant="outlined"
-                    onClick={refreshOperators}
-                    sx={{ fontSize: '12px', p: 1 }}
-                    title="Refresh operators"
-                  >
-                    <Refresh sx={{ fontSize: '14px' }} />
-                  </IconButton>
-                </Box>
+                <FormLabel>Operator *</FormLabel>
                 <Select
                   value={formData.operatorId}
                   onChange={(_, value) => setFormData(prev => ({ ...prev, operatorId: value || '' }))}
@@ -1042,6 +1071,12 @@ const NewAppointment: React.FC = () => {
                     color: 'white',
                     '& .MuiSelect-select': {
                       color: 'white'
+                    },
+                    '& .MuiSelect-indicator': {
+                      color: 'white !important'
+                    },
+                    '& svg': {
+                      color: 'white !important'
                     }
                   }}
                 >

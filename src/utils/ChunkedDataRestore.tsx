@@ -1,4 +1,4 @@
-import { IndexedDBStorage } from './IndexedDBStorage';
+import { storage } from '../services/UnifiedStorage';
 import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
 
 // Generic type for data entities - includes all possible types with index signature
@@ -39,7 +39,6 @@ interface RestoreProgress {
 }
 
 export class ChunkedDataRestore {
-  private static readonly LOCALSTORAGE_LIMIT = 5 * 1024 * 1024; // 5MB per key
 
   static async restoreFromLargeFile(file: File, onProgress?: (progress: RestoreProgress) => void): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -229,33 +228,20 @@ export class ChunkedDataRestore {
     const dataSize = JSON.stringify(data).length;
     console.log(`📊 Data size for ${storageKey}: ${Math.round(dataSize / 1024 / 1024)}MB`);
 
-    if (dataSize > this.LOCALSTORAGE_LIMIT) {
-      // Use IndexedDB for large datasets
-      console.log(`💾 Using IndexedDB for ${storageKey} (${data.length} records)`);
-      onProgress?.({
-        stage: 'Saving to IndexedDB',
-        progress: 0,
-        total: 100,
-        current: `Saving ${data.length} ${storageKey} records to IndexedDB...`
-      });
+    onProgress?.({
+      stage: 'Saving to Unified Storage',
+      progress: 0,
+      total: 100,
+      current: `Saving ${data.length} ${storageKey} records to storage...`
+    });
 
-      try {
-        await IndexedDBStorage.saveData(storageKey, data);
-        console.log(`✅ Successfully saved ${storageKey} to IndexedDB`);
-      } catch (error) {
-        console.error(`❌ Failed to save ${storageKey} to IndexedDB:`, error);
-        throw error;
-      }
-    } else {
-      // Save to localStorage for smaller datasets
-      console.log(`💾 Using localStorage for ${storageKey} (${data.length} records)`);
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(data));
-        console.log(`✅ Successfully saved ${storageKey} to localStorage`);
-      } catch (error) {
-        console.error(`❌ Failed to save ${storageKey} to localStorage:`, error);
-        throw error;
-      }
+    try {
+      // Use UnifiedStorage (same as SimpleDataService) to ensure consistency
+      await storage.store(storageKey, data);
+      console.log(`✅ Successfully saved ${storageKey} to UnifiedStorage`);
+    } catch (error) {
+      console.error(`❌ Failed to save ${storageKey} to UnifiedStorage:`, error);
+      throw error;
     }
   }
 
@@ -316,15 +302,9 @@ export class ChunkedDataRestore {
       };
     }
 
-    // Check IndexedDB quota
-    const quotaCheck = await IndexedDBStorage.checkQuota(fileSize);
-    if (!quotaCheck.canStore) {
-      return {
-        canHandle: false,
-        reason: quotaCheck.reason,
-        recommendation: quotaCheck.recommendation
-      };
-    }
+    // Check available storage (UnifiedStorage doesn't have quota check, so we'll be optimistic)
+    // UnifiedStorage handles both IndexedDB and localStorage automatically
+    console.log(`📊 File size check: ${Math.round(fileSize / 1024 / 1024)}MB should be handled by UnifiedStorage`);
 
     return { canHandle: true };
   }

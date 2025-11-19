@@ -68,6 +68,8 @@ const theme = extendTheme({
           secondary: '#ffffff',
           tertiary: '#ffffff',
         },
+        // Add divider color
+        divider: 'rgba(255, 255, 255, 0.12)',
       },
     },
     dark: {
@@ -105,6 +107,8 @@ const theme = extendTheme({
           secondary: '#ffffff',
           tertiary: '#ffffff',
         },
+        // Add divider color
+        divider: 'rgba(255, 255, 255, 0.12)',
       },
     },
   },
