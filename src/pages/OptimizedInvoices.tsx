@@ -141,7 +141,8 @@ const OptimizedInvoices: React.FC = () => {
         perfMonitor.end();
       }
     },
-    [itemsPerPage, perfMonitor]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [itemsPerPage] // Remove perfMonitor to prevent infinite loops
   );
 
   // Initial load
@@ -153,11 +154,12 @@ const OptimizedInvoices: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
-  // Optimized search effect using debounced hook
+  // Optimized search effect using debounced hook - reduced dependencies to prevent infinite loops
   useEffect(() => {
     setCurrentPage(1);
     loadInvoices(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-  }, [debouncedSearchTerm, dateRange]); // Depends on search term and date range
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm, dateRange]); // Remove loadInvoices to prevent infinite loop
 
   
   // Memoized filtered and sorted invoices for client-side operations
