@@ -1,4 +1,3 @@
-
 export const createSampleLogs = () => {
   // Don't create any automatic logs - logs should only be created by actual user actions
   // This prevents the "started the application" log from cluttering the activity logs

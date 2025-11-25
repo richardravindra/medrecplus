@@ -133,27 +133,13 @@ class SimpleMemoryManager {
   // Force cleanup of expired entries
   cleanup(): void {
     const now = Date.now();
-    let totalCleaned = 0;
 
-    for (const [cacheName, cache] of this.caches.entries()) {
-      const beforeSize = cache.size;
-
+    for (const [_cacheName, cache] of this.caches.entries()) {
       for (const [key, entry] of cache.entries()) {
         if (now - entry.timestamp > entry.ttl) {
           cache.delete(key);
         }
       }
-
-      const cleaned = beforeSize - cache.size;
-      totalCleaned += cleaned;
-
-      if (cleaned > 0) {
-        console.debug(`Cleaned ${cleaned} expired entries from ${cacheName} cache`);
-      }
-    }
-
-    if (totalCleaned > 0) {
-      console.debug(`Total cleaned entries: ${totalCleaned}`);
     }
   }
 
@@ -164,9 +150,12 @@ class SimpleMemoryManager {
     }
 
     // Cleanup every 5 minutes
-    this.cleanupInterval = window.setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = window.setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000
+    );
   }
 
   // Stop cleanup interval
@@ -202,52 +191,38 @@ export const memoryManager = SimpleMemoryManager.getInstance();
 // Convenience functions for common medical data types
 export const medicalCache = {
   // Patient data (changes occasionally)
-  setPatient: (id: string, patient: Patient) =>
-    memoryManager.set('patients', id, patient),
-  getPatient: (id: string) =>
-    memoryManager.get('patients', id),
-  delete: (cacheName: string, key: string) =>
-    memoryManager.delete(cacheName, key),
+  setPatient: (id: string, patient: Patient) => memoryManager.set('patients', id, patient),
+  getPatient: (id: string) => memoryManager.get('patients', id),
+  delete: (cacheName: string, key: string) => memoryManager.delete(cacheName, key),
 
   // Appointment data (changes more frequently)
   setAppointment: (id: string, appointment: Appointment) =>
     memoryManager.set('appointments', id, appointment),
-  getAppointment: (id: string) =>
-    memoryManager.get('appointments', id),
+  getAppointment: (id: string) => memoryManager.get('appointments', id),
 
   // Invoice data (changes occasionally)
-  setInvoice: (id: string, invoice: Invoice) =>
-    memoryManager.set('invoices', id, invoice),
-  getInvoice: (id: string) =>
-    memoryManager.get('invoices', id),
+  setInvoice: (id: string, invoice: Invoice) => memoryManager.set('invoices', id, invoice),
+  getInvoice: (id: string) => memoryManager.get('invoices', id),
 
   // Static data (changes rarely)
-  setOperators: (operators: Operator[]) =>
-    memoryManager.set('static', 'operators', operators),
-  getOperators: () =>
-    memoryManager.get('static', 'operators'),
+  setOperators: (operators: Operator[]) => memoryManager.set('static', 'operators', operators),
+  getOperators: () => memoryManager.get('static', 'operators'),
 
-  setTreatments: (treatments: Treatment[]) =>
-    memoryManager.set('static', 'treatments', treatments),
-  getTreatments: () =>
-    memoryManager.get('static', 'treatments'),
+  setTreatments: (treatments: Treatment[]) => memoryManager.set('static', 'treatments', treatments),
+  getTreatments: () => memoryManager.get('static', 'treatments'),
 
   setCustomExaminations: (examinations: CustomExamination[]) =>
     memoryManager.set('static', 'customExaminations', examinations),
-  getCustomExaminations: () =>
-    memoryManager.get('static', 'customExaminations'),
-  clearCustomExaminations: () =>
-    memoryManager.clearCache('static'),
+  getCustomExaminations: () => memoryManager.get('static', 'customExaminations'),
+  clearCustomExaminations: () => memoryManager.clearCache('static'),
 
   // Search results (very temporary)
   setSearchResults: (query: string, results: unknown[]) =>
     memoryManager.set('search', query, results),
-  getSearchResults: (query: string) =>
-    memoryManager.get('search', query),
+  getSearchResults: (query: string) => memoryManager.get('search', query),
 
   // Cache management
-  clearCache: (cacheName: string) =>
-    memoryManager.clearCache(cacheName)
+  clearCache: (cacheName: string) => memoryManager.clearCache(cacheName)
 };
 
 // Initialize default cache configurations

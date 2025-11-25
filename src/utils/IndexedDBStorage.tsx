@@ -1,24 +1,34 @@
-import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
+import {
+  Patient,
+  Invoice,
+  Appointment,
+  VitalSigns,
+  Treatment,
+  Operator,
+  CustomExamination,
+  ReceiptConfig
+} from '../types';
 
 // Generic type for data entities - includes all possible types with index signature
-type DataEntity = (Patient & Record<string, unknown>) |
-                   (Invoice & Record<string, unknown>) |
-                   (Appointment & Record<string, unknown>) |
-                   (Operator & Record<string, unknown>) |
-                   (CustomExamination & Record<string, unknown>) |
-                   (ReceiptConfig & Record<string, unknown>) |
-                   (Record<string, unknown> & {
-  patientName?: string;
-  patientId?: number;
-  operatorName?: string;
-  operatorId?: number;
-  date?: string;
-  invoiceNumber?: string;
-  status?: string;
-  totalAmount?: number;
-  vitalSigns?: VitalSigns;
-  treatments?: Treatment[];
-});
+type DataEntity =
+  | (Patient & Record<string, unknown>)
+  | (Invoice & Record<string, unknown>)
+  | (Appointment & Record<string, unknown>)
+  | (Operator & Record<string, unknown>)
+  | (CustomExamination & Record<string, unknown>)
+  | (ReceiptConfig & Record<string, unknown>)
+  | (Record<string, unknown> & {
+      patientName?: string;
+      patientId?: number;
+      operatorName?: string;
+      operatorId?: number;
+      date?: string;
+      invoiceNumber?: string;
+      status?: string;
+      totalAmount?: number;
+      vitalSigns?: VitalSigns;
+      treatments?: Treatment[];
+    });
 
 interface StorageItem {
   id?: number;
@@ -39,7 +49,7 @@ export class IndexedDBStorage {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result);
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
 
         // Create object store if it doesn't exist
@@ -65,7 +75,7 @@ export class IndexedDBStorage {
 
       // Clear existing data of this type
       const clearRequest = store.index('type').openCursor(IDBKeyRange.only(type));
-      clearRequest.onsuccess = (event) => {
+      clearRequest.onsuccess = event => {
         const cursor = (event.target as IDBRequest).result;
         if (cursor) {
           cursor.delete();
@@ -90,13 +100,12 @@ export class IndexedDBStorage {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
       });
-    } catch (error) {
-      console.error('IndexedDB save error:', error);
+    } catch (err) {
       // Fallback to localStorage for small datasets
       if (data.length < 1000) {
         localStorage.setItem(type, JSON.stringify(data));
       } else {
-        throw error;
+        throw err;
       }
     }
   }
@@ -123,8 +132,7 @@ export class IndexedDBStorage {
         };
         request.onerror = () => reject(request.error);
       });
-    } catch (error) {
-      console.error('IndexedDB read error:', error);
+    } catch {
       // Fallback to localStorage
       const data = localStorage.getItem(type);
       return data ? JSON.parse(data) : [];
@@ -139,7 +147,7 @@ export class IndexedDBStorage {
       const index = store.index('type');
 
       const request = index.openCursor(IDBKeyRange.only(type));
-      request.onsuccess = (event) => {
+      request.onsuccess = event => {
         const cursor = (event.target as IDBRequest).result;
         if (cursor) {
           cursor.delete();
@@ -151,8 +159,7 @@ export class IndexedDBStorage {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
       });
-    } catch (error) {
-      console.error('IndexedDB clear error:', error);
+    } catch {
       // Fallback to localStorage
       localStorage.removeItem(type);
     }
@@ -179,9 +186,9 @@ export class IndexedDBStorage {
         const types = new Map<string, number>();
         let totalItems = 0;
 
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
           const request = store.openCursor();
-          request.onsuccess = (event) => {
+          request.onsuccess = event => {
             const cursor = (event.target as IDBRequest).result;
             if (cursor) {
               const item = cursor.value as StorageItem;
@@ -216,8 +223,7 @@ export class IndexedDBStorage {
           available: false
         };
       }
-    } catch (error) {
-      console.error('Storage info error:', error);
+    } catch {
       return {
         totalItems: 0,
         totalSize: 'Unknown',
@@ -240,8 +246,7 @@ export class IndexedDBStorage {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
       });
-    } catch (error) {
-      console.error('IndexedDB clear all error:', error);
+    } catch {
       // Fallback: clear all localStorage
       const keysToKeep = ['currentUser', 'settings'];
       const allKeys = Object.keys(localStorage);
@@ -286,14 +291,14 @@ export class IndexedDBStorage {
           return {
             canStore: false,
             reason: 'localStorage may be exceeded. Use Enhanced Restore with IndexedDB.',
-            recommendation: 'The Enhanced Restore system will automatically use IndexedDB for large files.'
+            recommendation:
+              'The Enhanced Restore system will automatically use IndexedDB for large files.'
           };
         }
 
         return { canStore: true };
       }
-    } catch (error) {
-      console.error('Quota check error:', error);
+    } catch {
       return { canStore: true }; // Assume it can store if we can't check
     }
   }
@@ -305,11 +310,11 @@ export class IndexedDBStorage {
       const store = transaction.objectStore(this.STORE_NAME);
       const index = store.index('timestamp');
 
-      const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
+      const cutoffTime = Date.now() - daysOld * 24 * 60 * 60 * 1000;
       const range = IDBKeyRange.upperBound(cutoffTime);
 
       const request = index.openCursor(range);
-      request.onsuccess = (event) => {
+      request.onsuccess = event => {
         const cursor = (event.target as IDBRequest).result;
         if (cursor) {
           cursor.delete();
@@ -321,8 +326,7 @@ export class IndexedDBStorage {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
       });
-    } catch (error) {
-      console.error('Cleanup error:', error);
+    } catch { // Error handled silently
     }
   }
 }

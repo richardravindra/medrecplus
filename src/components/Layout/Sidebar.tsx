@@ -49,31 +49,31 @@ const Sidebar: React.FC = () => {
     { icon: Dashboard, label: 'Dashboard', path: '/' },
     { icon: People, label: 'Patients', path: '/patients' },
     { icon: CalendarMonth, label: 'Appointments', path: '/appointments' },
-    { icon: Receipt, label: 'Invoices', path: '/invoices' },
+    { icon: Receipt, label: 'Invoices', path: '/invoices' }
   ];
 
   const bottomNavItems = [
     { icon: Assessment, label: 'Reports', path: '/reports' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
+    { icon: Settings, label: 'Settings', path: '/settings' }
   ];
 
-  const NavButton: React.FC<{ icon: React.ElementType; label: string; path: string; isMobile?: boolean }> = ({
-    icon: Icon,
-    label,
-    path,
-    isMobile = false
-  }) => {
+  const NavButton: React.FC<{
+    icon: React.ElementType;
+    label: string;
+    path: string;
+    isMobile?: boolean;
+  }> = ({ icon: Icon, label, path, isMobile = false }) => {
     const isActive = location.pathname === path;
 
     return (
       <Box
-        component="button"
+        component='button'
         onClick={() => navigate(path)}
         className={`button-press ${isActive ? 'spring-in' : ''}`}
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: isMobile ? 'center' : (shouldCollapse ? 'center' : 'flex-start'),
+          justifyContent: isMobile ? 'center' : shouldCollapse ? 'center' : 'flex-start',
           flexDirection: isMobile ? 'column' : 'row',
           minWidth: '48px',
           minHeight: '48px',
@@ -89,10 +89,10 @@ const Sidebar: React.FC = () => {
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
             backgroundColor: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-            transform: 'translateX(4px)',
+            transform: 'translateX(4px)'
           },
           '&:active': {
-            transform: 'translateX(2px) scale(0.98)',
+            transform: 'translateX(2px) scale(0.98)'
           },
           // Only show gradient effect for active items
           ...(isActive && {
@@ -103,30 +103,33 @@ const Sidebar: React.FC = () => {
               left: -100,
               width: '100%',
               height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
-              transition: 'left 0.5s',
+              background:
+                'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
+              transition: 'left 0.5s'
             },
             '&:hover::before': {
-              left: '100%',
+              left: '100%'
             }
           })
         }}
       >
-        <Icon sx={{
-          color: '#ffffff',
-          fontSize: '24px',
-          mb: isMobile ? 0.5 : 0,
-          mr: isMobile ? 0 : (shouldCollapse ? 0 : 1),
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        }} />
+        <Icon
+          sx={{
+            color: '#ffffff',
+            fontSize: '24px',
+            mb: isMobile ? 0.5 : 0,
+            mr: isMobile ? 0 : shouldCollapse ? 0 : 1,
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        />
         <Typography
-          level="body-sm"
+          level='body-sm'
           sx={{
             display: { xs: 'none', md: shouldCollapse ? 'none' : 'block' },
             color: '#ffffff',
             fontSize: { xs: '10px', md: '14px' },
             fontWeight: isActive ? '600' : '400',
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           {label}
@@ -139,7 +142,7 @@ const Sidebar: React.FC = () => {
   if (isMobileView) {
     return (
       <Sheet
-        className="slide-in-up"
+        className='slide-in-up'
         sx={{
           position: 'fixed',
           bottom: 0,
@@ -155,25 +158,20 @@ const Sidebar: React.FC = () => {
           px: 1,
           pb: 2, // Safe area for Android nav bar
           zIndex: 9999,
-          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)',
+          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)'
         }}
       >
         {[...navItems, ...bottomNavItems].map((item, index) => (
           <Box
             key={item.path}
-            className="stagger-item"
+            className='stagger-item'
             sx={{
               '&.active': {
-                animationDelay: `${index * 50}ms`,
+                animationDelay: `${index * 50}ms`
               }
             }}
           >
-            <NavButton
-              icon={item.icon}
-              label={item.label}
-              path={item.path}
-              isMobile={true}
-            />
+            <NavButton icon={item.icon} label={item.label} path={item.path} isMobile={true} />
           </Box>
         ))}
       </Sheet>
@@ -198,7 +196,7 @@ const Sidebar: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '4px 0 20px rgba(0, 0, 0, 0.1)',
-        zIndex: 9999,
+        zIndex: 9999
       }}
     >
       {/* Header with toggle */}
@@ -210,23 +208,23 @@ const Sidebar: React.FC = () => {
           p: 2,
           borderBottom: '1px solid',
           borderColor: 'divider',
-          minHeight: '60px',
+          minHeight: '60px'
         }}
       >
         <Typography
-          level="h4"
+          level='h4'
           sx={{
             display: shouldCollapse ? 'none' : 'block',
             color: '#ffffff',
-            fontWeight: 'bold',
+            fontWeight: 'bold'
           }}
         >
           MedRec
         </Typography>
         <IconButton
           onClick={toggleSidebar}
-          variant="plain"
-          className="button-press"
+          variant='plain'
+          className='button-press'
           sx={{
             color: '#ffffff',
             minWidth: '40px',
@@ -234,17 +232,17 @@ const Sidebar: React.FC = () => {
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              transform: 'rotate(180deg)',
+              transform: 'rotate(180deg)'
             },
             '&:active': {
-              transform: 'rotate(180deg) scale(0.95)',
+              transform: 'rotate(180deg) scale(0.95)'
             }
           }}
         >
           <Menu
             sx={{
               color: '#ffffff',
-              transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
           />
         </IconButton>
@@ -256,16 +254,11 @@ const Sidebar: React.FC = () => {
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          py: 1,
+          py: 1
         }}
       >
-        {navItems.map((item) => (
-          <NavButton
-            key={item.path}
-            icon={item.icon}
-            label={item.label}
-            path={item.path}
-          />
+        {navItems.map(item => (
+          <NavButton key={item.path} icon={item.icon} label={item.label} path={item.path} />
         ))}
       </Box>
 
@@ -274,16 +267,11 @@ const Sidebar: React.FC = () => {
         sx={{
           borderTop: '1px solid',
           borderColor: 'divider',
-          py: 1,
+          py: 1
         }}
       >
-        {bottomNavItems.map((item) => (
-          <NavButton
-            key={item.path}
-            icon={item.icon}
-            label={item.label}
-            path={item.path}
-          />
+        {bottomNavItems.map(item => (
+          <NavButton key={item.path} icon={item.icon} label={item.label} path={item.path} />
         ))}
       </Box>
     </Sheet>

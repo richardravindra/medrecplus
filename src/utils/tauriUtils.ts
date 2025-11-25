@@ -16,7 +16,11 @@ export async function importTauriDialog() {
 
   try {
     // Use dynamic import with proper typing
-    const dialogModule = await Function('return import("@tauri-apps/plugin-dialog")')() as Record<string, unknown>;
+    // eslint-disable-next-line no-new-func
+    const dialogModule = (await Function('return import("@tauri-apps/plugin-dialog")')()) as Record<
+      string,
+      unknown
+    >;
     return dialogModule;
   } catch {
     throw new Error('Failed to import Tauri dialog plugin');
@@ -28,16 +32,17 @@ export async function importTauriFs() {
   if (typeof window !== 'undefined' && window.__TAURI__) {
     try {
       // Try importing the fs plugin
-      const fsModule = await Function('return import("@tauri-apps/plugin-fs")')() as Record<string, unknown>;
-      console.log('✅ Tauri fs plugin loaded successfully');
-      return fsModule;
-    } catch (error) {
-      console.error('❌ Failed to import Tauri fs plugin:', error);
-      throw new Error('Failed to import Tauri fs plugin');
+      // eslint-disable-next-line no-new-func
+      const fsModule = (await Function('return import("@tauri-apps/plugin-fs")')()) as Record<
+        string,
+        unknown
+      >;
+        return fsModule;
+    } catch {
+        throw new Error('Failed to import Tauri fs plugin');
     }
   } else {
-    console.error('❌ Tauri environment not detected');
-    throw new Error('Not in Tauri environment');
+        throw new Error('Not in Tauri environment');
   }
 }
 
@@ -46,22 +51,21 @@ export async function importTauriShell() {
   if (typeof window !== 'undefined' && window.__TAURI__) {
     try {
       // Try importing the shell plugin
-      const shellModule = await Function('return import("@tauri-apps/plugin-shell")')() as Record<string, unknown>;
-      console.log('✅ Tauri shell plugin loaded successfully');
+      // eslint-disable-next-line no-new-func
+      const shellModule = (await Function('return import("@tauri-apps/plugin-shell")')()) as Record<
+        string,
+        unknown
+      >;
       return shellModule;
-    } catch (error) {
-      console.error('❌ Failed to import Tauri shell plugin:', error);
+    } catch {
       throw new Error('Failed to import Tauri shell plugin');
     }
   } else {
-    console.error('❌ Tauri environment not detected');
-    throw new Error('Not in Tauri environment');
+        throw new Error('Not in Tauri environment');
   }
 }
 
 export async function createPrintFile(content: string): Promise<string> {
-  console.log('🖨️ Creating print file...');
-
   try {
     const fsModule = await importTauriFs();
     const { writeFile, exists, mkdir } = fsModule as {
@@ -71,11 +75,10 @@ export async function createPrintFile(content: string): Promise<string> {
     };
 
     // Try to use current directory first
-    const tempDir = `./temp`;
+    const tempDir = './temp';
 
     // If current directory doesn't work, try app temp directory
     if (!(await exists(tempDir))) {
-      console.log('📁 Creating temp directory:', tempDir);
       await mkdir(tempDir, { recursive: true });
     }
 
@@ -120,11 +123,9 @@ export async function createPrintFile(content: string): Promise<string> {
 </html>`;
 
     await writeFile(filePath, new TextEncoder().encode(htmlContent));
-    console.log('✅ Print file created successfully:', filePath);
     return filePath;
-  } catch (error) {
-    console.error('❌ Error creating print file:', error);
-    throw new Error(`Failed to create print file: ${error}`);
+  } catch (err) {
+    throw new Error(`Failed to create print file: ${err}`);
   }
 }
 
@@ -134,7 +135,6 @@ export function isTauriEnvironment(): boolean {
 
 // Fallback print method using iframe
 export async function printInvoiceWithDataURL(content: string): Promise<void> {
-  console.log('🖨️ Using fallback print method with iframe...');
 
   const htmlContent = `<!DOCTYPE html>
 <html>
@@ -195,15 +195,12 @@ export async function printInvoiceWithDataURL(content: string): Promise<void> {
         }, 1000);
       }, 500);
 
-      console.log('✅ Print iframe created successfully');
     } else {
       throw new Error('Failed to access iframe document');
     }
-  } catch (error) {
-    console.error('❌ Iframe print method failed:', error);
+  } catch {
 
     // Final fallback: Create download link
-    console.log('🔄 Using final fallback: creating download link...');
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
 
@@ -217,6 +214,5 @@ export async function printInvoiceWithDataURL(content: string): Promise<void> {
     document.body.removeChild(link);
 
     URL.revokeObjectURL(url);
-    console.log('✅ Download link created as final fallback');
   }
 }

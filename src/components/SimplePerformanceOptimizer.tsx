@@ -20,7 +20,6 @@ export const SimplePerformanceOptimizer: React.FC<{
   onOptimizationComplete?: (status: SimpleOptimizationStatus) => void;
   children?: React.ReactNode;
 }> = ({ config = {}, onOptimizationComplete, children }) => {
-
   const finalConfig: SimpleOptimizationConfig = {
     enableCaching: true,
     enableCleanup: true,
@@ -38,8 +37,8 @@ export const SimplePerformanceOptimizer: React.FC<{
       initializeMedicalCaches();
       log.debug('Essential medical caches configured', undefined, 'SimplePerformanceOptimizer');
       return true;
-    } catch (error) {
-      log.error('Failed to configure caches', { error }, 'SimplePerformanceOptimizer');
+    } catch (err) {
+      log.error('Failed to configure caches', { error: err }, 'SimplePerformanceOptimizer');
       return false;
     }
   };
@@ -54,15 +53,15 @@ export const SimplePerformanceOptimizer: React.FC<{
       // The SimpleMemoryManager already handles cleanup internally
       log.debug('Cleanup process started', undefined, 'SimplePerformanceOptimizer');
       return true;
-    } catch (error) {
-      log.error('Failed to start cleanup', { error }, 'SimplePerformanceOptimizer');
+    } catch (_error) {
+      log.error('Failed to start cleanup', { error: _error }, 'SimplePerformanceOptimizer');
       return false;
     }
   };
 
   // Unused function kept for potential future use
   // const getOptimizationStatus = (): SimpleOptimizationStatus => {
-  //   const stats = memoryManager.getStats();
+  //   const _stats = memoryManager.getStats();
   //   const memoryUsage = memoryManager.getMemoryUsage();
   //   const totalEntries = Object.values(stats).reduce((sum, stat) => sum + stat.size, 0);
 
@@ -75,7 +74,11 @@ export const SimplePerformanceOptimizer: React.FC<{
   // };
 
   const runOptimization = async () => {
-    log.debug('Starting simple performance optimization...', undefined, 'SimplePerformanceOptimizer');
+    log.debug(
+      'Starting simple performance optimization...',
+      undefined,
+      'SimplePerformanceOptimizer'
+    );
 
     const results = {
       cachesConfigured: false,
@@ -99,14 +102,17 @@ export const SimplePerformanceOptimizer: React.FC<{
         estimatedMemoryUsage: 0
       };
 
-      log.debug('Simple performance optimization completed', undefined, 'SimplePerformanceOptimizer');
+      log.debug(
+        'Simple performance optimization completed',
+        undefined,
+        'SimplePerformanceOptimizer'
+      );
 
       if (onOptimizationComplete) {
         onOptimizationComplete(finalStatus);
       }
-
-    } catch (error) {
-      log.error('Simple optimization failed', { error }, 'SimplePerformanceOptimizer');
+    } catch (_error) {
+      log.error('Simple optimization failed', { error: _error }, 'SimplePerformanceOptimizer');
     }
   };
 
@@ -127,21 +133,16 @@ export const SimplePerformanceOptimizer: React.FC<{
     }
 
     const interval = setInterval(() => {
-      const stats = memoryManager.getStats();
+      const _stats = memoryManager.getStats();
       const memoryUsage = memoryManager.getMemoryUsage();
-      log.debug('Cache status', { stats, memoryUsage }, 'SimplePerformanceOptimizer');
+      log.debug('Cache status', { _stats, memoryUsage }, 'SimplePerformanceOptimizer');
     }, finalConfig.cleanupIntervalMs);
 
     return () => clearInterval(interval);
   }, [finalConfig.cleanupIntervalMs]);
 
   // Always render children
-  return (
-    <>
-      {children}
-    </>
-  );
+  return <>{children}</>;
 };
-
 
 export default SimplePerformanceOptimizer;

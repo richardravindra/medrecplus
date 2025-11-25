@@ -14,6 +14,8 @@ import Receipt from '@mui/icons-material/Receipt';
 import Stack from '@mui/joy/Stack';
 import Divider from '@mui/joy/Divider';
 import { storage } from '../../services/UnifiedStorage';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useConfirmDialog } from '../../hooks/useDialog';
 
 interface ReceiptConfig {
   header: string;
@@ -33,8 +35,11 @@ const ReceiptSettings: React.FC = () => {
     footer: defaultFooter
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Dialog hook
+  const confirmDialog = useConfirmDialog();
 
   useEffect(() => {
     loadReceiptConfig();
@@ -47,20 +52,20 @@ const ReceiptSettings: React.FC = () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setReceiptConfig(storedConfig as any);
       }
-    } catch (error) {
-      console.error('Error loading receipt config:', error);
+    } catch { // Error handled silently
     }
   };
 
-  const handleInputChange = (field: 'header' | 'footer') => (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setReceiptConfig(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-    // Clear messages when user starts typing
-    setError(null);
-    setSuccess(false);
-  };
+  const handleInputChange =
+    (field: 'header' | 'footer') => (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setReceiptConfig(prev => ({
+        ...prev,
+        [field]: event.target.value
+      }));
+      // Clear messages when user starts typing
+      setError(null);
+      setSuccess(false);
+    };
 
   const handleSave = async () => {
     setLoading(true);
@@ -87,8 +92,7 @@ const ReceiptSettings: React.FC = () => {
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (error) {
-      console.error('Error saving receipt config:', error);
+    } catch {
       setError('Failed to save configuration. Please try again.');
     } finally {
       setLoading(false);
@@ -96,31 +100,37 @@ const ReceiptSettings: React.FC = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm('Are you sure you want to reset to default values?')) {
-      setReceiptConfig({
-        header: defaultHeader,
-        footer: defaultFooter
-      });
-      setError(null);
-      setSuccess(false);
-    }
+    confirmDialog.openDialog({
+      title: 'Reset to Default',
+      message: 'Are you sure you want to reset to default values?',
+      onConfirm: () => {
+        setReceiptConfig({
+          header: defaultHeader,
+          footer: defaultFooter
+        });
+        setError(null);
+        setSuccess(false);
+      }
+    });
   };
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      p: { xs: 1, md: 2 },
-      pt: { xs: 0, md: 2 },
-      pr: { xs: 2, md: 2 },
-      boxSizing: 'border-box',
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        p: { xs: 1, md: 2 },
+        pt: { xs: 0, md: 2 },
+        pr: { xs: 2, md: 2 },
+        boxSizing: 'border-box',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/settings')}
           sx={{ borderRadius: 'sm' }}
@@ -128,17 +138,17 @@ const ReceiptSettings: React.FC = () => {
           Back to Settings
         </Button>
         <Receipt sx={{ fontSize: 32 }} />
-        <Typography level="h2">Print Receipt Setup</Typography>
+        <Typography level='h2'>Print Receipt Setup</Typography>
       </Box>
 
-      {error && (
-        <Alert color="danger" sx={{ mb: 3 }}>
-          {error}
+      {_error && (
+        <Alert color='danger' sx={{ mb: 3 }}>
+          {_error}
         </Alert>
       )}
 
       {success && (
-        <Alert color="success" sx={{ mb: 3 }}>
+        <Alert color='success' sx={{ mb: 3 }}>
           Configuration saved successfully!
         </Alert>
       )}
@@ -147,8 +157,10 @@ const ReceiptSettings: React.FC = () => {
         {/* Header Configuration */}
         <Card>
           <Box sx={{ mb: 3 }}>
-            <Typography level="h4" sx={{ mb: 1 }}>Receipt Header</Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            <Typography level='h4' sx={{ mb: 1 }}>
+              Receipt Header
+            </Typography>
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               Configure the header text that appears at the top of printed receipts.
             </Typography>
           </Box>
@@ -158,7 +170,7 @@ const ReceiptSettings: React.FC = () => {
             <Textarea
               value={receiptConfig.header}
               onChange={handleInputChange('header')}
-              placeholder="Enter receipt header text..."
+              placeholder='Enter receipt header text...'
               minRows={3}
               maxRows={6}
               sx={{
@@ -171,7 +183,7 @@ const ReceiptSettings: React.FC = () => {
                 }
               }}
             />
-            <Typography level="body-xs" sx={{ mt: 1, color: '#ffffff', opacity: 0.7 }}>
+            <Typography level='body-xs' sx={{ mt: 1, color: '#ffffff', opacity: 0.7 }}>
               This text appears at the top of printed receipts. You can use multiple lines.
             </Typography>
           </FormControl>
@@ -180,8 +192,10 @@ const ReceiptSettings: React.FC = () => {
         {/* Footer Configuration */}
         <Card>
           <Box sx={{ mb: 3 }}>
-            <Typography level="h4" sx={{ mb: 1 }}>Receipt Footer</Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            <Typography level='h4' sx={{ mb: 1 }}>
+              Receipt Footer
+            </Typography>
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               Configure the footer text that appears at the bottom of printed receipts.
             </Typography>
           </Box>
@@ -191,7 +205,7 @@ const ReceiptSettings: React.FC = () => {
             <Textarea
               value={receiptConfig.footer}
               onChange={handleInputChange('footer')}
-              placeholder="Enter receipt footer text..."
+              placeholder='Enter receipt footer text...'
               minRows={3}
               maxRows={6}
               sx={{
@@ -204,7 +218,7 @@ const ReceiptSettings: React.FC = () => {
                 }
               }}
             />
-            <Typography level="body-xs" sx={{ mt: 1, color: '#ffffff', opacity: 0.7 }}>
+            <Typography level='body-xs' sx={{ mt: 1, color: '#ffffff', opacity: 0.7 }}>
               This text appears at the bottom of printed receipts. You can use multiple lines.
             </Typography>
           </FormControl>
@@ -213,23 +227,35 @@ const ReceiptSettings: React.FC = () => {
         {/* Preview */}
         <Card>
           <Box sx={{ mb: 3 }}>
-            <Typography level="h4" sx={{ mb: 1 }}>Preview</Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            <Typography level='h4' sx={{ mb: 1 }}>
+              Preview
+            </Typography>
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               See how your receipt will look when printed.
             </Typography>
           </Box>
 
-          <Box sx={{
-            backgroundColor: '#ffffff',
-            color: '#000000',
-            p: 3,
-            borderRadius: 'sm',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            lineHeight: 1.6,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <Typography sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2, color: '#000000', whiteSpace: 'pre-line' }}>
+          <Box
+            sx={{
+              backgroundColor: '#ffffff',
+              color: '#000000',
+              p: 3,
+              borderRadius: 'sm',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              lineHeight: 1.6,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            <Typography
+              sx={{
+                textAlign: 'center',
+                fontWeight: 'bold',
+                mb: 2,
+                color: '#000000',
+                whiteSpace: 'pre-line'
+              }}
+            >
               {receiptConfig.header}
             </Typography>
 
@@ -237,19 +263,13 @@ const ReceiptSettings: React.FC = () => {
               <Divider sx={{ borderColor: '#000000' }} />
             </Box>
 
-            <Typography sx={{ mb: 2, color: '#000000' }}>
-              TREATMENT RECEIPT
-            </Typography>
+            <Typography sx={{ mb: 2, color: '#000000' }}>TREATMENT RECEIPT</Typography>
 
             <Typography sx={{ mb: 1, color: '#000000' }}>
               DATE: {new Date().toLocaleDateString()}
             </Typography>
-            <Typography sx={{ mb: 1, color: '#000000' }}>
-              Patient Name: John Doe
-            </Typography>
-            <Typography sx={{ mb: 2, color: '#000000' }}>
-              Address: Sample Address
-            </Typography>
+            <Typography sx={{ mb: 1, color: '#000000' }}>Patient Name: John Doe</Typography>
+            <Typography sx={{ mb: 2, color: '#000000' }}>Address: Sample Address</Typography>
 
             <Box sx={{ mb: 2 }}>
               <Divider sx={{ borderColor: '#000000' }} />
@@ -258,30 +278,38 @@ const ReceiptSettings: React.FC = () => {
             <Typography sx={{ fontWeight: 'bold', mb: 1, color: '#000000' }}>
               TREATMENTS:
             </Typography>
-            <Typography sx={{ mb: 1, color: '#000000' }}>
-              SAMPLE TREATMENT - RP 150,000
-            </Typography>
+            <Typography sx={{ mb: 1, color: '#000000' }}>SAMPLE TREATMENT - RP 150,000</Typography>
 
             <Box sx={{ mb: 2 }}>
               <Divider sx={{ borderColor: '#000000' }} />
             </Box>
 
-            <Typography sx={{ textAlign: 'center', fontWeight: 'bold', mb: 2, color: '#000000', whiteSpace: 'pre-line' }}>
+            <Typography
+              sx={{
+                textAlign: 'center',
+                fontWeight: 'bold',
+                mb: 2,
+                color: '#000000',
+                whiteSpace: 'pre-line'
+              }}
+            >
               {receiptConfig.footer}
             </Typography>
           </Box>
         </Card>
 
         {/* Action Buttons */}
-        <Box sx={{
-          display: 'flex',
-          gap: 2,
-          justifyContent: 'flex-end',
-          pt: 2
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            justifyContent: 'flex-end',
+            pt: 2
+          }}
+        >
           <Button
-            variant="outlined"
-            color="neutral"
+            variant='outlined'
+            color='neutral'
             onClick={handleReset}
             disabled={loading}
             sx={{ width: { xs: '100%', sm: 'auto' } }}
@@ -289,8 +317,8 @@ const ReceiptSettings: React.FC = () => {
             Reset to Default
           </Button>
           <Button
-            variant="solid"
-            color="primary"
+            variant='solid'
+            color='primary'
             startDecorator={<Save />}
             onClick={handleSave}
             loading={loading}
@@ -300,6 +328,18 @@ const ReceiptSettings: React.FC = () => {
           </Button>
         </Box>
       </Stack>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.isOpen}
+        onClose={confirmDialog.closeDialog}
+        onConfirm={confirmDialog.handleConfirm}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        variant={confirmDialog.config.variant}
+      />
     </Box>
   );
 };

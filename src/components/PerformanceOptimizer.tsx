@@ -25,7 +25,6 @@ export const PerformanceOptimizer: React.FC<{
   onOptimizationComplete?: (status: OptimizationStatus) => void;
   children?: React.ReactNode;
 }> = ({ config = {}, onOptimizationComplete, children }) => {
-  
   const finalConfig: OptimizationConfig = {
     enableMemoryMonitoring: true,
     enableDatabaseOptimization: true,
@@ -105,8 +104,8 @@ export const PerformanceOptimizer: React.FC<{
 
       addLog('Database optimization completed');
       return true;
-    } catch (error) {
-      addLog(`Database optimization failed: ${error}`);
+    } catch (err) {
+      addLog(`Database optimization failed: ${err}`);
       return false;
     }
   };
@@ -125,8 +124,8 @@ export const PerformanceOptimizer: React.FC<{
 
       addLog(`Memory optimized (limit: ${finalConfig.memoryLimitMB}MB)`);
       return true;
-    } catch (error) {
-      addLog(`Memory optimization failed: ${error}`);
+    } catch (err) {
+      addLog(`Memory optimization failed: ${err}`);
       return false;
     }
   };
@@ -149,8 +148,8 @@ export const PerformanceOptimizer: React.FC<{
         await optimizedDatabaseService.preloadData();
         addLog('Critical data preloaded successfully');
         return true;
-      } catch (error) {
-        addLog(`Data preloading failed: ${error}`);
+      } catch (err) {
+        addLog(`Data preloading failed: ${err}`);
         return false;
       }
     }
@@ -202,9 +201,8 @@ export const PerformanceOptimizer: React.FC<{
       if (onOptimizationComplete) {
         onOptimizationComplete(finalStatus);
       }
-
-    } catch (error) {
-      addLog(`Optimization failed: ${error}`);
+    } catch (err) {
+      addLog(`Optimization failed: ${err}`);
     } finally {
       // setIsOptimizing(false);
     }
@@ -234,11 +232,7 @@ export const PerformanceOptimizer: React.FC<{
   }, [finalConfig.enableMemoryMonitoring, finalConfig.cleanupIntervalMs]);
 
   // Always render children, development overlay removed
-  return (
-    <>
-      {children}
-    </>
-  );
+  return <>{children}</>;
 };
 
 // Hook for easy access to optimization features is now in src/hooks/usePerformanceOptimizer.tsx

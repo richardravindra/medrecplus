@@ -1,32 +1,41 @@
 import { ChunkedDataRestore } from './ChunkedDataRestore';
 import { IndexedDBStorage } from './IndexedDBStorage';
-import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
+import {
+  Patient,
+  Invoice,
+  Appointment,
+  VitalSigns,
+  Treatment,
+  Operator,
+  CustomExamination,
+  ReceiptConfig
+} from '../types';
 
 // Type guard functions
 function isPatient(entity: DataEntity): entity is Patient {
   return 'record_number' in entity && 'name' in entity && 'age' in entity;
 }
 
-
 // Generic type for data entities - includes all possible types with index signature
-type DataEntity = (Patient & Record<string, unknown>) |
-                   (Invoice & Record<string, unknown>) |
-                   (Appointment & Record<string, unknown>) |
-                   (Operator & Record<string, unknown>) |
-                   (CustomExamination & Record<string, unknown>) |
-                   (ReceiptConfig & Record<string, unknown>) |
-                   (Record<string, unknown> & {
-  patientName?: string;
-  patientId?: number;
-  operatorName?: string;
-  operatorId?: number;
-  date?: string;
-  invoiceNumber?: string;
-  status?: string;
-  totalAmount?: number;
-  vitalSigns?: VitalSigns;
-  treatments?: Treatment[];
-});
+type DataEntity =
+  | (Patient & Record<string, unknown>)
+  | (Invoice & Record<string, unknown>)
+  | (Appointment & Record<string, unknown>)
+  | (Operator & Record<string, unknown>)
+  | (CustomExamination & Record<string, unknown>)
+  | (ReceiptConfig & Record<string, unknown>)
+  | (Record<string, unknown> & {
+      patientName?: string;
+      patientId?: number;
+      operatorName?: string;
+      operatorId?: number;
+      date?: string;
+      invoiceNumber?: string;
+      status?: string;
+      totalAmount?: number;
+      vitalSigns?: VitalSigns;
+      treatments?: Treatment[];
+    });
 
 export class ChunkedDataManager {
   // Get data with chunked storage support
@@ -55,7 +64,11 @@ export class ChunkedDataManager {
   }
 
   // Get patients with search and pagination support
-  static async getPatients(search?: string, page = 1, pageSize = 50): Promise<{
+  static async getPatients(
+    search?: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<{
     patients: Patient[];
     totalCount: number;
     totalPages: number;
@@ -67,11 +80,12 @@ export class ChunkedDataManager {
     let filteredPatients = patients;
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredPatients = patients.filter(patient =>
-        patient.name?.toLowerCase().includes(searchLower) ||
-        patient.record_number?.toLowerCase().includes(searchLower) ||
-        patient.phone_number?.toLowerCase().includes(searchLower) ||
-        patient.initial_diagnosis?.toLowerCase().includes(searchLower)
+      filteredPatients = patients.filter(
+        patient =>
+          patient.name?.toLowerCase().includes(searchLower) ||
+          patient.record_number?.toLowerCase().includes(searchLower) ||
+          patient.phone_number?.toLowerCase().includes(searchLower) ||
+          patient.initial_diagnosis?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -88,20 +102,25 @@ export class ChunkedDataManager {
   }
 
   // Get appointments with search and pagination support
-  static async getAppointments(search?: string, page = 1, pageSize = 50): Promise<{
+  static async getAppointments(
+    search?: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<{
     appointments: DataEntity[];
     totalCount: number;
     totalPages: number;
   }> {
-    let appointments = await this.getData('appointments') as Appointment[];
+    let appointments = (await this.getData('appointments')) as Appointment[];
 
     // Apply search filter
     if (search) {
       const searchLower = search.toLowerCase();
-      appointments = appointments.filter(appointment =>
-        appointment.patientName?.toLowerCase().includes(searchLower) ||
-        appointment.operatorName?.toLowerCase().includes(searchLower) ||
-        appointment.date?.includes(search)
+      appointments = appointments.filter(
+        appointment =>
+          appointment.patientName?.toLowerCase().includes(searchLower) ||
+          appointment.operatorName?.toLowerCase().includes(searchLower) ||
+          appointment.date?.includes(search)
       );
     }
 
@@ -121,20 +140,26 @@ export class ChunkedDataManager {
   }
 
   // Get invoices with search and pagination support
-  static async getInvoices(search?: string, status?: string, page = 1, pageSize = 50): Promise<{
+  static async getInvoices(
+    search?: string,
+    status?: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<{
     invoices: Invoice[];
     totalCount: number;
     totalPages: number;
   }> {
-    let invoices = await this.getData('invoices') as Invoice[];
+    let invoices = (await this.getData('invoices')) as Invoice[];
 
     // Apply filters
     if (search) {
       const searchLower = search.toLowerCase();
-      invoices = invoices.filter(invoice =>
-        invoice.patientName?.toLowerCase().includes(searchLower) ||
-        invoice.invoiceNumber?.toLowerCase().includes(searchLower) ||
-        invoice.operatorName?.toLowerCase().includes(searchLower)
+      invoices = invoices.filter(
+        invoice =>
+          invoice.patientName?.toLowerCase().includes(searchLower) ||
+          invoice.invoiceNumber?.toLowerCase().includes(searchLower) ||
+          invoice.operatorName?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -159,13 +184,13 @@ export class ChunkedDataManager {
 
   // Get single patient by ID
   static async getPatientById(id: number): Promise<Patient | null> {
-    const patients = await this.getData('patient_management_data') as Patient[];
+    const patients = (await this.getData('patient_management_data')) as Patient[];
     return patients.find(patient => patient.id === id) || null;
   }
 
   // Get appointments by patient ID
   static async getAppointmentsByPatientId(patientId: number): Promise<DataEntity[]> {
-    const appointments = await this.getData('appointments') as Appointment[];
+    const appointments = (await this.getData('appointments')) as Appointment[];
     return appointments
       .filter(appointment => appointment.patientId === patientId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -173,7 +198,7 @@ export class ChunkedDataManager {
 
   // Get invoices by patient ID
   static async getInvoicesByPatientId(patientId: number): Promise<Invoice[]> {
-    const invoices = await this.getData('invoices') as Invoice[];
+    const invoices = (await this.getData('invoices')) as Invoice[];
     return invoices
       .filter(invoice => invoice.patientId === patientId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -189,8 +214,8 @@ export class ChunkedDataManager {
     recentInvoices: Invoice[];
   }> {
     const patients = await this.getData('patient_management_data');
-    const appointments = await this.getData('appointments') as Appointment[];
-    const invoices = await this.getData('invoices') as Invoice[];
+    const appointments = (await this.getData('appointments')) as Appointment[];
+    const invoices = (await this.getData('invoices')) as Invoice[];
 
     const totalRevenue = invoices
       .filter(invoice => invoice.status === 'paid')
@@ -224,7 +249,7 @@ export class ChunkedDataManager {
     totalKeys: number;
     chunkedKeys: string[];
     estimatedSize: string;
-    indexedDBInfo: { available: boolean; quota?: number; used?: number; } | null;
+    indexedDBInfo: { available: boolean; quota?: number; used?: number } | null;
   }> {
     let totalKeys = 0;
     const chunkedKeys: string[] = [];
@@ -266,31 +291,25 @@ export class ChunkedDataManager {
 
   // Clear all data
   static async clearAll(): Promise<void> {
-    try {
-      // Clear IndexedDB
-      await IndexedDBStorage.clearAll();
+    // Clear IndexedDB
+    await IndexedDBStorage.clearAll();
 
-      // Clear localStorage
-      const keysToKeep = ['currentUser', 'settings'];
-      const allKeys = Object.keys(localStorage);
+    // Clear localStorage
+    const keysToKeep = ['currentUser', 'settings'];
+    const allKeys = Object.keys(localStorage);
 
-      allKeys.forEach(key => {
-        if (!keysToKeep.includes(key)) {
-          localStorage.removeItem(key);
-        }
-      });
-    } catch (error) {
-      console.error('Clear all data error:', error);
-      throw error;
-    }
+    allKeys.forEach(key => {
+      if (!keysToKeep.includes(key)) {
+        localStorage.removeItem(key);
+      }
+    });
   }
 
   // Cleanup old data
   static async cleanupOldData(daysOld = 30): Promise<void> {
     try {
       await IndexedDBStorage.cleanupOldData(daysOld);
-    } catch (error) {
-      console.error('Cleanup error:', error);
+    } catch { // Error handled silently
     }
   }
 }

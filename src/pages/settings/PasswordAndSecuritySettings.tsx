@@ -66,7 +66,7 @@ const PasswordAndSecuritySettings: React.FC = () => {
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [_error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   // Security settings state
@@ -79,7 +79,9 @@ const PasswordAndSecuritySettings: React.FC = () => {
   });
 
   // Check encryption setup status
-  const [encryptionStatus, setEncryptionStatus] = useState<'setup' | 'locked' | 'corrupted' | 'unknown'>('unknown');
+  const [encryptionStatus, setEncryptionStatus] = useState<
+    'setup' | 'locked' | 'corrupted' | 'unknown'
+  >('unknown');
 
   useEffect(() => {
     checkEncryptionStatus();
@@ -98,8 +100,7 @@ const PasswordAndSecuritySettings: React.FC = () => {
         } else {
           setEncryptionStatus('unknown');
         }
-      } catch (error) {
-        console.error('Failed to check encryption status:', error);
+      } catch {
         setEncryptionStatus('unknown');
       }
     }
@@ -129,8 +130,7 @@ const PasswordAndSecuritySettings: React.FC = () => {
           setSettings(savedSettings as any);
         }
       }
-    } catch (err) {
-      console.error('Failed to load security settings:', err);
+    } catch { // Error handled silently
     }
   };
 
@@ -203,7 +203,9 @@ const PasswordAndSecuritySettings: React.FC = () => {
             return false;
           } else {
             // Encryption was never properly set up
-            setCurrentPasswordError('Encryption setup is incomplete. Please restart the app and complete encryption setup first.');
+            setCurrentPasswordError(
+              'Encryption setup is incomplete. Please restart the app and complete encryption setup first.'
+            );
             return false;
           }
         }
@@ -213,8 +215,7 @@ const PasswordAndSecuritySettings: React.FC = () => {
           setCurrentPasswordError('Current password is incorrect');
           return false;
         }
-      } catch (error) {
-        console.error('Password validation error:', error);
+      } catch {
         setCurrentPasswordError('Failed to validate password. Please try again.');
         return false;
       }
@@ -288,11 +289,12 @@ const PasswordAndSecuritySettings: React.FC = () => {
         const encryptionSetup = await storage.getEncryptionSetup();
 
         if (!storedPasswordHash || !encryptionSetup) {
-          setError('Encryption setup is incomplete. Please restart the app and complete the encryption setup first.');
+          setError(
+            'Encryption setup is incomplete. Please restart the app and complete the encryption setup first.'
+          );
           return;
         }
-      } catch (error) {
-        console.error('Failed to check encryption status:', error);
+      } catch {
         setError('Failed to check encryption status. Please try again.');
         return;
       }
@@ -312,7 +314,6 @@ const PasswordAndSecuritySettings: React.FC = () => {
       if (typeof window !== 'undefined' && '__TAURI__' in window) {
         // TODO: Implement Tauri API call to change password
         // await invoke('change_password', { currentPassword, newPassword });
-        console.log('Tauri API - change password not implemented yet');
         // Simulate success for now
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
@@ -329,7 +330,11 @@ const PasswordAndSecuritySettings: React.FC = () => {
       setShowChangePasswordModal(false);
       setShowSuccessModal(true);
     } catch (err) {
-      setError(err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Failed to change password');
+      setError(
+        err && typeof err === 'object' && 'message' in err
+          ? String(err.message)
+          : 'Failed to change password'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -352,7 +357,11 @@ const PasswordAndSecuritySettings: React.FC = () => {
       // Navigate to encryption setup
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Failed to reset password');
+      setError(
+        err && typeof err === 'object' && 'message' in err
+          ? String(err.message)
+          : 'Failed to reset password'
+      );
       setTimeout(() => setError(''), 3000);
     } finally {
       setIsLoading(false);
@@ -390,36 +399,38 @@ const PasswordAndSecuritySettings: React.FC = () => {
   };
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      p: { xs: 1, md: 2 },
-      pt: { xs: 0, md: 2 },
-      pr: { xs: 2, md: 2 },
-      boxSizing: 'border-box',
-      minWidth: 0
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        p: { xs: 1, md: 2 },
+        pt: { xs: 0, md: 2 },
+        pr: { xs: 2, md: 2 },
+        boxSizing: 'border-box',
+        minWidth: 0
+      }}
+    >
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <IconButton
-          variant="outlined"
+          variant='outlined'
           onClick={() => navigate('/settings')}
           sx={{ borderRadius: 'sm' }}
         >
           <ArrowBack />
         </IconButton>
         <Security sx={{ fontSize: 32, color: '#ffffff' }} />
-        <Typography level="h2">Password and Security</Typography>
+        <Typography level='h2'>Password and Security</Typography>
       </Box>
 
       {/* Alerts */}
-      {error && (
-        <Alert color="danger" sx={{ mb: 2 }} startDecorator={<Error />}>
-          {error}
+      {_error && (
+        <Alert color='danger' sx={{ mb: 2 }} startDecorator={<Error />}>
+          {_error}
         </Alert>
       )}
       {success && (
-        <Alert color="success" sx={{ mb: 2 }} startDecorator={<CheckCircle />}>
+        <Alert color='success' sx={{ mb: 2 }} startDecorator={<CheckCircle />}>
           {success}
         </Alert>
       )}
@@ -427,53 +438,63 @@ const PasswordAndSecuritySettings: React.FC = () => {
       {/* Security Overview Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ p: 3 }}>
-          <Typography level="h4" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Shield color="primary" />
+          <Typography level='h4' sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Shield color='primary' />
             Security Overview
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Chip
               color={settings.autoLockEnabled ? 'success' : 'neutral'}
-              variant="soft"
+              variant='soft'
               startDecorator={<Lock />}
             >
               Auto-Lock: {settings.autoLockEnabled ? 'Enabled' : 'Disabled'}
             </Chip>
-            <Chip
-              color="primary"
-              variant="soft"
-              startDecorator={<Timer />}
-            >
-              Lock Timeout: {settings.lockscreenTimeout === 0 ? 'Never' : `${settings.lockscreenTimeout} min`}
+            <Chip color='primary' variant='soft' startDecorator={<Timer />}>
+              Lock Timeout:{' '}
+              {settings.lockscreenTimeout === 0 ? 'Never' : `${settings.lockscreenTimeout} min`}
             </Chip>
             <Chip
               color={settings.failedAttemptLockout ? 'success' : 'neutral'}
-              variant="soft"
+              variant='soft'
               startDecorator={<Key />}
             >
               Failed Attempt Lockout: {settings.failedAttemptLockout ? 'Enabled' : 'Disabled'}
             </Chip>
             {typeof window !== 'undefined' && !('__TAURI__' in window) && (
               <Chip
-                color={encryptionStatus === 'setup' ? 'success' : encryptionStatus === 'corrupted' ? 'danger' : 'warning'}
-                variant="soft"
+                color={
+                  encryptionStatus === 'setup'
+                    ? 'success'
+                    : encryptionStatus === 'corrupted'
+                      ? 'danger'
+                      : 'warning'
+                }
+                variant='soft'
                 startDecorator={<Security />}
               >
-                Encryption: {encryptionStatus === 'setup' ? 'Complete' : encryptionStatus === 'corrupted' ? 'Corrupted' : 'Incomplete'}
+                Encryption:{' '}
+                {encryptionStatus === 'setup'
+                  ? 'Complete'
+                  : encryptionStatus === 'corrupted'
+                    ? 'Corrupted'
+                    : 'Incomplete'}
               </Chip>
             )}
           </Box>
           {encryptionStatus === 'corrupted' && (
-            <Alert color="danger" sx={{ mt: 2 }} startDecorator={<Error />}>
-              <Typography level="body-sm">
-                <strong>⚠️ Password data corrupted:</strong> Please reset your encryption setup to continue using password features.
+            <Alert color='danger' sx={{ mt: 2 }} startDecorator={<Error />}>
+              <Typography level='body-sm'>
+                <strong>⚠️ Password data corrupted:</strong> Please reset your encryption setup to
+                continue using password features.
               </Typography>
             </Alert>
           )}
           {encryptionStatus === 'unknown' && (
-            <Alert color="warning" sx={{ mt: 2 }} startDecorator={<Warning />}>
-              <Typography level="body-sm">
-                <strong>⚠️ Encryption incomplete:</strong> Please restart the app and complete the encryption setup first.
+            <Alert color='warning' sx={{ mt: 2 }} startDecorator={<Warning />}>
+              <Typography level='body-sm'>
+                <strong>⚠️ Encryption incomplete:</strong> Please restart the app and complete the
+                encryption setup first.
               </Typography>
             </Alert>
           )}
@@ -484,16 +505,16 @@ const PasswordAndSecuritySettings: React.FC = () => {
         {/* Password Management */}
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Typography level="h4" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Key color="primary" />
+            <Typography level='h4' sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Key color='primary' />
               Password Management
             </Typography>
 
             <Stack spacing={2}>
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Button
-                  variant="solid"
-                  color="primary"
+                  variant='solid'
+                  color='primary'
                   onClick={async () => {
                     // Check if encryption is properly set up before showing the modal
                     if (typeof window !== 'undefined' && !('__TAURI__' in window)) {
@@ -502,11 +523,12 @@ const PasswordAndSecuritySettings: React.FC = () => {
                         const encryptionSetup = await storage.getEncryptionSetup();
 
                         if (!storedPasswordHash || !encryptionSetup) {
-                          setError('Encryption setup is incomplete. Please restart the app and complete the encryption setup first.');
+                          setError(
+                            'Encryption setup is incomplete. Please restart the app and complete the encryption setup first.'
+                          );
                           return;
                         }
-                      } catch (error) {
-                        console.error('Failed to check encryption status:', error);
+                      } catch {
                         setError('Failed to check encryption status. Please try again.');
                         return;
                       }
@@ -520,8 +542,8 @@ const PasswordAndSecuritySettings: React.FC = () => {
                   Change Password
                 </Button>
                 <Button
-                  variant="outlined"
-                  color="warning"
+                  variant='outlined'
+                  color='warning'
                   onClick={() => setShowResetPasswordModal(true)}
                   startDecorator={<Warning />}
                   sx={{ flex: { xs: 1, md: 'auto' } }}
@@ -532,8 +554,8 @@ const PasswordAndSecuritySettings: React.FC = () => {
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Button
-                  variant="solid"
-                  color="success"
+                  variant='solid'
+                  color='success'
                   onClick={handleLockApp}
                   startDecorator={<Security />}
                   sx={{ flex: { xs: 1, md: 'auto' } }}
@@ -542,19 +564,23 @@ const PasswordAndSecuritySettings: React.FC = () => {
                 </Button>
               </Box>
 
-              <Alert color="success" startDecorator={<Security />}>
-                <Typography level="body-sm">
-                  <strong>Manual Lock:</strong> Use "Lock the App Now" to immediately secure your session and require password authentication to continue.
+              <Alert color='success' startDecorator={<Security />}>
+                <Typography level='body-sm'>
+                  <strong>Manual Lock:</strong> Use "Lock the App Now" to immediately secure your
+                  session and require password authentication to continue.
                 </Typography>
               </Alert>
 
-              <Alert color="primary" startDecorator={<Info />}>
-                <Typography level="body-sm">
-                  <strong>Password Requirements:</strong><br/>
-                  • Minimum 8 characters<br/>
-                  • At least one number and one letter<br/>
-                  • Special characters recommended for stronger security<br/>
-                  • Use a unique password you don't use elsewhere
+              <Alert color='primary' startDecorator={<Info />}>
+                <Typography level='body-sm'>
+                  <strong>Password Requirements:</strong>
+                  <br />
+                  • Minimum 8 characters
+                  <br />
+                  • At least one number and one letter
+                  <br />
+                  • Special characters recommended for stronger security
+                  <br />• Use a unique password you don't use elsewhere
                 </Typography>
               </Alert>
             </Stack>
@@ -564,8 +590,8 @@ const PasswordAndSecuritySettings: React.FC = () => {
         {/* Lockscreen Settings */}
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Typography level="h4" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LockClock color="primary" />
+            <Typography level='h4' sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <LockClock color='primary' />
               Lockscreen Settings
             </Typography>
 
@@ -573,41 +599,45 @@ const PasswordAndSecuritySettings: React.FC = () => {
               {/* Auto-Lock Toggle */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography level="title-lg">Auto-Lock</Typography>
-                  <Typography level="body-sm" sx={{ color: '#999' }}>
+                  <Typography level='title-lg'>Auto-Lock</Typography>
+                  <Typography level='body-sm' sx={{ color: '#999' }}>
                     Automatically lock the app after period of inactivity
                   </Typography>
                 </Box>
                 <Switch
                   checked={settings.autoLockEnabled}
-                  onChange={(e) => saveSettings({
-                    ...settings,
-                    autoLockEnabled: e.target.checked
-                  })}
-                  color="primary"
+                  onChange={e =>
+                    saveSettings({
+                      ...settings,
+                      autoLockEnabled: e.target.checked
+                    })
+                  }
+                  color='primary'
                 />
               </Box>
 
               {/* Lockscreen Timeout */}
               {settings.autoLockEnabled && (
                 <Box>
-                  <Typography level="title-lg" sx={{ mb: 1 }}>
+                  <Typography level='title-lg' sx={{ mb: 1 }}>
                     Lock Timeout
                   </Typography>
                   <FormControl>
                     <Select
                       value={settings.lockscreenTimeout}
-                      onChange={(_, value) => saveSettings({
-                        ...settings,
-                        lockscreenTimeout: value || 15
-                      })}
+                      onChange={(_, value) =>
+                        saveSettings({
+                          ...settings,
+                          lockscreenTimeout: value || 15
+                        })
+                      }
                       sx={{ minWidth: 200 }}
                     >
-                      {timeoutOptions.map((option) => (
+                      {timeoutOptions.map(option => (
                         <Option key={option.value} value={option.value}>
                           <Box>
-                            <Typography level="body-md">{option.label}</Typography>
-                            <Typography level="body-xs" sx={{ color: '#999' }}>
+                            <Typography level='body-md'>{option.label}</Typography>
+                            <Typography level='body-xs' sx={{ color: '#999' }}>
                               {option.description}
                             </Typography>
                           </Box>
@@ -618,12 +648,22 @@ const PasswordAndSecuritySettings: React.FC = () => {
                   <Box sx={{ mt: 1 }}>
                     <LinearProgress
                       determinate
-                      value={settings.lockscreenTimeout === 0 ? 0 :
-                            Math.max(0, 100 - (settings.lockscreenTimeout / 180) * 100)}
-                      color={getTimeoutColor(settings.lockscreenTimeout) as 'primary' | 'neutral' | 'danger' | 'success' | 'warning'}
+                      value={
+                        settings.lockscreenTimeout === 0
+                          ? 0
+                          : Math.max(0, 100 - (settings.lockscreenTimeout / 180) * 100)
+                      }
+                      color={
+                        getTimeoutColor(settings.lockscreenTimeout) as
+                          | 'primary'
+                          | 'neutral'
+                          | 'danger'
+                          | 'success'
+                          | 'warning'
+                      }
                       sx={{ mb: 1 }}
                     />
-                    <Typography level="body-xs" sx={{ color: '#999' }}>
+                    <Typography level='body-xs' sx={{ color: '#999' }}>
                       Security Level: {getTimeoutSecurityLevel(settings.lockscreenTimeout)}
                     </Typography>
                   </Box>
@@ -633,18 +673,20 @@ const PasswordAndSecuritySettings: React.FC = () => {
               {/* Failed Attempt Lockout */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography level="title-lg">Failed Attempt Lockout</Typography>
-                  <Typography level="body-sm" sx={{ color: '#999' }}>
+                  <Typography level='title-lg'>Failed Attempt Lockout</Typography>
+                  <Typography level='body-sm' sx={{ color: '#999' }}>
                     Lock app after 5 incorrect password attempts (30 minutes)
                   </Typography>
                 </Box>
                 <Switch
                   checked={settings.failedAttemptLockout}
-                  onChange={(e) => saveSettings({
-                    ...settings,
-                    failedAttemptLockout: e.target.checked
-                  })}
-                  color="primary"
+                  onChange={e =>
+                    saveSettings({
+                      ...settings,
+                      failedAttemptLockout: e.target.checked
+                    })
+                  }
+                  color='primary'
                 />
               </Box>
             </Stack>
@@ -654,30 +696,35 @@ const PasswordAndSecuritySettings: React.FC = () => {
         {/* Security Recommendations */}
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Typography level="h4" sx={{ mb: 2 }}>Security Recommendations</Typography>
+            <Typography level='h4' sx={{ mb: 2 }}>
+              Security Recommendations
+            </Typography>
 
             <Stack spacing={2}>
-              <Alert color="success" startDecorator={<CheckCircle />}>
-                <Typography level="body-sm">
+              <Alert color='success' startDecorator={<CheckCircle />}>
+                <Typography level='body-sm'>
                   <strong>✅ Password Protection:</strong> Your data is encrypted with SQLCipher
                 </Typography>
               </Alert>
 
-              <Alert color="warning" startDecorator={<Warning />}>
-                <Typography level="body-sm">
-                  <strong>⚠️ Password Strength:</strong> Consider using a password manager for stronger passwords
+              <Alert color='warning' startDecorator={<Warning />}>
+                <Typography level='body-sm'>
+                  <strong>⚠️ Password Strength:</strong> Consider using a password manager for
+                  stronger passwords
                 </Typography>
               </Alert>
 
-              <Alert color="primary" startDecorator={<Info />}>
-                <Typography level="body-sm">
-                  <strong>💡 Pro Tip:</strong> Enable 2-factor authentication when available for enhanced security
+              <Alert color='primary' startDecorator={<Info />}>
+                <Typography level='body-sm'>
+                  <strong>💡 Pro Tip:</strong> Enable 2-factor authentication when available for
+                  enhanced security
                 </Typography>
               </Alert>
 
-              <Alert color="neutral" startDecorator={<Shield />}>
-                <Typography level="body-sm">
-                  <strong>🛡️ HIPAA Compliance:</strong> Current settings meet medical data security standards
+              <Alert color='neutral' startDecorator={<Shield />}>
+                <Typography level='body-sm'>
+                  <strong>🛡️ HIPAA Compliance:</strong> Current settings meet medical data security
+                  standards
                 </Typography>
               </Alert>
             </Stack>
@@ -689,7 +736,9 @@ const PasswordAndSecuritySettings: React.FC = () => {
       <Modal open={showChangePasswordModal} onClose={() => setShowChangePasswordModal(false)}>
         <ModalDialog sx={{ maxWidth: 450 }}>
           <ModalClose />
-          <Typography level="h4" sx={{ mb: 2 }}>Change Password</Typography>
+          <Typography level='h4' sx={{ mb: 2 }}>
+            Change Password
+          </Typography>
 
           <Stack spacing={2}>
             <FormControl>
@@ -698,23 +747,23 @@ const PasswordAndSecuritySettings: React.FC = () => {
                 <Input
                   type={showCurrentPassword ? 'text' : 'password'}
                   value={currentPassword}
-                  onChange={async (e) => {
+                  onChange={async e => {
                     setCurrentPassword(e.target.value);
                     await validateCurrentPassword(e.target.value);
                   }}
-                  placeholder="Enter current password"
+                  placeholder='Enter current password'
                   error={!!currentPasswordError}
                   sx={{ flex: 1 }}
                 />
                 <IconButton
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  variant="outlined"
+                  variant='outlined'
                 >
                   {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
                 </IconButton>
               </Box>
               {currentPasswordError && (
-                <Typography level="body-xs" sx={{ color: '#ff6b6b', mt: 1 }}>
+                <Typography level='body-xs' sx={{ color: '#ff6b6b', mt: 1 }}>
                   {currentPasswordError}
                 </Typography>
               )}
@@ -726,7 +775,7 @@ const PasswordAndSecuritySettings: React.FC = () => {
                 <Input
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
-                  onChange={(e) => {
+                  onChange={e => {
                     setNewPassword(e.target.value);
                     validateNewPassword(e.target.value);
                     // Also re-validate confirm password if it has a value
@@ -734,19 +783,16 @@ const PasswordAndSecuritySettings: React.FC = () => {
                       validateConfirmPassword(e.target.value, confirmPassword);
                     }
                   }}
-                  placeholder="Enter new password"
+                  placeholder='Enter new password'
                   error={!!newPasswordError}
                   sx={{ flex: 1 }}
                 />
-                <IconButton
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  variant="outlined"
-                >
+                <IconButton onClick={() => setShowNewPassword(!showNewPassword)} variant='outlined'>
                   {showNewPassword ? <VisibilityOff /> : <Visibility />}
                 </IconButton>
               </Box>
               {newPasswordError && (
-                <Typography level="body-xs" sx={{ color: '#ff6b6b', mt: 1 }}>
+                <Typography level='body-xs' sx={{ color: '#ff6b6b', mt: 1 }}>
                   {newPasswordError}
                 </Typography>
               )}
@@ -755,10 +801,17 @@ const PasswordAndSecuritySettings: React.FC = () => {
                   <LinearProgress
                     determinate
                     value={passwordStrength.score}
-                    color={passwordStrength.color as 'primary' | 'neutral' | 'danger' | 'success' | 'warning'}
+                    color={
+                      passwordStrength.color as
+                        | 'primary'
+                        | 'neutral'
+                        | 'danger'
+                        | 'success'
+                        | 'warning'
+                    }
                     sx={{ mb: 1 }}
                   />
-                  <Typography level="body-xs" sx={{ color: '#999' }}>
+                  <Typography level='body-xs' sx={{ color: '#999' }}>
                     {passwordStrength.feedback.join(', ')}
                   </Typography>
                 </Box>
@@ -771,23 +824,23 @@ const PasswordAndSecuritySettings: React.FC = () => {
                 <Input
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
-                  onChange={(e) => {
+                  onChange={e => {
                     setConfirmPassword(e.target.value);
                     validateConfirmPassword(newPassword, e.target.value);
                   }}
-                  placeholder="Confirm new password"
+                  placeholder='Confirm new password'
                   error={!!confirmPasswordError}
                   sx={{ flex: 1 }}
                 />
                 <IconButton
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  variant="outlined"
+                  variant='outlined'
                 >
                   {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                 </IconButton>
               </Box>
               {confirmPasswordError && (
-                <Typography level="body-xs" sx={{ color: '#ff6b6b', mt: 1 }}>
+                <Typography level='body-xs' sx={{ color: '#ff6b6b', mt: 1 }}>
                   {confirmPasswordError}
                 </Typography>
               )}
@@ -795,14 +848,14 @@ const PasswordAndSecuritySettings: React.FC = () => {
 
             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
               <Button
-                variant="outlined"
+                variant='outlined'
                 onClick={() => setShowChangePasswordModal(false)}
                 sx={{ flex: 1 }}
               >
                 Cancel
               </Button>
               <Button
-                variant="solid"
+                variant='solid'
                 onClick={handleChangePassword}
                 disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}
                 loading={isLoading}
@@ -819,29 +872,32 @@ const PasswordAndSecuritySettings: React.FC = () => {
       <Modal open={showResetPasswordModal} onClose={() => setShowResetPasswordModal(false)}>
         <ModalDialog sx={{ maxWidth: 400 }}>
           <ModalClose />
-          <Typography level="h4" sx={{ mb: 2 }}>Reset Password</Typography>
+          <Typography level='h4' sx={{ mb: 2 }}>
+            Reset Password
+          </Typography>
 
-          <Alert color="warning" sx={{ mb: 2 }}>
-            <Typography level="body-sm">
-              <strong>⚠️ Warning:</strong> This will reset your encryption setup. You'll need to create a new password and re-encrypt all your data.
+          <Alert color='warning' sx={{ mb: 2 }}>
+            <Typography level='body-sm'>
+              <strong>⚠️ Warning:</strong> This will reset your encryption setup. You'll need to
+              create a new password and re-encrypt all your data.
             </Typography>
           </Alert>
 
-          <Typography level="body-sm" sx={{ mb: 3 }}>
+          <Typography level='body-sm' sx={{ mb: 3 }}>
             This action cannot be undone. Make sure you have backups of your data before proceeding.
           </Typography>
 
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
-              variant="outlined"
+              variant='outlined'
               onClick={() => setShowResetPasswordModal(false)}
               sx={{ flex: 1 }}
             >
               Cancel
             </Button>
             <Button
-              variant="solid"
-              color="warning"
+              variant='solid'
+              color='warning'
               onClick={handleResetPassword}
               disabled={isLoading}
               loading={isLoading}
@@ -859,8 +915,10 @@ const PasswordAndSecuritySettings: React.FC = () => {
           <ModalClose />
           <Box sx={{ textAlign: 'center', py: 2 }}>
             <CheckCircle sx={{ fontSize: 48, color: 'success', mb: 2 }} />
-            <Typography level="h4" sx={{ mb: 1 }}>Success!</Typography>
-            <Typography level="body-sm" sx={{ color: '#999' }}>
+            <Typography level='h4' sx={{ mb: 1 }}>
+              Success!
+            </Typography>
+            <Typography level='body-sm' sx={{ color: '#999' }}>
               Your password has been changed successfully.
             </Typography>
           </Box>

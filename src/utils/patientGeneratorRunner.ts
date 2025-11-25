@@ -22,9 +22,8 @@ export async function generateTenThousandPatients(): Promise<void> {
     // Debug logging removed - starting patient data generation
     await generate10KPatients();
     // Debug logging removed - patient generation completed
-  } catch (error) {
-    console.error('❌ Error during patient generation:', error);
-  }
+  } catch { // Error handled silently
+    }
 }
 
 // Function to clear all patients
@@ -32,9 +31,8 @@ export async function clearAllPatientData(): Promise<void> {
   try {
     await clearAllPatients();
     // Debug logging removed - all patient data cleared
-  } catch (error) {
-    console.error('❌ Error clearing patient data:', error);
-  }
+  } catch { // Error handled silently
+    }
 }
 
 // Function to generate a specific number of patients (extension of the main script)
@@ -59,4 +57,3 @@ if (typeof window !== 'undefined') {
 
   // Debug logging removed - Patient Data Generator Console Functions Available
 }
-

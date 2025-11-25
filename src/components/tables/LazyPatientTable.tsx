@@ -1,13 +1,5 @@
 import React, { Suspense } from 'react';
-import {
-  Table,
-  Box,
-  CircularProgress,
-  Typography,
-  Chip,
-  IconButton,
-  Link
-} from '@mui/joy';
+import { Table, Box, CircularProgress, Typography, Chip, IconButton, Link } from '@mui/joy';
 import Visibility from '@mui/icons-material/Visibility';
 import Edit from '@mui/icons-material/Edit';
 import Delete from '@mui/icons-material/Delete';
@@ -19,12 +11,10 @@ interface LazyPatientTableProps {
   patients: Patient[];
   columnVisibility: {
     record_number: boolean;
-    name: boolean;
-    age: boolean;
     address: boolean;
     phone_number: boolean;
     initial_diagnosis: boolean;
-    date_added: boolean;
+    created_at: boolean;
   };
   onView: (patient: Patient) => void;
   onEdit: (patient: Patient) => void;
@@ -64,7 +54,7 @@ const TableComponent: React.FC<LazyPatientTableProps> = ({
           gap: 2
         }}
       >
-        <Typography level="body-lg" sx={{ color: '#ffffff' }}>
+        <Typography level='body-lg' sx={{ color: '#ffffff' }}>
           No patient entries,{' '}
           <Link
             onClick={onAddPatient}
@@ -113,9 +103,12 @@ const TableComponent: React.FC<LazyPatientTableProps> = ({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {children}
-          {isSorted && (
-            sortDirection === 'asc' ? <ArrowUpward sx={{ fontSize: 14, color: '#ffffff' }} /> : <ArrowDownward sx={{ fontSize: 14, color: '#ffffff' }} />
-          )}
+          {isSorted &&
+            (sortDirection === 'asc' ? (
+              <ArrowUpward sx={{ fontSize: 14, color: '#ffffff' }} />
+            ) : (
+              <ArrowDownward sx={{ fontSize: 14, color: '#ffffff' }} />
+            ))}
         </Box>
       </th>
     );
@@ -123,24 +116,24 @@ const TableComponent: React.FC<LazyPatientTableProps> = ({
 
   return (
     <Table
-      aria-label="Patient records table"
-      stripe="odd"
+      aria-label='Patient records table'
+      stripe='odd'
       hoverRow
       sx={{
         '& tbody tr:hover': {
-          backgroundColor: 'rgba(25, 118, 210, 0.08)',
+          backgroundColor: 'rgba(25, 118, 210, 0.08)'
         },
         '& th': {
           backgroundColor: '#1d293d',
           color: '#ffffff',
-          fontWeight: '600',
+          fontWeight: '600'
         },
         '& td': {
-          color: '#ffffff',
+          color: '#ffffff'
         },
         '& tr:nth-of-type(odd) td': {
-          backgroundColor: 'rgba(45, 45, 45, 0.5)',
-        },
+          backgroundColor: 'rgba(45, 45, 45, 0.5)'
+        }
       }}
     >
       <thead>
@@ -148,26 +141,17 @@ const TableComponent: React.FC<LazyPatientTableProps> = ({
           {columnVisibility.record_number && (
             <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Record Number</th>
           )}
-          {columnVisibility.name && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Patient Name</th>
-          )}
-          {columnVisibility.age && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Age</th>
-          )}
-          {columnVisibility.address && (
-            <th style={{ padding: '12px' }}>Address</th>
-          )}
+          <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Patient Name</th>
+          <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Age</th>
+          {columnVisibility.address && <th style={{ padding: '12px' }}>Address</th>}
           {columnVisibility.phone_number && (
             <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Phone Number</th>
           )}
           {columnVisibility.initial_diagnosis && (
             <th style={{ padding: '12px' }}>Initial Diagnosis</th>
           )}
-          {columnVisibility.date_added && (
-            <SortableHeader
-              field="created_at"
-              onClick={() => onSort && onSort('created_at')}
-            >
+          {columnVisibility.created_at && (
+            <SortableHeader field='created_at' onClick={() => onSort && onSort('created_at')}>
               Date Added
             </SortableHeader>
           )}
@@ -175,13 +159,13 @@ const TableComponent: React.FC<LazyPatientTableProps> = ({
         </tr>
       </thead>
       <tbody>
-        {paginatedPatients.map((patient) => (
+        {paginatedPatients.map(patient => (
           <tr key={patient.id}>
             {columnVisibility.record_number && (
               <td style={{ padding: '12px' }}>
                 <Chip
-                  variant="soft"
-                  size="sm"
+                  variant='soft'
+                  size='sm'
                   sx={{
                     backgroundColor: '#1976d2',
                     color: '#ffffff',
@@ -193,54 +177,50 @@ const TableComponent: React.FC<LazyPatientTableProps> = ({
                 </Chip>
               </td>
             )}
-            {columnVisibility.name && (
-              <td style={{ padding: '12px' }}>
-                <Typography
-                  level="body-sm"
-                  fontWeight="500"
-                  onClick={() => onView(patient)}
-                  sx={{
-                    cursor: 'pointer',
+            <td style={{ padding: '12px' }}>
+              <Typography
+                level='body-sm'
+                fontWeight='500'
+                onClick={() => onView(patient)}
+                sx={{
+                  cursor: 'pointer',
+                  color: '#ffffff',
+                  textDecoration: 'none',
+                  '&:hover': {
                     color: '#ffffff',
                     textDecoration: 'none',
-                    '&:hover': {
-                      color: '#ffffff',
-                      textDecoration: 'none',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                    }
-                  }}
-                >
-                  {patient.name}
-                </Typography>
-              </td>
-            )}
-            {columnVisibility.age && (
-              <td style={{ padding: '12px' }}>{patient.age}</td>
-            )}
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }}
+              >
+                {patient.name}
+              </Typography>
+            </td>
+            <td style={{ padding: '12px' }}>{patient.age}</td>
             {columnVisibility.address && (
               <td style={{ padding: '12px' }}>
-                <Typography level="body-sm" sx={{ fontSize: '13px' }}>
+                <Typography level='body-sm' sx={{ fontSize: '13px' }}>
                   {patient.address}
                 </Typography>
               </td>
             )}
             {columnVisibility.phone_number && (
               <td style={{ padding: '12px' }}>
-                <Typography level="body-sm" sx={{ fontSize: '13px' }}>
+                <Typography level='body-sm' sx={{ fontSize: '13px' }}>
                   {patient.phone_number}
                 </Typography>
               </td>
             )}
             {columnVisibility.initial_diagnosis && (
               <td style={{ padding: '12px' }}>
-                <Typography level="body-sm" sx={{ fontSize: '13px' }}>
+                <Typography level='body-sm' sx={{ fontSize: '13px' }}>
                   {patient.initial_diagnosis}
                 </Typography>
               </td>
             )}
-            {columnVisibility.date_added && (
+            {columnVisibility.created_at && (
               <td style={{ padding: '12px' }}>
-                <Typography level="body-sm" sx={{ fontSize: '13px' }}>
+                <Typography level='body-sm' sx={{ fontSize: '13px' }}>
                   {formatDate(patient.created_at || '')}
                 </Typography>
               </td>
@@ -248,32 +228,31 @@ const TableComponent: React.FC<LazyPatientTableProps> = ({
             <td style={{ padding: '12px' }}>
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <IconButton
-                  size="sm"
-                  variant="outlined"
-                  color="primary"
+                  size='sm'
+                  variant='outlined'
+                  color='primary'
                   onClick={() => onView(patient)}
-                  title="View patient details"
+                  title='View patient details'
                 >
                   <Visibility />
                 </IconButton>
                 <IconButton
-                  size="sm"
-                  variant="outlined"
-                  color="success"
+                  size='sm'
+                  variant='outlined'
+                  color='success'
                   onClick={() => onEdit(patient)}
-                  title="Edit patient"
+                  title='Edit patient'
                 >
                   <Edit />
                 </IconButton>
                 <IconButton
-                  size="sm"
-                  variant="outlined"
-                  color="danger"
+                  size='sm'
+                  variant='outlined'
+                  color='danger'
                   onClick={() => {
-                    console.log('🗑️ Delete button clicked for patient:', patient.name, 'ID:', patient.id);
-                    onDelete(patient.id!);
+                    onDelete(patient.id ?? 0);
                   }}
-                  title="Delete patient"
+                  title='Delete patient'
                 >
                   <Delete />
                 </IconButton>
@@ -297,14 +276,14 @@ const LoadingFallback: React.FC = () => (
       color: '#666'
     }}
   >
-    <CircularProgress size="lg" />
-    <Typography level="body-sm" sx={{ mt: 1 }}>
+    <CircularProgress size='lg' />
+    <Typography level='body-sm' sx={{ mt: 1 }}>
       Loading patient data...
     </Typography>
   </Box>
 );
 
-export const LazyPatientTable: React.FC<LazyPatientTableProps> = (props) => {
+export const LazyPatientTable: React.FC<LazyPatientTableProps> = props => {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <TableComponent {...props} />

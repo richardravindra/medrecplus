@@ -26,17 +26,19 @@ const MainLayout: React.FC = () => {
   const shouldCollapse = isMobileView || isCollapsed;
 
   return (
-    <Box sx={{
-      display: 'flex',
-      minHeight: '100vh',
-      width: '100vw',
-      flexDirection: isMobileView ? 'column' : 'row',
-      margin: 0,
-      padding: 0,
-    }}>
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: '100vh',
+        width: '100vw',
+        flexDirection: isMobileView ? 'column' : 'row',
+        margin: 0,
+        padding: 0
+      }}
+    >
       {!isMobileView && <Sidebar />}
       <Box
-        component="main"
+        component='main'
         sx={{
           flex: 1,
           minWidth: 0,
@@ -46,11 +48,11 @@ const MainLayout: React.FC = () => {
           p: 0,
           m: 0,
           pt: isMobileView ? '35px' : 0, // Safe space for Android status bar
-          ml: isMobileView ? 0 : (shouldCollapse ? '60px' : '200px'), // Reserve space for sidebar
+          ml: isMobileView ? 0 : shouldCollapse ? '60px' : '200px', // Reserve space for sidebar
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          paddingBottom: isMobileView ? '85px' : 0, // Space for mobile navbar
+          paddingBottom: isMobileView ? '85px' : 0 // Space for mobile navbar
         }}
       >
         <Box
@@ -63,7 +65,7 @@ const MainLayout: React.FC = () => {
             margin: 0,
             padding: 0,
             paddingRight: isMobileView ? '16px' : 0,
-            boxSizing: 'border-box',
+            boxSizing: 'border-box'
           }}
         >
           <Outlet />

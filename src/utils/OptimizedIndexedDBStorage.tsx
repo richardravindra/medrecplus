@@ -15,22 +15,23 @@ export class OptimizedIndexedDBStorage {
       const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
 
       request.onerror = () => {
-        console.error('IndexedDB error:', request.error);
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('✅ IndexedDB initialized successfully');
         resolve(this.db);
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
 
         // Create patient records store with indexes
         if (!db.objectStoreNames.contains('patient_management_data')) {
-          const patientStore = db.createObjectStore('patient_management_data', { keyPath: 'id', autoIncrement: true });
+          const patientStore = db.createObjectStore('patient_management_data', {
+            keyPath: 'id',
+            autoIncrement: true
+          });
           patientStore.createIndex('record_number', 'record_number', { unique: true });
           patientStore.createIndex('name', 'name', { unique: false });
           patientStore.createIndex('age', 'age', { unique: false });
@@ -41,7 +42,10 @@ export class OptimizedIndexedDBStorage {
 
         // Create appointments store with indexes
         if (!db.objectStoreNames.contains('appointments')) {
-          const appointmentStore = db.createObjectStore('appointments', { keyPath: 'id', autoIncrement: true });
+          const appointmentStore = db.createObjectStore('appointments', {
+            keyPath: 'id',
+            autoIncrement: true
+          });
           appointmentStore.createIndex('patientId', 'patientId', { unique: false });
           appointmentStore.createIndex('patientName', 'patientName', { unique: false });
           appointmentStore.createIndex('operatorId', 'operatorId', { unique: false });
@@ -52,7 +56,10 @@ export class OptimizedIndexedDBStorage {
 
         // Create invoices store with indexes
         if (!db.objectStoreNames.contains('invoices')) {
-          const invoiceStore = db.createObjectStore('invoices', { keyPath: 'id', autoIncrement: true });
+          const invoiceStore = db.createObjectStore('invoices', {
+            keyPath: 'id',
+            autoIncrement: true
+          });
           invoiceStore.createIndex('invoiceNumber', 'invoiceNumber', { unique: true });
           invoiceStore.createIndex('appointmentId', 'appointmentId', { unique: false });
           invoiceStore.createIndex('patientId', 'patientId', { unique: false });
@@ -63,7 +70,10 @@ export class OptimizedIndexedDBStorage {
 
         // Create operators store with indexes
         if (!db.objectStoreNames.contains('operators')) {
-          const operatorStore = db.createObjectStore('operators', { keyPath: 'id', autoIncrement: true });
+          const operatorStore = db.createObjectStore('operators', {
+            keyPath: 'id',
+            autoIncrement: true
+          });
           operatorStore.createIndex('name', 'name', { unique: false });
           operatorStore.createIndex('role', 'role', { unique: false });
           operatorStore.createIndex('specialization', 'specialization', { unique: false });
@@ -71,7 +81,10 @@ export class OptimizedIndexedDBStorage {
 
         // Create treatments store with indexes
         if (!db.objectStoreNames.contains('treatments')) {
-          const treatmentStore = db.createObjectStore('treatments', { keyPath: 'id', autoIncrement: true });
+          const treatmentStore = db.createObjectStore('treatments', {
+            keyPath: 'id',
+            autoIncrement: true
+          });
           treatmentStore.createIndex('name', 'name', { unique: false });
           treatmentStore.createIndex('price', 'price', { unique: false });
           treatmentStore.createIndex('category', 'category', { unique: false });
@@ -79,7 +92,10 @@ export class OptimizedIndexedDBStorage {
 
         // Create custom examinations store with indexes
         if (!db.objectStoreNames.contains('custom_examinations')) {
-          const examStore = db.createObjectStore('custom_examinations', { keyPath: 'id', autoIncrement: true });
+          const examStore = db.createObjectStore('custom_examinations', {
+            keyPath: 'id',
+            autoIncrement: true
+          });
           examStore.createIndex('name', 'name', { unique: false });
           examStore.createIndex('unit', 'unit', { unique: false });
         }
@@ -89,45 +105,37 @@ export class OptimizedIndexedDBStorage {
           db.createObjectStore('receipt_config', { keyPath: 'id', autoIncrement: true });
         }
 
-        console.log('🔧 IndexedDB schema created with indexes');
-      };
+        };
     });
   }
 
   // Generic save data method
   static async saveData<T>(storeName: string, data: T[]): Promise<void> {
-    try {
-      const db = await this.initDB();
-      const transaction = db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
+    const db = await this.initDB();
+    const transaction = db.transaction([storeName], 'readwrite');
+    const store = transaction.objectStore(storeName);
 
-      // Clear existing data
-      await this.clearStore(store);
+    // Clear existing data
+    await this.clearStore(store);
 
-      // Add new data in batches for better performance
-      const batchSize = 100;
-      for (let i = 0; i < data.length; i += batchSize) {
-        const batch = data.slice(i, i + batchSize);
-        for (const item of batch) {
-          store.put(item);
-        }
+    // Add new data in batches for better performance
+    const batchSize = 100;
+    for (let i = 0; i < data.length; i += batchSize) {
+      const batch = data.slice(i, i + batchSize);
+      for (const item of batch) {
+        store.put(item);
       }
-
-      return new Promise((resolve, reject) => {
-        transaction.oncomplete = () => {
-          console.log(`✅ Saved ${data.length} items to ${storeName}`);
-          resolve();
-        };
-
-        transaction.onerror = () => {
-          console.error(`❌ Error saving to ${storeName}:`, transaction.error);
-          reject(transaction.error);
-        };
-      });
-    } catch (error) {
-      console.error(`❌ Error in saveData for ${storeName}:`, error);
-      throw error;
     }
+
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => {
+        resolve();
+      };
+
+      transaction.onerror = () => {
+        reject(transaction.error);
+      };
+    });
   }
 
   // Generic get data method with optional filtering
@@ -143,20 +151,18 @@ export class OptimizedIndexedDBStorage {
     try {
       const db = await this.initDB();
       const transaction = db.transaction([storeName], 'readonly');
-      const store = options.index ?
-        transaction.objectStore(storeName).index(options.index) :
-        transaction.objectStore(storeName);
+      const store = options.index
+        ? transaction.objectStore(storeName).index(options.index)
+        : transaction.objectStore(storeName);
 
       return new Promise((resolve, reject) => {
-        const request = options.query ?
-          store.openCursor(options.query) :
-          store.openCursor();
+        const request = options.query ? store.openCursor(options.query) : store.openCursor();
 
         const results: T[] = [];
         let count = 0;
         let skipCount = 0;
 
-        request.onsuccess = (event) => {
+        request.onsuccess = event => {
           const cursor = (event.target as IDBRequest).result;
 
           if (cursor) {
@@ -184,12 +190,10 @@ export class OptimizedIndexedDBStorage {
         };
 
         request.onerror = () => {
-          console.error(`❌ Error getting data from ${storeName}:`, request.error);
           reject(request.error);
         };
       });
-    } catch (error) {
-      console.error(`❌ Error in getData for ${storeName}:`, error);
+    } catch {
       return [];
     }
   }
@@ -209,7 +213,7 @@ export class OptimizedIndexedDBStorage {
         // Search by name index first
         const nameRequest = nameIndex.openCursor();
 
-        nameRequest.onsuccess = (event) => {
+        nameRequest.onsuccess = event => {
           const cursor = (event.target as IDBRequest).result;
 
           if (cursor && results.length < limit) {
@@ -224,7 +228,11 @@ export class OptimizedIndexedDBStorage {
           } else {
             // If we didn't find enough results by name, search other fields
             if (results.length < limit) {
-              this.searchAllFields(query, limit - results.length, results.map(p => p.id!))
+              this.searchAllFields(
+                query,
+                limit - results.length,
+                results.filter(p => p.id).map(p => p.id as number).filter(id => id !== undefined)
+              )
                 .then(additionalResults => {
                   resolve([...results, ...additionalResults]);
                 })
@@ -237,31 +245,34 @@ export class OptimizedIndexedDBStorage {
 
         nameRequest.onerror = () => reject(nameRequest.error);
       });
-    } catch (error) {
-      console.error('❌ Error searching patients:', error);
+    } catch {
       return [];
     }
   }
 
   // Search all fields for patients
-  private static async searchAllFields(query: string, limit: number, excludeIds: number[] = []): Promise<Patient[]> {
+  private static async searchAllFields(
+    query: string,
+    limit: number,
+    excludeIds: number[] = []
+  ): Promise<Patient[]> {
     try {
       const allPatients = await this.getData('patient_management_data');
       const searchTerm = query.toLowerCase();
       const excludeSet = new Set(excludeIds);
 
       return (allPatients as Patient[])
-        .filter((patient: Patient) =>
-          !excludeSet.has(patient.id!) && (
-            patient.record_number?.toLowerCase().includes(searchTerm) ||
-            patient.phone_number?.toLowerCase().includes(searchTerm) ||
-            patient.address?.toLowerCase().includes(searchTerm) ||
-            patient.initial_diagnosis?.toLowerCase().includes(searchTerm)
-          )
+        .filter(
+          (patient: Patient) =>
+            patient.id &&
+            !excludeSet.has(patient.id) &&
+            (patient.record_number?.toLowerCase().includes(searchTerm) ||
+              patient.phone_number?.toLowerCase().includes(searchTerm) ||
+              patient.address?.toLowerCase().includes(searchTerm) ||
+              patient.initial_diagnosis?.toLowerCase().includes(searchTerm))
         )
         .slice(0, limit);
-    } catch (error) {
-      console.error('❌ Error in searchAllFields:', error);
+    } catch {
       return [];
     }
   }
@@ -273,8 +284,7 @@ export class OptimizedIndexedDBStorage {
         query: IDBKeyRange.only(id)
       });
       return results.length > 0 ? (results[0] as Patient) : null;
-    } catch (error) {
-      console.error('❌ Error getting patient by ID:', error);
+    } catch {
       return null;
     }
   }
@@ -286,8 +296,7 @@ export class OptimizedIndexedDBStorage {
         index: 'patientId',
         query: IDBKeyRange.only(patientId)
       });
-    } catch (error) {
-      console.error('❌ Error getting appointments by patient ID:', error);
+    } catch {
       return [];
     }
   }
@@ -299,8 +308,7 @@ export class OptimizedIndexedDBStorage {
         index: 'patientId',
         query: IDBKeyRange.only(patientId)
       });
-    } catch (error) {
-      console.error('❌ Error getting invoices by patient ID:', error);
+    } catch {
       return [];
     }
   }
@@ -323,8 +331,7 @@ export class OptimizedIndexedDBStorage {
       const transaction = db.transaction([storeName], 'readonly');
       const objectStore = transaction.objectStore(storeName);
       // Note: store variable is not used but kept for potential future use
-    const _store = options.index ? objectStore.index(options.index) : objectStore;
-    void _store; // Silence unused variable warning
+      // const _store = options.index ? objectStore.index(options.index) : objectStore;
 
       const total = await this.getCount(objectStore, options.query);
 
@@ -336,14 +343,16 @@ export class OptimizedIndexedDBStorage {
       });
 
       return { data, total };
-    } catch (error) {
-      console.error(`❌ Error getting paginated data from ${storeName}:`, error);
+    } catch {
       return { data: [], total: 0 };
     }
   }
 
   // Get count of records
-  private static async getCount(store: IDBObjectStore, query?: IDBValidKey | IDBKeyRange): Promise<number> {
+  private static async getCount(
+    store: IDBObjectStore,
+    query?: IDBValidKey | IDBKeyRange
+  ): Promise<number> {
     return new Promise((resolve, reject) => {
       const request = query ? store.count(query) : store.count();
 
@@ -364,54 +373,40 @@ export class OptimizedIndexedDBStorage {
 
   // Delete item by ID
   static async deleteItem(storeName: string, id: number): Promise<void> {
-    try {
-      const db = await this.initDB();
-      const transaction = db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
+    const db = await this.initDB();
+    const transaction = db.transaction([storeName], 'readwrite');
+    const store = transaction.objectStore(storeName);
 
-      return new Promise((resolve, reject) => {
-        const request = store.delete(id);
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
 
-        request.onsuccess = () => {
-          console.log(`✅ Deleted item ${id} from ${storeName}`);
-          resolve();
-        };
+      request.onsuccess = () => {
+        resolve();
+      };
 
-        request.onerror = () => {
-          console.error(`❌ Error deleting item ${id} from ${storeName}:`, request.error);
-          reject(request.error);
-        };
-      });
-    } catch (error) {
-      console.error(`❌ Error in deleteItem for ${storeName}:`, error);
-      throw error;
-    }
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
   }
 
   // Update item
   static async updateItem<T>(storeName: string, item: T): Promise<void> {
-    try {
-      const db = await this.initDB();
-      const transaction = db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
+    const db = await this.initDB();
+    const transaction = db.transaction([storeName], 'readwrite');
+    const store = transaction.objectStore(storeName);
 
-      return new Promise((resolve, reject) => {
-        const request = store.put(item);
+    return new Promise((resolve, reject) => {
+      const request = store.put(item);
 
-        request.onsuccess = () => {
-          console.log(`✅ Updated item in ${storeName}`);
-          resolve();
-        };
+      request.onsuccess = () => {
+        resolve();
+      };
 
-        request.onerror = () => {
-          console.error(`❌ Error updating item in ${storeName}:`, request.error);
-          reject(request.error);
-        };
-      });
-    } catch (error) {
-      console.error(`❌ Error in updateItem for ${storeName}:`, error);
-      throw error;
-    }
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
   }
 
   // Get database statistics
@@ -428,8 +423,7 @@ export class OptimizedIndexedDBStorage {
       }
 
       return stats;
-    } catch (error) {
-      console.error('❌ Error getting database stats:', error);
+    } catch {
       return {};
     }
   }
@@ -437,8 +431,7 @@ export class OptimizedIndexedDBStorage {
   // Optimize database (compact and rebuild indexes if needed)
   static async optimizeDatabase(): Promise<void> {
     try {
-      const stats = await this.getDatabaseStats();
-      console.log('📊 Database stats before optimization:', stats);
+      await this.getDatabaseStats();
 
       // Force a vacuum operation by closing and reopening the database
       if (this.db) {
@@ -447,9 +440,7 @@ export class OptimizedIndexedDBStorage {
       }
 
       await this.initDB();
-      console.log('✅ Database optimized successfully');
-    } catch (error) {
-      console.error('❌ Error optimizing database:', error);
+    } catch { // Error handled silently
     }
   }
 
@@ -458,7 +449,6 @@ export class OptimizedIndexedDBStorage {
     if (this.db) {
       this.db.close();
       this.db = null;
-      console.log('🔒 IndexedDB connection closed');
     }
   }
 }

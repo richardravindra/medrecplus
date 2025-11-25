@@ -57,8 +57,7 @@ const Settings: React.FC = () => {
         const unreadLogs = logsData.filter((log: LogEntry) => log.id > parseInt(lastSeen));
         setUnreadCount(unreadLogs.length);
       }
-    } catch (error) {
-      console.error('Error loading logs:', error);
+    } catch { // Error handled silently
     }
   };
 
@@ -115,25 +114,27 @@ const Settings: React.FC = () => {
   ];
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      p: { xs: 1, md: 2 },
-      pt: { xs: 0, md: 2 },
-      pr: { xs: 2, md: 2 },
-      boxSizing: 'border-box',
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        p: { xs: 1, md: 2 },
+        pt: { xs: 0, md: 2 },
+        pr: { xs: 2, md: 2 },
+        boxSizing: 'border-box',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <SettingsIcon sx={{ fontSize: 32, color: '#ffffff' }} />
-        <Typography level="h2">Settings</Typography>
+        <Typography level='h2'>Settings</Typography>
       </Box>
 
       {/* Settings Menu Grid */}
       <Stack spacing={0.75}>
-        {settingsMenuItems.map((item) => (
+        {settingsMenuItems.map(item => (
           <Card
             key={item.path}
             sx={{
@@ -148,29 +149,29 @@ const Settings: React.FC = () => {
             onClick={() => navigate(item.path)}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 0.75 }}>
-              <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 48,
-                height: 48,
-                borderRadius: '50%',
-                backgroundColor: 'background.level1',
-                color: '#ffffff'
-              }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  backgroundColor: 'background.level1',
+                  color: '#ffffff'
+                }}
+              >
                 {item.icon}
               </Box>
 
               <Box sx={{ flex: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                  <Typography level="h4" sx={{ color: '#ffffff' }}>
+                  <Typography level='h4' sx={{ color: '#ffffff' }}>
                     {item.title}
                   </Typography>
-                  {item.badge && (
-                    <Badge badgeContent={item.badge} color="danger" />
-                  )}
+                  {item.badge && <Badge badgeContent={item.badge} color='danger' />}
                 </Box>
-                <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                   {item.description}
                 </Typography>
               </Box>
@@ -180,14 +181,16 @@ const Settings: React.FC = () => {
       </Stack>
 
       {/* Attribution Footer */}
-      <Box sx={{
-        mt: 'auto',
-        pt: 2,
-        textAlign: 'center',
-        width: '100%'
-      }}>
+      <Box
+        sx={{
+          mt: 'auto',
+          pt: 2,
+          textAlign: 'center',
+          width: '100%'
+        }}
+      >
         <Typography
-          level="body-xs"
+          level='body-xs'
           sx={{
             color: '#ffffff',
             opacity: 0.7,

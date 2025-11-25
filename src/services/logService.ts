@@ -34,8 +34,7 @@ class LogService {
       if (storedLogs.length > 0) {
         this.nextId = Math.max(...storedLogs.map(log => parseInt(log.id) || 0)) + 1;
       }
-    } catch (error) {
-      console.error('Error loading next log ID:', error);
+    } catch {
       this.nextId = 1;
     }
   }
@@ -67,8 +66,7 @@ class LogService {
       }
 
       await storage.storeActivityLogs(logs);
-    } catch (error) {
-      console.error('Error saving log:', error);
+    } catch { // Error handled silently
     }
   }
 
@@ -87,7 +85,7 @@ class LogService {
   async logPatientCreated(patientId: number, patientName: string): Promise<void> {
     const log: LogEntry = {
       id: this.nextId++,
-      action: `created a new patient record`,
+      action: 'created a new patient record',
       operatorName: this.getOperatorName(),
       targetType: 'patient',
       targetId: patientId,
@@ -102,7 +100,7 @@ class LogService {
   async logPatientUpdated(patientId: number, patientName: string): Promise<void> {
     const log: LogEntry = {
       id: this.nextId++,
-      action: `updated patient information`,
+      action: 'updated patient information',
       operatorName: this.getOperatorName(),
       targetType: 'patient',
       targetId: patientId,
@@ -117,7 +115,7 @@ class LogService {
   async logPatientDeleted(patientId: number, patientName: string): Promise<void> {
     const log: LogEntry = {
       id: this.nextId++,
-      action: `deleted patient record`,
+      action: 'deleted patient record',
       operatorName: this.getOperatorName(),
       targetType: 'patient',
       targetId: patientId,
@@ -173,7 +171,13 @@ class LogService {
   }
 
   // Invoice actions
-  logInvoiceCreated(invoiceId: number, appointmentId: number, patientId: number, patientName: string, operatorName?: string): void {
+  logInvoiceCreated(
+    invoiceId: number,
+    appointmentId: number,
+    patientId: number,
+    patientName: string,
+    operatorName?: string
+  ): void {
     const log: LogEntry = {
       id: this.nextId++,
       action: `created an invoice from appointment of ${patientName}`,
@@ -202,7 +206,12 @@ class LogService {
     this.saveLog(log);
   }
 
-  logInvoiceDeleted(invoiceId: number, patientId: number, patientName: string, operatorName?: string): void {
+  logInvoiceDeleted(
+    invoiceId: number,
+    patientId: number,
+    patientName: string,
+    operatorName?: string
+  ): void {
     const log: LogEntry = {
       id: this.nextId++,
       action: `deleted invoice of ${patientName}`,
@@ -231,7 +240,13 @@ class LogService {
   }
 
   // Generic action
-  logAction(action: string, targetType: 'patient' | 'appointment' | 'invoice', targetId?: number, patientId?: number, patientName?: string): void {
+  logAction(
+    action: string,
+    targetType: 'patient' | 'appointment' | 'invoice',
+    targetId?: number,
+    patientId?: number,
+    patientName?: string
+  ): void {
     const log: LogEntry = {
       id: this.nextId++,
       action,
@@ -252,7 +267,13 @@ class LogService {
       // Convert ActivityLog[] to LogEntry[] using type-safe conversion
       return activityLogs.map((log: unknown) => {
         // Type guard to ensure we have an ActivityLog
-        if (log && typeof log === 'object' && 'id' in log && 'action' in log && 'timestamp' in log) {
+        if (
+          log &&
+          typeof log === 'object' &&
+          'id' in log &&
+          'action' in log &&
+          'timestamp' in log
+        ) {
           return UnifiedStorage.convertActivityLogToLogEntry(log as ActivityLog);
         }
         // Fallback for malformed logs
@@ -261,11 +282,10 @@ class LogService {
           action: 'unknown',
           operatorName: 'Unknown',
           targetType: 'patient',
-          timestamp: new Date().toISOString(),
+          timestamp: new Date().toISOString()
         };
       });
-    } catch (error) {
-      console.error('Error loading logs:', error);
+    } catch {
       return [];
     }
   }
@@ -278,8 +298,7 @@ class LogService {
         const recentLogs = logs.slice(0, 100);
         await storage.storeActivityLogs(recentLogs);
       }
-    } catch (error) {
-      console.error('Error clearing old logs:', error);
+    } catch { // Error handled silently
     }
   }
 }

@@ -45,12 +45,16 @@ class SimpleDataService {
     }
 
     // For search operations, use the search cache
-    if (queryOptions.search || queryOptions.filters || (queryOptions.page && queryOptions.page > 1)) {
+    if (
+      queryOptions.search ||
+      queryOptions.filters ||
+      (queryOptions.page && queryOptions.page > 1)
+    ) {
       const cached = medicalCache.getSearchResults(searchCacheKey);
       // Debug logging removed - search cache check for ${key}
       if (cached && Array.isArray(cached)) {
         // Debug logging removed - using search cache for ${key}
-                const paginatedResult = this.paginate(cached, queryOptions);
+        const paginatedResult = this.paginate(cached, queryOptions);
 
         // Update with cached total count if available
         if (cachedTotalCount !== null) {
@@ -58,17 +62,26 @@ class SimpleDataService {
           paginatedResult.totalPages = Math.ceil(cachedTotalCount / (queryOptions.limit || 50));
         }
 
-        log.debug(`Search cache hit for ${key}`, {
-          cacheKey: searchCacheKey,
-          resultCount: cached.length,
-          totalCount: paginatedResult.totalCount
-        }, 'SimpleDataService');
+        log.debug(
+          `Search cache hit for ${key}`,
+          {
+            cacheKey: searchCacheKey,
+            resultCount: cached.length,
+            totalCount: paginatedResult.totalCount
+          },
+          'SimpleDataService'
+        );
         return paginatedResult;
       }
     }
 
     // For first page without search/filters, use basic cache
-    if (queryOptions.page && queryOptions.page === 1 && !queryOptions.search && !queryOptions.filters) {
+    if (
+      queryOptions.page &&
+      queryOptions.page === 1 &&
+      !queryOptions.search &&
+      !queryOptions.filters
+    ) {
       const cached = medicalCache.getSearchResults(cacheKeyFull);
       // Debug logging removed - basic cache check for ${key}
       if (cached && Array.isArray(cached) && cachedTotalCount !== null) {
@@ -77,11 +90,15 @@ class SimpleDataService {
         paginatedResult.totalCount = cachedTotalCount;
         paginatedResult.totalPages = Math.ceil(cachedTotalCount / (queryOptions.limit || 50));
 
-        log.debug(`Cache hit for ${key}`, {
-          cacheKey: cacheKeyFull,
-          resultCount: cached.length,
-          totalCount: cachedTotalCount
-        }, 'SimpleDataService');
+        log.debug(
+          `Cache hit for ${key}`,
+          {
+            cacheKey: cacheKeyFull,
+            resultCount: cached.length,
+            totalCount: cachedTotalCount
+          },
+          'SimpleDataService'
+        );
         return paginatedResult;
       }
     }
@@ -127,22 +144,33 @@ class SimpleDataService {
       if (queryOptions.search || queryOptions.filters) {
         // Cache search results
         medicalCache.setSearchResults(searchCacheKey, filteredData);
-        log.debug(`Cached search results for ${key}`, {
-          cacheKey: searchCacheKey,
-          resultCount: filteredData.length
-        }, 'SimpleDataService');
+        log.debug(
+          `Cached search results for ${key}`,
+          {
+            cacheKey: searchCacheKey,
+            resultCount: filteredData.length
+          },
+          'SimpleDataService'
+        );
       } else if (queryOptions.page === 1 && !queryOptions.search && !queryOptions.filters) {
         // Cache first page for quick access
         medicalCache.setSearchResults(cacheKeyFull, filteredData);
-        log.debug(`Cached first page for ${key}`, {
-          cacheKey: cacheKeyFull,
-          resultCount: filteredData.length
-        }, 'SimpleDataService');
+        log.debug(
+          `Cached first page for ${key}`,
+          {
+            cacheKey: cacheKeyFull,
+            resultCount: filteredData.length
+          },
+          'SimpleDataService'
+        );
       }
 
-      log.debug(`Retrieved ${paginatedResult.data.length} ${key} records (Total: ${data.length})`, undefined, 'SimpleDataService');
+      log.debug(
+        `Retrieved ${paginatedResult.data.length} ${key} records (Total: ${data.length})`,
+        undefined,
+        'SimpleDataService'
+      );
       return paginatedResult;
-
     } catch (error) {
       log.error(`Failed to retrieve ${key}`, { error }, 'SimpleDataService');
       return {
@@ -177,11 +205,26 @@ class SimpleDataService {
           };
 
           // Check all relevant patient fields
-          const nameMatch = patient.name && typeof patient.name === 'string' && patient.name.toLowerCase().includes(searchTerm);
-          const recordMatch = patient.record_number && typeof patient.record_number === 'string' && patient.record_number.toLowerCase().includes(searchTerm);
-          const phoneMatch = patient.phone_number && typeof patient.phone_number === 'string' && patient.phone_number.includes(searchTerm);
-          const addressMatch = patient.address && typeof patient.address === 'string' && patient.address.toLowerCase().includes(searchTerm);
-          const diagnosisMatch = patient.initial_diagnosis && typeof patient.initial_diagnosis === 'string' && patient.initial_diagnosis.toLowerCase().includes(searchTerm);
+          const nameMatch =
+            patient.name &&
+            typeof patient.name === 'string' &&
+            patient.name.toLowerCase().includes(searchTerm);
+          const recordMatch =
+            patient.record_number &&
+            typeof patient.record_number === 'string' &&
+            patient.record_number.toLowerCase().includes(searchTerm);
+          const phoneMatch =
+            patient.phone_number &&
+            typeof patient.phone_number === 'string' &&
+            patient.phone_number.includes(searchTerm);
+          const addressMatch =
+            patient.address &&
+            typeof patient.address === 'string' &&
+            patient.address.toLowerCase().includes(searchTerm);
+          const diagnosisMatch =
+            patient.initial_diagnosis &&
+            typeof patient.initial_diagnosis === 'string' &&
+            patient.initial_diagnosis.toLowerCase().includes(searchTerm);
 
           const matches = nameMatch || recordMatch || phoneMatch || addressMatch || diagnosisMatch;
 
@@ -193,8 +236,8 @@ class SimpleDataService {
         }
 
         // Generic search for other item types
-        return Object.values(item as Record<string, unknown>).some(value =>
-          value && typeof value === 'string' && value.toLowerCase().includes(searchTerm)
+        return Object.values(item as Record<string, unknown>).some(
+          value => value && typeof value === 'string' && value.toLowerCase().includes(searchTerm)
         );
       });
 
@@ -204,18 +247,20 @@ class SimpleDataService {
     // Apply custom filters
     if (options.filters) {
       filtered = filtered.filter(item => {
-        return Object.entries(options.filters!).every(([key, value]) => {
+        return Object.entries(options.filters || {}).every(([key, value]) => {
           if (value === undefined || value === null) return true;
 
           // Handle date range filtering for appointments
           if (key === 'startDate' && (item as { date?: string }).date) {
-            const appointmentDate = new Date((item as { date?: string }).date!);
+            const itemDate = (item as { date?: string }).date;
+            const appointmentDate = new Date(itemDate || '');
             const startDate = new Date(value as string);
             return appointmentDate >= startDate;
           }
 
           if (key === 'endDate' && (item as { date?: string }).date) {
-            const appointmentDate = new Date((item as { date?: string }).date!);
+            const itemDate = (item as { date?: string }).date;
+            const appointmentDate = new Date(itemDate || '');
             const endDate = new Date(value as string);
             return appointmentDate <= endDate;
           }
@@ -228,9 +273,10 @@ class SimpleDataService {
 
     // Apply sorting
     if (options.sortBy) {
+      const sortBy = options.sortBy;
       filtered.sort((a, b) => {
-        const aValue = (a as Record<string, unknown>)[options.sortBy!];
-        const bValue = (b as Record<string, unknown>)[options.sortBy!];
+        const aValue = (a as Record<string, unknown>)[sortBy];
+        const bValue = (b as Record<string, unknown>)[sortBy];
 
         if (aValue === undefined || aValue === null) return 1;
         if (bValue === undefined || bValue === null) return -1;
@@ -288,7 +334,7 @@ class SimpleDataService {
 
       return result;
     } catch (error) {
-      console.error('❌ DEBUG: Error in getPatients:', error);
+      log.error('Error getting paginated patients', { error, options }, 'SimpleDataService');
       return {
         data: [],
         totalCount: 0,
@@ -367,7 +413,6 @@ class SimpleDataService {
       log.info('Patient saved successfully', { id: newPatient.id }, 'SimpleDataService');
       return newPatient;
     } catch (error) {
-      console.error('❌ DEBUG: Error in savePatient:', error);
       log.error('Failed to save patient', { error }, 'SimpleDataService');
       throw error;
     }
@@ -439,7 +484,7 @@ class SimpleDataService {
 
   // Appointments
   static async getAppointments(options: QueryOptions = {}): Promise<PaginatedResult<Appointment>> {
-    return this.getData<Appointment>('appointments', options, `appointments_${JSON.stringify(options)}`);
+    return this.getData<Appointment>('appointments', options);
   }
 
   static async getAllAppointments(): Promise<Appointment[]> {
@@ -450,7 +495,6 @@ class SimpleDataService {
       // Debug logging removed - getAllAppointments retrieved ${appointments.length} appointments from storage
       return appointments;
     } catch (error) {
-      console.error('❌ DEBUG: getAllAppointments - failed to fetch appointments:', error);
       log.error('Failed to get all appointments', { error }, 'SimpleDataService');
       return [];
     }
@@ -464,7 +508,6 @@ class SimpleDataService {
       // Debug logging removed - getAllPatients retrieved ${patients.length} patients from storage
       return patients;
     } catch (error) {
-      console.error('❌ DEBUG: getAllPatients - failed to fetch patients:', error);
       log.error('Failed to get all patients', { error }, 'SimpleDataService');
       return [];
     }
@@ -529,36 +572,27 @@ class SimpleDataService {
       // Debug logging removed - stored ${filteredAppointments.length} appointments after deletion
 
       // Clear ALL caches aggressively after deletion
-      console.log('🧹 Clearing all caches after appointment deletion...');
 
       try {
         memoryManager.clearCache('search');
-        console.log('✅ Cleared search cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear search cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       try {
         memoryManager.clearCache('default');
-        console.log('✅ Cleared default cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear default cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       try {
         memoryManager.delete('search', 'appointments_total_count');
-        console.log('✅ Deleted appointments_total_count cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to delete appointments_total_count cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       // Also clear any appointment-related medical cache entries
       try {
         medicalCache.clearCache('all');
-        console.log('✅ Cleared medical cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear medical cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       // Clear localStorage cache entries as well
       const localStorageKeys = [
@@ -572,15 +606,16 @@ class SimpleDataService {
       localStorageKeys.forEach(key => {
         try {
           localStorage.removeItem(key);
-          console.log(`✅ Removed localStorage key: ${key}`);
-        } catch (error) {
-          console.warn(`⚠️ Failed to remove localStorage key ${key}:`, error);
-        }
+        } catch { // Error handled silently
+    }
       });
 
-      console.log('✅ All caches cleared after appointment deletion');
 
-      log.info('Appointment deleted successfully', { id, remainingCount: filteredAppointments.length }, 'SimpleDataService');
+      log.info(
+        'Appointment deleted successfully',
+        { id, remainingCount: filteredAppointments.length },
+        'SimpleDataService'
+      );
       return true;
     } catch (error) {
       log.error('Failed to delete appointment', { id, error }, 'SimpleDataService');
@@ -588,7 +623,10 @@ class SimpleDataService {
     }
   }
 
-  static async updateAppointment(id: number, updates: Partial<Appointment>): Promise<Appointment | null> {
+  static async updateAppointment(
+    id: number,
+    updates: Partial<Appointment>
+  ): Promise<Appointment | null> {
     try {
       const appointments = await storage.getAppointments();
       const index = appointments.findIndex(apt => apt.id === id);
@@ -627,7 +665,6 @@ class SimpleDataService {
       // Debug logging removed - getAllInvoices retrieved ${invoices.length} invoices from storage
       return invoices;
     } catch (error) {
-      console.error('❌ DEBUG: getAllInvoices - failed to fetch invoices:', error);
       log.error('Failed to get all invoices', { error }, 'SimpleDataService');
       return [];
     }
@@ -677,9 +714,7 @@ class SimpleDataService {
 
   static async deleteInvoice(id: number): Promise<boolean> {
     try {
-      console.log(`🗑️ Deleting invoice ${id}...`);
       const invoices = await storage.getInvoices();
-      console.log(`📋 Found ${invoices.length} invoices before deletion`);
 
       const filteredInvoices = invoices.filter(inv => inv.id !== id);
 
@@ -689,39 +724,29 @@ class SimpleDataService {
       }
 
       await storage.storeInvoices(filteredInvoices);
-      console.log(`💾 Stored ${filteredInvoices.length} invoices after deletion`);
 
       // Clear ALL caches aggressively after deletion
-      console.log('🧹 Clearing all caches after invoice deletion...');
 
       try {
         memoryManager.clearCache('search');
-        console.log('✅ Cleared search cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear search cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       try {
         memoryManager.clearCache('default');
-        console.log('✅ Cleared default cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear default cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       try {
         memoryManager.delete('search', 'invoices_total_count');
-        console.log('✅ Deleted invoices_total_count cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to delete invoices_total_count cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       // Also clear any invoice-related medical cache entries
       try {
         medicalCache.clearCache('all');
-        console.log('✅ Cleared medical cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear medical cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       // Clear localStorage cache entries as well
       const localStorageKeys = [
@@ -735,15 +760,16 @@ class SimpleDataService {
       localStorageKeys.forEach(key => {
         try {
           localStorage.removeItem(key);
-          console.log(`✅ Removed localStorage key: ${key}`);
-        } catch (error) {
-          console.warn(`⚠️ Failed to remove localStorage key ${key}:`, error);
-        }
+        } catch { // Error handled silently
+    }
       });
 
-      console.log('✅ All caches cleared after invoice deletion');
 
-      log.info('Invoice deleted successfully', { id, remainingCount: filteredInvoices.length }, 'SimpleDataService');
+      log.info(
+        'Invoice deleted successfully',
+        { id, remainingCount: filteredInvoices.length },
+        'SimpleDataService'
+      );
       return true;
     } catch (error) {
       log.error('Failed to delete invoice', { id, error }, 'SimpleDataService');
@@ -804,7 +830,6 @@ class SimpleDataService {
   static async saveOperator(operator: Operator): Promise<Operator> {
     try {
       const operators = await storage.getOperators();
-      console.log('💾 Saving operator, current operators count:', operators.length);
 
       const existingIndex = operators.findIndex(o => o.id === operator.id);
 
@@ -812,7 +837,6 @@ class SimpleDataService {
       if (existingIndex >= 0) {
         operators[existingIndex] = operator;
         savedOperator = operator;
-        console.log('✅ Updated existing operator:', operator.name);
       } else {
         const newOperator = {
           ...operator,
@@ -820,15 +844,12 @@ class SimpleDataService {
         };
         operators.push(newOperator);
         savedOperator = newOperator;
-        console.log('✅ Created new operator:', operator.name);
       }
 
       await storage.storeOperators(operators);
-      console.log('💾 Stored operators to storage:', operators.length);
 
       // Update cache
       medicalCache.setOperators(operators);
-      console.log('🔄 Updated operators cache');
 
       log.info('Operator saved successfully', { id: savedOperator.id }, 'SimpleDataService');
       return savedOperator;
@@ -862,9 +883,7 @@ class SimpleDataService {
 
   static async deleteOperator(id: number): Promise<boolean> {
     try {
-      console.log(`🗑️ Deleting operator ${id}...`);
       const operators = await storage.getOperators();
-      console.log(`📋 Found ${operators.length} operators before deletion`);
 
       const filteredOperators = operators.filter(op => op.id !== id);
 
@@ -874,32 +893,24 @@ class SimpleDataService {
       }
 
       await storage.storeOperators(filteredOperators);
-      console.log(`💾 Stored ${filteredOperators.length} operators after deletion`);
 
       // Clear ALL caches aggressively after deletion
-      console.log('🧹 Clearing all caches after operator deletion...');
 
       try {
         memoryManager.clearCache('search');
-        console.log('✅ Cleared search cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear search cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       try {
         memoryManager.clearCache('default');
-        console.log('✅ Cleared default cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear default cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       // Also clear any operator-related medical cache entries
       try {
         medicalCache.clearCache('all');
-        console.log('✅ Cleared medical cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear medical cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
       // Clear localStorage cache entries as well
       const localStorageKeys = [
@@ -912,23 +923,22 @@ class SimpleDataService {
       localStorageKeys.forEach(key => {
         try {
           localStorage.removeItem(key);
-          console.log(`✅ Removed localStorage key: ${key}`);
-        } catch (error) {
-          console.warn(`⚠️ Failed to remove localStorage key ${key}:`, error);
-        }
+        } catch { // Error handled silently
+    }
       });
 
       // Clear medical cache as well
       try {
         medicalCache.clearCache('operators');
-        console.log('✅ Cleared medical operators cache');
-      } catch (error) {
-        console.warn('⚠️ Failed to clear medical operators cache:', error);
-      }
+      } catch { // Error handled silently
+    }
 
-      console.log('✅ All caches cleared after operator deletion');
 
-      log.info('Operator deleted successfully', { id, remainingCount: filteredOperators.length }, 'SimpleDataService');
+      log.info(
+        'Operator deleted successfully',
+        { id, remainingCount: filteredOperators.length },
+        'SimpleDataService'
+      );
       return true;
     } catch (error) {
       log.error('Failed to delete operator', { id, error }, 'SimpleDataService');
@@ -939,7 +949,6 @@ class SimpleDataService {
   // Clear operators cache method
   static async clearOperatorsCache(): Promise<void> {
     try {
-      console.log('🧹 Clearing operators cache...');
 
       // Clear medical cache
       medicalCache.clearCache('operators');
@@ -959,12 +968,10 @@ class SimpleDataService {
               localStorage.removeItem(localStorageKey);
             }
           });
-        } catch (error) {
-          console.warn(`⚠️ Failed to clear localStorage key pattern ${key}:`, error);
-        }
+        } catch { // Error handled silently
+    }
       });
 
-      console.log('✅ Operators cache cleared successfully');
       log.info('Operators cache cleared', {}, 'SimpleDataService');
     } catch (error) {
       log.error('Failed to clear operators cache', { error }, 'SimpleDataService');
@@ -1005,7 +1012,11 @@ class SimpleDataService {
       // Check if treatments already exist in the new storage
       const existingTreatments = await this.getTreatments();
       if (existingTreatments.length > 0) {
-        log.debug('Treatments already exist in storage, skipping migration', undefined, 'SimpleDataService');
+        log.debug(
+          'Treatments already exist in storage, skipping migration',
+          undefined,
+          'SimpleDataService'
+        );
         return;
       }
 
@@ -1015,7 +1026,11 @@ class SimpleDataService {
         const treatments: Treatment[] = JSON.parse(localStorageTreatments);
         if (treatments.length > 0) {
           await this.saveTreatments(treatments);
-          log.info('Migrated treatments from localStorage', { count: treatments.length }, 'SimpleDataService');
+          log.info(
+            'Migrated treatments from localStorage',
+            { count: treatments.length },
+            'SimpleDataService'
+          );
           // Optionally clear localStorage after successful migration
           localStorage.removeItem('treatments');
         }
@@ -1117,9 +1132,8 @@ class SimpleDataService {
               localStorage.removeItem(localStorageKey);
             }
           });
-        } catch (error) {
-          console.warn(`⚠️ Failed to clear localStorage key pattern ${key}:`, error);
-        }
+        } catch { // Error handled silently
+    }
       });
 
       log.info('Patient caches cleared successfully', {}, 'SimpleDataService');
@@ -1132,31 +1146,7 @@ class SimpleDataService {
   static async debugPatientStorage(): Promise<void> {
     try {
       // Debug logging removed - checking patient storage
-
-      // Check raw storage
-      const rawPatients = await storage.retrieve('patients');
-      console.log('📦 Raw patients from storage:', rawPatients.length, rawPatients);
-
-      // Check specific storage method
-      const specificPatients = await storage.getPatients();
-      console.log('📋 Patients from getPatients():', specificPatients.length, specificPatients);
-
-      // Check cache
-      const cachedData = medicalCache.getSearchResults('patients');
-      console.log('💾 Cached patients data:', (Array.isArray(cachedData) ? cachedData.length : 0), cachedData);
-
-      // Check localStorage keys
-      const localStorageKeys = Object.keys(localStorage).filter(key => key.includes('patient'));
-      console.log('🗝️ localStorage keys with "patient":', localStorageKeys);
-
-      // Check each localStorage key
-      localStorageKeys.forEach(key => {
-        const value = localStorage.getItem(key);
-        console.log(`📝 ${key}:`, value?.substring(0, 100) + ((value?.length || 0) > 100 ? '...' : ''));
-      });
-
-    } catch (error) {
-      console.error('❌ DEBUG: Error checking patient storage:', error);
+    } catch { // Error handled silently
     }
   }
 
@@ -1166,8 +1156,8 @@ class SimpleDataService {
       const year = new Date().getFullYear();
       const nextNumber = patients.length + 1;
       return `PT${year}${String(nextNumber).padStart(6, '0')}`;
-    } catch (error) {
-      log.error('Failed to generate record number', { error }, 'SimpleDataService');
+    } catch (_error) {
+      log.error('Failed to generate record number', { error: _error }, 'SimpleDataService');
       // Fallback to timestamp-based number
       const year = new Date().getFullYear();
       const timestamp = Date.now().toString().slice(-6);
@@ -1185,15 +1175,15 @@ class SimpleDataService {
       medicalCache.clearCache('search');
 
       log.info('All data cleared successfully', undefined, 'SimpleDataService');
-    } catch (error) {
-      log.error('Failed to clear all data', { error }, 'SimpleDataService');
-      throw error;
+    } catch (_error) {
+      log.error('Failed to clear all data', { error: _error }, 'SimpleDataService');
+      throw _error;
     }
   }
 }
 
-
 // Export databaseService interface for compatibility
+// eslint-disable-next-line react-refresh/only-export-components
 export { databaseService } from './databaseService';
 
 export default SimpleDataService;

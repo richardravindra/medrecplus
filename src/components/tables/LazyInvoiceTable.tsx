@@ -1,12 +1,5 @@
 import React, { Suspense, useCallback } from 'react';
-import {
-  Table,
-  Box,
-  CircularProgress,
-  Typography,
-  Chip,
-  IconButton
-} from '@mui/joy';
+import { Table, Box, CircularProgress, Typography, Chip, IconButton } from '@mui/joy';
 import Visibility from '@mui/icons-material/Visibility';
 import Delete from '@mui/icons-material/Delete';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
@@ -49,21 +42,33 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
   sortDirection,
   loading = false
 }) => {
-  const memoizedOnView = useCallback((invoice: Invoice) => {
-    onView?.(invoice);
-  }, [onView]);
+  const memoizedOnView = useCallback(
+    (invoice: Invoice) => {
+      onView?.(invoice);
+    },
+    [onView]
+  );
 
-  const memoizedOnDelete = useCallback((id: number) => {
-    onDelete?.(id);
-  }, [onDelete]);
+  const memoizedOnDelete = useCallback(
+    (id: number) => {
+      onDelete?.(id);
+    },
+    [onDelete]
+  );
 
-  const memoizedOnPatientClick = useCallback((patientId: number) => {
-    onPatientClick?.(patientId);
-  }, [onPatientClick]);
+  const memoizedOnPatientClick = useCallback(
+    (patientId: number) => {
+      onPatientClick?.(patientId);
+    },
+    [onPatientClick]
+  );
 
-  const memoizedOnAppointmentClick = useCallback((appointmentId: number) => {
-    onAppointmentClick?.(appointmentId);
-  }, [onAppointmentClick]);
+  const memoizedOnAppointmentClick = useCallback(
+    (appointmentId: number) => {
+      onAppointmentClick?.(appointmentId);
+    },
+    [onAppointmentClick]
+  );
   // Note: invoices array is already paginated from the server, so no need to slice again
   const paginatedInvoices = invoices;
 
@@ -112,9 +117,12 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {children}
-          {isSorted && (
-            sortDirection === 'asc' ? <ArrowUpward sx={{ fontSize: 14, color: '#ffffff' }} /> : <ArrowDownward sx={{ fontSize: 14, color: '#ffffff' }} />
-          )}
+          {isSorted &&
+            (sortDirection === 'asc' ? (
+              <ArrowUpward sx={{ fontSize: 14, color: '#ffffff' }} />
+            ) : (
+              <ArrowDownward sx={{ fontSize: 14, color: '#ffffff' }} />
+            ))}
         </Box>
       </th>
     );
@@ -132,8 +140,8 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
           gap: 2
         }}
       >
-        <CircularProgress size="lg" />
-        <Typography level="body-sm" color="neutral">
+        <CircularProgress size='lg' />
+        <Typography level='body-sm' color='neutral'>
           Loading invoices...
         </Typography>
       </Box>
@@ -143,64 +151,61 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
   return (
     <>
       <Table
-        aria-label="Invoice records table"
-        stripe="odd"
+        aria-label='Invoice records table'
+        stripe='odd'
         hoverRow
         sx={{
           '& tbody tr:hover': {
-            backgroundColor: 'rgba(25, 118, 210, 0.08)',
+            backgroundColor: 'rgba(25, 118, 210, 0.08)'
           },
           '& th': {
             backgroundColor: '#1d293d',
             color: '#ffffff',
-            fontWeight: '600',
+            fontWeight: '600'
           },
           '& td': {
-            color: '#ffffff',
+            color: '#ffffff'
           },
           '& tr:nth-of-type(odd) td': {
-            backgroundColor: 'rgba(45, 45, 45, 0.5)',
-          },
+            backgroundColor: 'rgba(45, 45, 45, 0.5)'
+          }
         }}
       >
-      <thead>
-        <tr>
-          {columnVisibility.invoiceNumber && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Invoice #</th>
-          )}
-          {columnVisibility.patientName && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Patient</th>
-          )}
-          {columnVisibility.operatorName && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Operator</th>
-          )}
-          {columnVisibility.appointmentDate && (
-            <SortableHeader
-              field="appointmentDate"
-              onClick={() => onSort && onSort('appointmentDate')}
-            >
-              Appt. Date
-            </SortableHeader>
-          )}
-          {columnVisibility.totalAmount && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Amount</th>
-          )}
-          {columnVisibility.status && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Status</th>
-          )}
-          {columnVisibility.date && (
-            <SortableHeader
-              field="date"
-              onClick={() => onSort && onSort('date')}
-            >
-              Invoice Date
-            </SortableHeader>
-          )}
-          <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Actions</th>
-        </tr>
-      </thead>
+        <thead>
+          <tr>
+            {columnVisibility.invoiceNumber && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Invoice #</th>
+            )}
+            {columnVisibility.patientName && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Patient</th>
+            )}
+            {columnVisibility.operatorName && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Operator</th>
+            )}
+            {columnVisibility.appointmentDate && (
+              <SortableHeader
+                field='appointmentDate'
+                onClick={() => onSort && onSort('appointmentDate')}
+              >
+                Appt. Date
+              </SortableHeader>
+            )}
+            {columnVisibility.totalAmount && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Amount</th>
+            )}
+            {columnVisibility.status && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Status</th>
+            )}
+            {columnVisibility.date && (
+              <SortableHeader field='date' onClick={() => onSort && onSort('date')}>
+                Invoice Date
+              </SortableHeader>
+            )}
+            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Actions</th>
+          </tr>
+        </thead>
         <tbody>
-          {paginatedInvoices.map((invoice) => (
+          {paginatedInvoices.map(invoice => (
             <tr key={invoice.id}>
               {columnVisibility.invoiceNumber && (
                 <td style={{ padding: '12px' }}>
@@ -268,43 +273,35 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
                 </td>
               )}
               {columnVisibility.totalAmount && (
-                <td style={{ padding: '12px' }}>
-                  {formatCurrencyWhole(invoice.totalAmount || 0)}
-                </td>
+                <td style={{ padding: '12px' }}>{formatCurrencyWhole(invoice.totalAmount || 0)}</td>
               )}
               {columnVisibility.status && (
                 <td style={{ padding: '12px' }}>
-                  <Chip
-                    size="sm"
-                    color={getStatusColor(invoice.status)}
-                    variant="soft"
-                  >
+                  <Chip size='sm' color={getStatusColor(invoice.status)} variant='soft'>
                     {invoice.status || 'Pending'}
                   </Chip>
                 </td>
               )}
               {columnVisibility.date && (
-                <td style={{ padding: '12px' }}>
-                  {formatDateTime(invoice.date)}
-                </td>
+                <td style={{ padding: '12px' }}>{formatDateTime(invoice.date)}</td>
               )}
               <td style={{ padding: '12px' }}>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                   <IconButton
-                    size="sm"
-                    variant="outlined"
-                    color="primary"
+                    size='sm'
+                    variant='outlined'
+                    color='primary'
                     onClick={() => memoizedOnView(invoice)}
-                    title="View invoice details"
+                    title='View invoice details'
                   >
                     <Visibility />
                   </IconButton>
                   <IconButton
-                    size="sm"
-                    variant="outlined"
-                    color="danger"
+                    size='sm'
+                    variant='outlined'
+                    color='danger'
                     onClick={() => memoizedOnDelete(invoice.id)}
-                    title="Delete invoice"
+                    title='Delete invoice'
                   >
                     <Delete />
                   </IconButton>
@@ -325,7 +322,7 @@ const TableComponent: React.FC<LazyInvoiceTableProps> = ({
             gap: 2
           }}
         >
-          <Typography level="body-lg" sx={{ color: '#ffffff' }}>
+          <Typography level='body-lg' sx={{ color: '#ffffff' }}>
             No invoices found
           </Typography>
         </Box>
@@ -345,14 +342,14 @@ const LoadingFallback: React.FC = () => (
       gap: 2
     }}
   >
-    <CircularProgress size="lg" />
-    <Typography level="body-sm" color="neutral">
+    <CircularProgress size='lg' />
+    <Typography level='body-sm' color='neutral'>
       Loading table...
     </Typography>
   </Box>
 );
 
-export const LazyInvoiceTable: React.FC<LazyInvoiceTableProps> = (props) => {
+export const LazyInvoiceTable: React.FC<LazyInvoiceTableProps> = props => {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <TableComponent {...props} />

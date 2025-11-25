@@ -15,8 +15,9 @@ const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
     if (mainElement) {
       mainElement.classList.remove('page-enter-active', 'page-exit-active');
 
-      // Trigger reflow
-      void mainElement.offsetWidth;
+      // Trigger reflow by reading layout properties (needed for CSS animations)
+      const triggerReflow = (element: HTMLElement): number => element.offsetHeight;
+      triggerReflow(mainElement);
 
       mainElement.classList.add('page-enter');
 

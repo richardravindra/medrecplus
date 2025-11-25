@@ -18,13 +18,23 @@ import Refresh from '@mui/icons-material/Refresh';
 import Modal from '@mui/joy/Modal';
 import ModalDialog from '@mui/joy/ModalDialog';
 import ModalClose from '@mui/joy/ModalClose';
+import { AlertDialog } from '../components/ConfirmDialog';
+import { useAlertDialog } from '../hooks/useDialog';
 import Divider from '@mui/joy/Divider';
 import Table from '@mui/joy/Table';
 import Input from '@mui/joy/Input';
 import Search from '@mui/icons-material/Search';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 import * as XLSX from 'xlsx';
-import SimpleDataService, { PaginatedResult } from '../services/SimpleDataService';
+import { storage } from '../services/UnifiedStorage';
 import { Patient, Appointment, Invoice, Operator } from '../types';
 import { log } from '../utils/logger';
 import { formatCurrencyWhole } from '../utils/currencyUtils';
@@ -45,8 +55,6 @@ function useDebounce<T>(value: T, delay: number): T {
 
   return debouncedValue;
 }
-
-
 
 interface VitalSignsData {
   date: string;
@@ -74,7 +82,10 @@ interface FilterOptions {
 
 const ReportsOptimized: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
+
+  // Dialog hooks
+  const alertDialog = useAlertDialog();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientIndex, setPatientIndex] = useState<Map<string, Patient[]>>(new Map());
@@ -105,7 +116,6 @@ const ReportsOptimized: React.FC = () => {
   const [operatorInvoices, setOperatorInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
-  
   // Cache for filtered data
   interface CachedData {
     appointments: Appointment[];
@@ -124,41 +134,44 @@ const ReportsOptimized: React.FC = () => {
   // Load initial metadata (operators and patients)
   const loadMetadata = useCallback(async () => {
     try {
-      console.log('📊 Loading metadata...');
 
-      // Load operators
-      const operatorsData = await SimpleDataService.getOperators();
+      // Load operators and patients in parallel
+      const [operatorsData, patientsData] = await Promise.all([
+        storage.getOperators(),
+        storage.getPatients()
+      ]);
+
       setOperators(operatorsData);
-      console.log('👥 Operators loaded:', operatorsData.length);
 
-      // Load and index patients for fast search
-      const patientsResult = { data: await SimpleDataService.getAllPatients() } as unknown as PaginatedResult<Patient>;
-      setPatients(patientsResult.data);
+      setPatients(patientsData);
 
       // Create search index for patients
       const index = new Map<string, Patient[]>();
-      patientsResult.data.forEach(patient => {
+      patientsData.forEach(patient => {
         // Index by first letter of name for faster search
         const firstLetter = patient.name.charAt(0).toLowerCase();
         if (!index.has(firstLetter)) {
           index.set(firstLetter, []);
         }
-        index.get(firstLetter)!.push(patient);
+        const nameArray = index.get(firstLetter);
+        if (nameArray) {
+          nameArray.push(patient);
+        }
 
         // Also index by record number prefix
         const recordPrefix = patient.record_number.substring(0, 8);
         if (!index.has(recordPrefix)) {
           index.set(recordPrefix, []);
         }
-        index.get(recordPrefix)!.push(patient);
+        const recordArray = index.get(recordPrefix);
+        if (recordArray) {
+          recordArray.push(patient);
+        }
       });
       setPatientIndex(index);
-      console.log('🏥 Patients loaded and indexed:', patientsResult.data.length);
-
-    } catch (error) {
-      console.error('❌ Error loading metadata:', error);
+    } catch {
       setError('Failed to load metadata');
-      log.error('Failed to load reports metadata', { error }, 'ReportsOptimized');
+      log.error('Failed to load reports metadata', { _error: 'Failed to load metadata' }, 'ReportsOptimized');
     }
   }, []);
 
@@ -169,119 +182,118 @@ const ReportsOptimized: React.FC = () => {
     // Check cache first
     const cachedResult = dataCache.current.get(cacheKey);
     if (cachedResult) {
-      console.log('📋 Using cached data for filters:', filters);
       return cachedResult;
     }
 
-    try {
-      console.log('🔄 Loading filtered data for:', filters);
+    // Load data with filters
+    const [appointments, invoices] = await Promise.all([
+      storage.getAppointments(),
+      storage.getInvoices()
+    ]);
 
-      // Load data with filters
-      const [appointments, invoices] = await Promise.all([
-        SimpleDataService.getAllAppointments(),
-        SimpleDataService.getAllInvoices()
-      ]);
 
-      console.log('📊 Raw data loaded:', { appointments: appointments.length, invoices: invoices.length });
+    // Apply filters in memory (could be moved to backend for better performance)
+    const filteredAppointments = appointments.filter(appointment => {
+      const appointmentDate = new Date(appointment.date);
+      const appointmentMonth = (appointmentDate.getMonth() + 1).toString().padStart(2, '0');
+      const appointmentYear = appointmentDate.getFullYear().toString();
 
-      // Apply filters in memory (could be moved to backend for better performance)
-      const filteredAppointments = appointments.filter((appointment) => {
-        const appointmentDate = new Date(appointment.date);
-        const appointmentMonth = (appointmentDate.getMonth() + 1).toString().padStart(2, '0');
-        const appointmentYear = appointmentDate.getFullYear().toString();
+      const yearMatch = !filters.year || appointmentYear === filters.year;
+      const monthMatch = !filters.month || appointmentMonth === filters.month;
+      const operatorMatch =
+        filters.operators.length === 0 || filters.operators.includes(appointment.operatorId);
 
-        const yearMatch = !filters.year || appointmentYear === filters.year;
-        const monthMatch = !filters.month || appointmentMonth === filters.month;
-        const operatorMatch = filters.operators.length === 0 || filters.operators.includes(appointment.operatorId);
+      return yearMatch && monthMatch && operatorMatch;
+    });
 
-        return yearMatch && monthMatch && operatorMatch;
-      });
+    const filteredInvoices = invoices.filter(invoice => {
+      if (invoice.status !== 'paid') return false;
 
-      const filteredInvoices = invoices.filter((invoice) => {
-        if (invoice.status !== 'paid') return false;
+      const dateToCheck = invoice.appointmentDate || invoice.date || invoice.created_at;
+      const invoiceDate = new Date(dateToCheck);
 
-        const dateToCheck = invoice.appointmentDate || invoice.date || invoice.created_at;
-        const invoiceDate = new Date(dateToCheck);
+      if (isNaN(invoiceDate.getTime())) return false;
 
-        if (isNaN(invoiceDate.getTime())) return false;
+      const invoiceMonth = (invoiceDate.getMonth() + 1).toString().padStart(2, '0');
+      const invoiceYear = invoiceDate.getFullYear().toString();
 
-        const invoiceMonth = (invoiceDate.getMonth() + 1).toString().padStart(2, '0');
-        const invoiceYear = invoiceDate.getFullYear().toString();
+      const yearMatch = !filters.year || invoiceYear === filters.year;
+      const monthMatch = !filters.month || invoiceMonth === filters.month;
+      const operatorMatch =
+        filters.operators.length === 0 || filters.operators.includes(invoice.operatorId);
 
-        const yearMatch = !filters.year || invoiceYear === filters.year;
-        const monthMatch = !filters.month || invoiceMonth === filters.month;
-        const operatorMatch = filters.operators.length === 0 || filters.operators.includes(invoice.operatorId);
+      return yearMatch && monthMatch && operatorMatch;
+    });
 
-        return yearMatch && monthMatch && operatorMatch;
-      });
+    const result: CachedData = {
+      appointments: filteredAppointments,
+      invoices: filteredInvoices,
+      totalAppointments: appointments.length,
+      totalInvoices: invoices.length
+    };
 
-      const result: CachedData = {
-        appointments: filteredAppointments,
-        invoices: filteredInvoices,
-        totalAppointments: appointments.length,
-        totalInvoices: invoices.length
-      };
+    // Cache the result
+    dataCache.current.set(cacheKey, result);
 
-      // Cache the result
-      dataCache.current.set(cacheKey, result);
-      console.log('💾 Data cached for filters:', filters);
-
-      return result;
-    } catch (error) {
-      console.error('❌ Error loading filtered data:', error);
-      throw error;
-    }
+    return result;
   }, []);
 
   // Generate report data from filtered data
-  const generateReportData = useCallback((appointments: Appointment[], invoices: Invoice[]) => {
-    // Group data by operator
-    const operatorMap = new Map<number, { name: string; appointmentCount: number; invoiceCount: number; revenue: number }>();
+  const generateReportData = useCallback(
+    (appointments: Appointment[], invoices: Invoice[]) => {
+      // Group data by operator
+      const operatorMap = new Map<
+        number,
+        { name: string; appointmentCount: number; invoiceCount: number; revenue: number }
+      >();
 
-    // Initialize with all operators (or filtered ones)
-    const relevantOperators = selectedOperators.length > 0
-      ? operators.filter(op => selectedOperators.includes(op.id))
-      : operators;
+      // Initialize with all operators (or filtered ones)
+      const relevantOperators =
+        selectedOperators.length > 0
+          ? operators.filter(op => selectedOperators.includes(op.id))
+          : operators;
 
-    relevantOperators.forEach(operator => {
-      operatorMap.set(operator.id, {
-        name: operator.name,
-        appointmentCount: 0,
-        invoiceCount: 0,
-        revenue: 0
+      relevantOperators.forEach(operator => {
+        operatorMap.set(operator.id, {
+          name: operator.name,
+          appointmentCount: 0,
+          invoiceCount: 0,
+          revenue: 0
+        });
       });
-    });
 
-    // Count appointments
-    appointments.forEach(appointment => {
-      const current = operatorMap.get(appointment.operatorId);
-      if (current) {
-        current.appointmentCount++;
-      }
-    });
+      // Count appointments
+      appointments.forEach(appointment => {
+        const current = operatorMap.get(appointment.operatorId);
+        if (current) {
+          current.appointmentCount++;
+        }
+      });
 
-    // Count paid invoices and sum revenue
-    invoices.forEach(invoice => {
-      const current = operatorMap.get(invoice.operatorId);
-      if (current) {
-        current.invoiceCount++;
-        current.revenue += invoice.totalAmount;
-      }
-    });
+      // Count paid invoices and sum revenue
+      invoices.forEach(invoice => {
+        const current = operatorMap.get(invoice.operatorId);
+        if (current) {
+          current.invoiceCount++;
+          current.revenue += invoice.totalAmount;
+        }
+      });
 
-    // Convert to array and sort by revenue
-    const data: ReportData[] = Array.from(operatorMap.entries())
-      .map(([operatorId, data]) => ({
-        operatorId,
-        operatorName: data.name,
-        appointmentCount: data.appointmentCount,
-        invoiceCount: data.invoiceCount,
-        revenue: data.revenue
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
+      // Convert to array and sort by revenue
+      const data: ReportData[] = Array.from(operatorMap.entries())
+        .map(([operatorId, data]) => ({
+          operatorId,
+          operatorName: data.name,
+          appointmentCount: data.appointmentCount,
+          invoiceCount: data.invoiceCount,
+          revenue: data.revenue
+        }))
+        .sort((a, b) => b.revenue - a.revenue);
 
-    return data;
-  }, [selectedOperators, operators]);
+      return data;
+    },
+    [selectedOperators, operators]
+  );
 
   // Main data loading effect
   useEffect(() => {
@@ -289,8 +301,7 @@ const ReportsOptimized: React.FC = () => {
       setLoading(true);
       try {
         await loadMetadata();
-      } catch (error) {
-        console.error('❌ Error in initial data load:', error);
+      } catch {
         setError('Failed to load initial data');
       } finally {
         setLoading(false);
@@ -337,20 +348,7 @@ const ReportsOptimized: React.FC = () => {
           filteredAppointments: result.appointments.length,
           filteredInvoices: result.invoices.length
         });
-
-        console.log('✅ Report generated:', {
-          filters,
-          reportData: reportData.length,
-          stats: {
-            totalAppointments: result.totalAppointments,
-            totalInvoices: result.totalInvoices,
-            filteredAppointments: result.appointments.length,
-            filteredInvoices: result.invoices.length
-          }
-        });
-
-      } catch (error) {
-        console.error('❌ Error generating report:', error);
+      } catch {
         setError('Failed to generate report');
       } finally {
         setLoading(false);
@@ -373,20 +371,26 @@ const ReportsOptimized: React.FC = () => {
     const firstLetter = searchTerm.charAt(0);
 
     if (patientIndex.has(firstLetter)) {
-      const candidates = patientIndex.get(firstLetter)!;
-      candidates.forEach(patient => {
-        if (patient.name.toLowerCase().includes(searchTerm) ||
-            patient.record_number.toLowerCase().includes(searchTerm)) {
-          results.push(patient);
-        }
-      });
+      const candidates = patientIndex.get(firstLetter);
+      if (candidates) {
+        candidates.forEach(patient => {
+          if (
+            patient.name.toLowerCase().includes(searchTerm) ||
+            patient.record_number.toLowerCase().includes(searchTerm)
+          ) {
+            results.push(patient);
+          }
+        });
+      }
     }
 
     // Fallback to full search if no results from index
     if (results.length === 0) {
       patients.forEach(patient => {
-        if (patient.name.toLowerCase().includes(searchTerm) ||
-            patient.record_number.toLowerCase().includes(searchTerm)) {
+        if (
+          patient.name.toLowerCase().includes(searchTerm) ||
+          patient.record_number.toLowerCase().includes(searchTerm)
+        ) {
           results.push(patient);
         }
       });
@@ -411,79 +415,82 @@ const ReportsOptimized: React.FC = () => {
   }, [debouncedSearchTerm, patients, patientIndex]);
 
   // Load patient data on demand
-  const handlePatientSelect = useCallback(async (patientId: number) => {
-    const patient = patients.find(p => p.id === patientId);
-    if (!patient) return;
+  const handlePatientSelect = useCallback(
+    async (patientId: number) => {
+      const patient = patients.find(p => p.id === patientId);
+      if (!patient) return;
 
-    setSelectedPatient(patient);
-    setPatientSearchTerm('');
+      setSelectedPatient(patient);
+      setPatientSearchTerm('');
 
-    try {
-      // Load patient appointments with filters
-      const filters: FilterOptions = {
-        year: selectedYear,
-        month: selectedMonth,
-        operators: [],
-        limit: 1000,
-        offset: 0
-      };
+      try {
+        // Load patient appointments with filters
+        const filters: FilterOptions = {
+          year: selectedYear,
+          month: selectedMonth,
+          operators: [],
+          limit: 1000,
+          offset: 0
+        };
 
-      const result = await loadFilteredData(filters);
-      const patientApts = result.appointments.filter(apt => apt.patientId === patientId);
+        const result = await loadFilteredData(filters);
+        const patientApts = result.appointments.filter(apt => apt.patientId === patientId);
 
-      setPatientAppointments(patientApts);
+        setPatientAppointments(patientApts);
 
-      // Generate vital signs data
-      const vitalData: VitalSignsData[] = patientApts
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .map(apt => ({
-          date: formatDate(apt.date),
-          bloodPressure: apt.vitalSigns?.bloodPressure || '',
-          heartRate: apt.vitalSigns?.heartRate || 0,
-          respirationRate: apt.vitalSigns?.respirationRate || 0,
-          borgScale: apt.vitalSigns?.borgScale || 0
-        }));
+        // Generate vital signs data
+        const vitalData: VitalSignsData[] = patientApts
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .map(apt => ({
+            date: formatDate(apt.date),
+            bloodPressure: apt.vitalSigns?.bloodPressure || '',
+            heartRate: apt.vitalSigns?.heartRate || 0,
+            respirationRate: apt.vitalSigns?.respirationRate || 0,
+            borgScale: apt.vitalSigns?.borgScale || 0
+          }));
 
-      setVitalSignsData(vitalData);
-      console.log('📈 Patient data loaded:', { patientId: patient.id, appointments: patientApts.length, vitalDataPoints: vitalData.length });
-
-    } catch (error) {
-      console.error('❌ Error loading patient data:', error);
-      setError('Failed to load patient data');
-    }
-  }, [patients, selectedYear, selectedMonth, loadFilteredData]);
+        setVitalSignsData(vitalData);
+      } catch {
+        setError('Failed to load patient data');
+      }
+    },
+    [patients, selectedYear, selectedMonth, loadFilteredData]
+  );
 
   // Load operator invoices on demand
-  const handleViewInvoices = useCallback(async (operator: ReportData) => {
-    setSelectedOperator(operator);
-    setShowInvoicesModal(true);
-    setLoadingInvoices(true);
+  const handleViewInvoices = useCallback(
+    async (operator: ReportData) => {
+      setSelectedOperator(operator);
+      setShowInvoicesModal(true);
+      setLoadingInvoices(true);
 
-    try {
-      const filters: FilterOptions = {
-        year: selectedYear,
-        month: selectedMonth,
-        operators: [operator.operatorId],
-        limit: 5000,
-        offset: 0
-      };
+      try {
+        const filters: FilterOptions = {
+          year: selectedYear,
+          month: selectedMonth,
+          operators: [operator.operatorId],
+          limit: 5000,
+          offset: 0
+        };
 
-      const result = await loadFilteredData(filters);
-      const invoices = result.invoices
-        .filter(inv => inv.operatorId === operator.operatorId)
-        .sort((a, b) => new Date(b.appointmentDate || b.date || b.created_at).getTime() -
-                         new Date(a.appointmentDate || a.date || a.created_at).getTime());
+        const result = await loadFilteredData(filters);
+        const invoices = result.invoices
+          .filter(inv => inv.operatorId === operator.operatorId)
+          .sort(
+            (a, b) =>
+              new Date(b.appointmentDate || b.date || b.created_at).getTime() -
+              new Date(a.appointmentDate || a.date || a.created_at).getTime()
+          );
 
-      setOperatorInvoices(invoices);
-      console.log('💰 Operator invoices loaded:', { operator: operator.operatorName, count: invoices.length });
-
-    } catch (error) {
-      console.error('❌ Error loading operator invoices:', error);
-      setError('Failed to load operator invoices');
-    } finally {
-      setLoadingInvoices(false);
-    }
-  }, [selectedYear, selectedMonth, loadFilteredData]);
+        setOperatorInvoices(invoices);
+      } catch {
+        setError('Failed to load operator invoices');
+      } finally {
+        setLoadingInvoices(false);
+      }
+    },
+    [selectedYear, selectedMonth, loadFilteredData]
+  );
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -495,8 +502,18 @@ const ReportsOptimized: React.FC = () => {
 
   const getMonthOptions = () => {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
 
     return months.map((month, index) => ({
@@ -534,7 +551,6 @@ const ReportsOptimized: React.FC = () => {
 
   const handleExportToXLS = async (operator: ReportData) => {
     try {
-      console.log('🔄 Exporting invoices for operator:', operator.operatorName);
 
       // Load invoices for this operator on-demand
       const filters: FilterOptions = {
@@ -548,25 +564,30 @@ const ReportsOptimized: React.FC = () => {
       const result = await loadFilteredData(filters);
       const invoices = result.invoices
         .filter(inv => inv.operatorId === operator.operatorId)
-        .sort((a, b) => new Date(b.appointmentDate || b.date || b.created_at).getTime() -
-                         new Date(a.appointmentDate || a.date || a.created_at).getTime());
-
-      console.log('💰 Found invoices for export:', { count: invoices.length, operator: operator.operatorName });
+        .sort(
+          (a, b) =>
+            new Date(b.appointmentDate || b.date || b.created_at).getTime() -
+            new Date(a.appointmentDate || a.date || a.created_at).getTime()
+        );
 
       if (invoices.length === 0) {
-        alert(`No invoices found for ${operator.operatorName} in the selected period.`);
+        alertDialog.openDialog({
+          title: 'No Data Available',
+          message: `No invoices found for ${operator.operatorName} in the selected period.`,
+          variant: 'warning'
+        });
         return;
       }
 
       // Prepare data for export
       const exportData = invoices.map((invoice, index) => ({
-        'No': index + 1,
+        No: index + 1,
         'Invoice Number': invoice.invoiceNumber,
-        'Date': formatDate(invoice.date),
+        Date: formatDate(invoice.date),
         'Patient Name': invoice.patientName,
-        'Operator': invoice.operatorName,
-        'Amount': invoice.totalAmount,
-        'Status': invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)
+        Operator: invoice.operatorName,
+        Amount: invoice.totalAmount,
+        Status: invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)
       }));
 
       // Create workbook
@@ -576,27 +597,30 @@ const ReportsOptimized: React.FC = () => {
 
       // Set column widths
       const colWidths = [
-        { wch: 5 },   // No
-        { wch: 15 },  // Invoice Number
-        { wch: 12 },  // Date
-        { wch: 25 },  // Patient Name
-        { wch: 20 },  // Operator
-        { wch: 15 },  // Amount
-        { wch: 10 }   // Status
+        { wch: 5 }, // No
+        { wch: 15 }, // Invoice Number
+        { wch: 12 }, // Date
+        { wch: 25 }, // Patient Name
+        { wch: 20 }, // Operator
+        { wch: 15 }, // Amount
+        { wch: 10 } // Status
       ];
       ws['!cols'] = colWidths;
 
       // Generate filename
-      const period = selectedMonth ? `${getMonthOptions().find(m => m.value === selectedMonth)?.label}_${selectedYear}` : selectedYear;
+      const period = selectedMonth
+        ? `${getMonthOptions().find(m => m.value === selectedMonth)?.label}_${selectedYear}`
+        : selectedYear;
       const filename = `Invoices_${operator.operatorName.replace(/\s+/g, '_')}_${period}.xlsx`;
 
       // Download file
       XLSX.writeFile(wb, filename);
-      console.log('✅ Export completed:', filename);
-
-    } catch (error) {
-      console.error('Error exporting to XLS:', error);
-      alert('Failed to export data. Please try again.');
+    } catch {
+      alertDialog.openDialog({
+        title: 'Export Failed',
+        message: 'Failed to export data. Please try again.',
+        variant: 'danger'
+      });
     }
   };
 
@@ -608,36 +632,44 @@ const ReportsOptimized: React.FC = () => {
 
   const clearCache = () => {
     dataCache.current.clear();
-    console.log('🗑️ Cache cleared');
   };
 
   if (loading && operators.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Stack alignItems="center" spacing={2}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+      >
+        <Stack alignItems='center' spacing={2}>
           <CircularProgress />
-          <Typography level="body-lg" sx={{ color: '#ffffff' }}>Loading reports...</Typography>
+          <Typography level='body-lg' sx={{ color: '#ffffff' }}>
+            Loading reports...
+          </Typography>
         </Stack>
       </Box>
     );
   }
 
   return (
-    <Box sx={{
-      width: '100%',
-      height: '100%',
-      p: 2,
-      boxSizing: 'border-box',
-      minWidth: 0
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        p: 2,
+        boxSizing: 'border-box',
+        minWidth: 0
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography level="h3" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '1.5rem' }}>
+        <Typography
+          level='h3'
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '1.5rem' }}
+        >
           <Assessment sx={{ color: '#ffffff' }} />
           Reports (Optimized)
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
-            variant="outlined"
+            variant='outlined'
             startDecorator={<Refresh />}
             onClick={() => {
               clearCache();
@@ -655,7 +687,7 @@ const ReportsOptimized: React.FC = () => {
             Refresh Data
           </Button>
           <Button
-            variant="soft"
+            variant='soft'
             onClick={clearCache}
             sx={{
               color: '#ffffff',
@@ -669,9 +701,9 @@ const ReportsOptimized: React.FC = () => {
         </Box>
       </Box>
 
-      {error && (
+      {_error && (
         <Box sx={{ mb: 3 }}>
-          <Typography color="danger">{error}</Typography>
+          <Typography color='danger'>{_error}</Typography>
         </Box>
       )}
 
@@ -679,23 +711,23 @@ const ReportsOptimized: React.FC = () => {
       {selectedYear && (
         <Card sx={{ mb: 3 }}>
           <Box sx={{ p: 2 }}>
-            <Typography level="body-sm" sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold' }}>
+            <Typography level='body-sm' sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold' }}>
               Performance Stats
             </Typography>
             <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Total Appointments: {filteredDataStats.totalAppointments.toLocaleString()}
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Total Invoices: {filteredDataStats.totalInvoices.toLocaleString()}
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Paid Invoices: {filteredDataStats.paidInvoices.toLocaleString()}
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Filtered Appointments: {filteredDataStats.filteredAppointments.toLocaleString()}
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Filtered Invoices: {filteredDataStats.filteredInvoices.toLocaleString()}
               </Typography>
             </Box>
@@ -706,15 +738,19 @@ const ReportsOptimized: React.FC = () => {
       {/* Filter Controls */}
       <Card sx={{ mb: 3 }}>
         <Box sx={{ p: 2 }}>
-          <Typography level="h4" sx={{ mb: 2, fontSize: '1.25rem' }}>Select Report Period</Typography>
+          <Typography level='h4' sx={{ mb: 2, fontSize: '1.25rem' }}>
+            Select Report Period
+          </Typography>
           <Stack spacing={2}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
               <Box sx={{ minWidth: 200, flex: 1 }}>
-                <Typography level="body-sm" sx={{ mb: 1, color: '#ffffff' }}>Month</Typography>
+                <Typography level='body-sm' sx={{ mb: 1, color: '#ffffff' }}>
+                  Month
+                </Typography>
                 <Select
                   value={selectedMonth}
                   onChange={(_, value) => setSelectedMonth(value || '')}
-                  placeholder="Select Month"
+                  placeholder='Select Month'
                   sx={{
                     color: '#ffffff',
                     '& .MuiSelect-select': {
@@ -731,11 +767,13 @@ const ReportsOptimized: React.FC = () => {
               </Box>
 
               <Box sx={{ minWidth: 150, flex: 1 }}>
-                <Typography level="body-sm" sx={{ mb: 1, color: '#ffffff' }}>Year</Typography>
+                <Typography level='body-sm' sx={{ mb: 1, color: '#ffffff' }}>
+                  Year
+                </Typography>
                 <Select
                   value={selectedYear}
                   onChange={(_, value) => setSelectedYear(value || '')}
-                  placeholder="Select Year"
+                  placeholder='Select Year'
                   sx={{
                     color: '#ffffff',
                     '& .MuiSelect-select': {
@@ -753,12 +791,14 @@ const ReportsOptimized: React.FC = () => {
             </Box>
 
             <Box>
-              <Typography level="body-sm" sx={{ mb: 1, color: '#ffffff' }}>Filter by Operators (optional)</Typography>
+              <Typography level='body-sm' sx={{ mb: 1, color: '#ffffff' }}>
+                Filter by Operators (optional)
+              </Typography>
               <Select
                 multiple
                 value={selectedOperators}
                 onChange={(_, value) => setSelectedOperators(value as number[])}
-                placeholder="Select Operators (leave empty for all)"
+                placeholder='Select Operators (leave empty for all)'
                 sx={{
                   minWidth: 300,
                   color: '#ffffff',
@@ -784,10 +824,12 @@ const ReportsOptimized: React.FC = () => {
           <Card sx={{ flex: 1, minWidth: 200 }}>
             <Box sx={{ p: 2, textAlign: 'center' }}>
               <CalendarToday sx={{ fontSize: 28, color: '#ffffff', mb: 1 }} />
-              <Typography level="h4" sx={{ color: '#ffffff', fontSize: '1.25rem' }}>
-                {selectedMonth ? `${getMonthOptions().find(m => m.value === selectedMonth)?.label} ${selectedYear}` : selectedYear}
+              <Typography level='h4' sx={{ color: '#ffffff', fontSize: '1.25rem' }}>
+                {selectedMonth
+                  ? `${getMonthOptions().find(m => m.value === selectedMonth)?.label} ${selectedYear}`
+                  : selectedYear}
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Report Period
               </Typography>
             </Box>
@@ -796,10 +838,10 @@ const ReportsOptimized: React.FC = () => {
           <Card sx={{ flex: 1, minWidth: 200 }}>
             <Box sx={{ p: 2, textAlign: 'center' }}>
               <Person sx={{ fontSize: 28, color: '#ffffff', mb: 1 }} />
-              <Typography level="h4" sx={{ color: '#ffffff', fontSize: '1.25rem' }}>
+              <Typography level='h4' sx={{ color: '#ffffff', fontSize: '1.25rem' }}>
                 {getTotalAppointments().toLocaleString()}
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Total Appointments
               </Typography>
             </Box>
@@ -808,10 +850,10 @@ const ReportsOptimized: React.FC = () => {
           <Card sx={{ flex: 1, minWidth: 200 }}>
             <Box sx={{ p: 2, textAlign: 'center' }}>
               <AttachMoney sx={{ fontSize: 28, color: '#ffffff', mb: 1 }} />
-              <Typography level="h4" sx={{ color: '#ffffff', fontSize: '1.25rem' }}>
+              <Typography level='h4' sx={{ color: '#ffffff', fontSize: '1.25rem' }}>
                 {formatCurrencyWhole(getTotalRevenue())}
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Total Revenue (Paid Invoices)
               </Typography>
             </Box>
@@ -823,17 +865,17 @@ const ReportsOptimized: React.FC = () => {
       {selectedYear && (
         <Card>
           <Box sx={{ p: 2 }}>
-            <Typography level="h4" sx={{ mb: 2, fontSize: '1.25rem' }}>
+            <Typography level='h4' sx={{ mb: 2, fontSize: '1.25rem' }}>
               Operator Performance Report
-              {loading && <CircularProgress size="sm" sx={{ ml: 2 }} />}
+              {loading && <CircularProgress size='sm' sx={{ ml: 2 }} />}
             </Typography>
 
             {reportData.length === 0 && !loading ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography level="h4" sx={{ mb: 2, color: '#ffffff', fontSize: '1.1rem' }}>
+                <Typography level='h4' sx={{ mb: 2, color: '#ffffff', fontSize: '1.1rem' }}>
                   No data available
                 </Typography>
-                <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
                   No appointments or paid invoices found for the selected period and operators.
                 </Typography>
               </Box>
@@ -856,10 +898,14 @@ const ReportsOptimized: React.FC = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                       <Person sx={{ color: '#ffffff', fontSize: 20 }} />
                       <Box>
-                        <Typography level="body-sm" fontWeight="bold" sx={{ color: '#ffffff', fontSize: '0.875rem' }}>
+                        <Typography
+                          level='body-sm'
+                          fontWeight='bold'
+                          sx={{ color: '#ffffff', fontSize: '0.875rem' }}
+                        >
                           {item.operatorName}
                         </Typography>
-                        <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                        <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                           ID: {item.operatorId}
                         </Typography>
                       </Box>
@@ -867,35 +913,38 @@ const ReportsOptimized: React.FC = () => {
 
                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography level="body-sm" sx={{ color: '#ffffff', fontSize: '0.875rem' }}>
+                        <Typography level='body-sm' sx={{ color: '#ffffff', fontSize: '0.875rem' }}>
                           {item.appointmentCount.toLocaleString()}
                         </Typography>
-                        <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                        <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                           Appointments
                         </Typography>
                       </Box>
 
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography level="body-sm" sx={{ color: '#ffffff', fontSize: '0.875rem' }}>
+                        <Typography level='body-sm' sx={{ color: '#ffffff', fontSize: '0.875rem' }}>
                           {item.invoiceCount.toLocaleString()}
                         </Typography>
-                        <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                        <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                           Paid Invoices
                         </Typography>
                       </Box>
 
                       <Box sx={{ textAlign: 'center' }}>
-                        <Chip color="success" variant="soft" size="sm">
+                        <Chip color='success' variant='soft' size='sm'>
                           {formatCurrencyWhole(item.revenue)}
                         </Chip>
-                        <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8, mt: 0.25 }}>
+                        <Typography
+                          level='body-xs'
+                          sx={{ color: '#ffffff', opacity: 0.8, mt: 0.25 }}
+                        >
                           Revenue
                         </Typography>
                       </Box>
 
                       <Button
-                        size="sm"
-                        variant="outlined"
+                        size='sm'
+                        variant='outlined'
                         startDecorator={<Receipt />}
                         onClick={() => handleViewInvoices(item)}
                         sx={{
@@ -911,8 +960,8 @@ const ReportsOptimized: React.FC = () => {
                         View Invoices
                       </Button>
                       <Button
-                        size="sm"
-                        variant="soft"
+                        size='sm'
+                        variant='soft'
                         startDecorator={<Download />}
                         onClick={() => handleExportToXLS(item)}
                         sx={{
@@ -937,21 +986,21 @@ const ReportsOptimized: React.FC = () => {
       {/* Patient Analysis Card - Optimized */}
       <Card sx={{ mt: 3, mb: 2 }}>
         <Box sx={{ p: 2 }}>
-          <Typography level="h4" sx={{ mb: 2, fontSize: '1.25rem' }}>
+          <Typography level='h4' sx={{ mb: 2, fontSize: '1.25rem' }}>
             Patient Analysis
           </Typography>
 
           {/* Patient Search - Optimized */}
           <Box sx={{ mb: 3 }}>
-            <Typography level="body-sm" sx={{ mb: 1, color: '#ffffff' }}>
+            <Typography level='body-sm' sx={{ mb: 1, color: '#ffffff' }}>
               Search and Select Patient
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
               <Input
                 startDecorator={<Search sx={{ color: '#ffffff' }} />}
-                placeholder="Type patient name or record number..."
+                placeholder='Type patient name or record number...'
                 value={patientSearchTerm}
-                onChange={(e) => setPatientSearchTerm(e.target.value)}
+                onChange={e => setPatientSearchTerm(e.target.value)}
                 sx={{
                   flex: 1,
                   color: '#ffffff',
@@ -971,13 +1020,15 @@ const ReportsOptimized: React.FC = () => {
               <Box sx={{ mt: 2, maxHeight: 250, overflowY: 'auto' }}>
                 {filteredPatients.length > 0 ? (
                   <>
-                    <Box sx={{ mb: 1, p: 1, backgroundColor: 'background.level1', borderRadius: 'sm' }}>
-                      <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                    <Box
+                      sx={{ mb: 1, p: 1, backgroundColor: 'background.level1', borderRadius: 'sm' }}
+                    >
+                      <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                         Showing {filteredPatients.length} patients (search optimized)
                       </Typography>
                     </Box>
                     <Stack spacing={1}>
-                      {filteredPatients.map((patient) => (
+                      {filteredPatients.map(patient => (
                         <Box
                           key={patient.id || patient.record_number}
                           onClick={() => {
@@ -1003,14 +1054,14 @@ const ReportsOptimized: React.FC = () => {
                           }}
                         >
                           <Box>
-                            <Typography level="body-sm" fontWeight="bold" sx={{ color: '#ffffff' }}>
+                            <Typography level='body-sm' fontWeight='bold' sx={{ color: '#ffffff' }}>
                               {patient.name}
                             </Typography>
-                            <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                            <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8 }}>
                               {patient.record_number}
                             </Typography>
                           </Box>
-                          <Chip size="sm" variant="soft" color="primary">
+                          <Chip size='sm' variant='soft' color='primary'>
                             Select
                           </Chip>
                         </Box>
@@ -1019,7 +1070,7 @@ const ReportsOptimized: React.FC = () => {
                   </>
                 ) : (
                   <Box sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                    <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
                       No patients found matching "{debouncedSearchTerm}"
                     </Typography>
                   </Box>
@@ -1030,22 +1081,37 @@ const ReportsOptimized: React.FC = () => {
 
           {/* Selected Patient Details - Optimized */}
           {selectedPatient && (
-            <Box sx={{ p: 2, backgroundColor: 'background.level1', borderRadius: 'sm', border: '1px solid', borderColor: 'divider' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <Box
+              sx={{
+                p: 2,
+                backgroundColor: 'background.level1',
+                borderRadius: 'sm',
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  mb: 2
+                }}
+              >
                 <Box>
-                  <Typography level="title-lg" sx={{ mb: 1, color: '#ffffff' }}>
+                  <Typography level='title-lg' sx={{ mb: 1, color: '#ffffff' }}>
                     {selectedPatient.name}
                   </Typography>
-                  <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                  <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
                     Record Number: {selectedPatient.record_number}
                   </Typography>
-                  <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                  <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
                     Total Appointments: <strong>{getPatientAppointmentCount()}</strong>
                   </Typography>
                 </Box>
                 <Button
-                  size="sm"
-                  variant="outlined"
+                  size='sm'
+                  variant='outlined'
                   onClick={() => {
                     setSelectedPatient(null);
                     setVitalSignsData([]);
@@ -1060,46 +1126,59 @@ const ReportsOptimized: React.FC = () => {
               {/* Vital Signs Trend Charts - Only render if data exists */}
               {vitalSignsData.length > 0 && (
                 <Box>
-                  <Typography level="body-sm" sx={{ mb: 2, color: '#ffffff', fontWeight: 'bold' }}>
+                  <Typography level='body-sm' sx={{ mb: 2, color: '#ffffff', fontWeight: 'bold' }}>
                     Vital Signs Trends ({vitalSignsData.length} data points)
                   </Typography>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {/* Blood Pressure Chart */}
-                    <Box sx={{
-                      backgroundColor: 'background.surface',
-                      borderRadius: 'sm',
-                      p: 1.5,
-                      border: '1px solid',
-                      borderColor: 'divider'
-                    }}>
-                      <Typography level="body-xs" sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}>
+                    <Box
+                      sx={{
+                        backgroundColor: 'background.surface',
+                        borderRadius: 'sm',
+                        p: 1.5,
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    >
+                      <Typography
+                        level='body-xs'
+                        sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}
+                      >
                         Blood Pressure
                       </Typography>
                       <Box sx={{ width: '100%', height: 180 }}>
-                        <ResponsiveContainer width="100%" height={160} minWidth={200} minHeight={150}>
+                        <ResponsiveContainer
+                          width='100%'
+                          height={160}
+                          minWidth={200}
+                          minHeight={150}
+                        >
                           <LineChart
                             data={vitalSignsData.map(data => ({
                               ...data,
                               systolic: parseInt(data.bloodPressure.split('/')[0]) || 0,
-                              diastolic: parseInt(data.bloodPressure.split('/')[1]) || 0,
+                              diastolic: parseInt(data.bloodPressure.split('/')[1]) || 0
                             }))}
                             margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
                           >
                             <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="var(--joy-palette-neutral-outlinedBorder)"
+                              strokeDasharray='3 3'
+                              stroke='var(--joy-palette-neutral-outlinedBorder)'
                               strokeOpacity={0.3}
                             />
                             <XAxis
-                              dataKey="date"
-                              stroke="var(--joy-palette-text-secondary)"
+                              dataKey='date'
+                              stroke='var(--joy-palette-text-secondary)'
                               tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
                               angle={-45}
-                              textAnchor="end"
+                              textAnchor='end'
                               height={50}
                             />
-                            <YAxis stroke="var(--joy-palette-text-secondary)" tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }} />
+                            <YAxis
+                              stroke='var(--joy-palette-text-secondary)'
+                              tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
+                            />
                             <Tooltip
                               contentStyle={{
                                 backgroundColor: 'var(--joy-palette-background-level1)',
@@ -1110,20 +1189,20 @@ const ReportsOptimized: React.FC = () => {
                               }}
                             />
                             <Line
-                              type="monotone"
-                              dataKey="systolic"
-                              stroke="var(--joy-palette-primary-500)"
+                              type='monotone'
+                              dataKey='systolic'
+                              stroke='var(--joy-palette-primary-500)'
                               strokeWidth={2}
                               dot={{ fill: 'var(--joy-palette-primary-500)', strokeWidth: 1, r: 3 }}
-                              name="Systolic"
+                              name='Systolic'
                             />
                             <Line
-                              type="monotone"
-                              dataKey="diastolic"
-                              stroke="var(--joy-palette-danger-500)"
+                              type='monotone'
+                              dataKey='diastolic'
+                              stroke='var(--joy-palette-danger-500)'
                               strokeWidth={2}
                               dot={{ fill: 'var(--joy-palette-danger-500)', strokeWidth: 1, r: 3 }}
-                              name="Diastolic"
+                              name='Diastolic'
                             />
                           </LineChart>
                         </ResponsiveContainer>
@@ -1131,36 +1210,49 @@ const ReportsOptimized: React.FC = () => {
                     </Box>
 
                     {/* Heart Rate Chart */}
-                    <Box sx={{
-                      backgroundColor: 'background.surface',
-                      borderRadius: 'sm',
-                      p: 1.5,
-                      border: '1px solid',
-                      borderColor: 'divider'
-                    }}>
-                      <Typography level="body-xs" sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}>
+                    <Box
+                      sx={{
+                        backgroundColor: 'background.surface',
+                        borderRadius: 'sm',
+                        p: 1.5,
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    >
+                      <Typography
+                        level='body-xs'
+                        sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}
+                      >
                         Heart Rate
                       </Typography>
                       <Box sx={{ width: '100%', height: 180 }}>
-                        <ResponsiveContainer width="100%" height={160} minWidth={200} minHeight={150}>
+                        <ResponsiveContainer
+                          width='100%'
+                          height={160}
+                          minWidth={200}
+                          minHeight={150}
+                        >
                           <LineChart
                             data={vitalSignsData}
                             margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
                           >
                             <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="var(--joy-palette-neutral-outlinedBorder)"
+                              strokeDasharray='3 3'
+                              stroke='var(--joy-palette-neutral-outlinedBorder)'
                               strokeOpacity={0.3}
                             />
                             <XAxis
-                              dataKey="date"
-                              stroke="var(--joy-palette-text-secondary)"
+                              dataKey='date'
+                              stroke='var(--joy-palette-text-secondary)'
                               tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
                               angle={-45}
-                              textAnchor="end"
+                              textAnchor='end'
                               height={50}
                             />
-                            <YAxis stroke="var(--joy-palette-text-secondary)" tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }} />
+                            <YAxis
+                              stroke='var(--joy-palette-text-secondary)'
+                              tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
+                            />
                             <Tooltip
                               contentStyle={{
                                 backgroundColor: 'var(--joy-palette-background-level1)',
@@ -1171,12 +1263,12 @@ const ReportsOptimized: React.FC = () => {
                               }}
                             />
                             <Line
-                              type="monotone"
-                              dataKey="heartRate"
-                              stroke="var(--joy-palette-warning-500)"
+                              type='monotone'
+                              dataKey='heartRate'
+                              stroke='var(--joy-palette-warning-500)'
                               strokeWidth={2}
                               dot={{ fill: 'var(--joy-palette-warning-500)', strokeWidth: 1, r: 3 }}
-                              name="Heart Rate (bpm)"
+                              name='Heart Rate (bpm)'
                             />
                           </LineChart>
                         </ResponsiveContainer>
@@ -1184,36 +1276,49 @@ const ReportsOptimized: React.FC = () => {
                     </Box>
 
                     {/* Respiration Rate Chart */}
-                    <Box sx={{
-                      backgroundColor: 'background.surface',
-                      borderRadius: 'sm',
-                      p: 1.5,
-                      border: '1px solid',
-                      borderColor: 'divider'
-                    }}>
-                      <Typography level="body-xs" sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}>
+                    <Box
+                      sx={{
+                        backgroundColor: 'background.surface',
+                        borderRadius: 'sm',
+                        p: 1.5,
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    >
+                      <Typography
+                        level='body-xs'
+                        sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}
+                      >
                         Respiration Rate
                       </Typography>
                       <Box sx={{ width: '100%', height: 180 }}>
-                        <ResponsiveContainer width="100%" height={160} minWidth={200} minHeight={150}>
+                        <ResponsiveContainer
+                          width='100%'
+                          height={160}
+                          minWidth={200}
+                          minHeight={150}
+                        >
                           <LineChart
                             data={vitalSignsData}
                             margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
                           >
                             <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="var(--joy-palette-neutral-outlinedBorder)"
+                              strokeDasharray='3 3'
+                              stroke='var(--joy-palette-neutral-outlinedBorder)'
                               strokeOpacity={0.3}
                             />
                             <XAxis
-                              dataKey="date"
-                              stroke="var(--joy-palette-text-secondary)"
+                              dataKey='date'
+                              stroke='var(--joy-palette-text-secondary)'
                               tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
                               angle={-45}
-                              textAnchor="end"
+                              textAnchor='end'
                               height={50}
                             />
-                            <YAxis stroke="var(--joy-palette-text-secondary)" tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }} />
+                            <YAxis
+                              stroke='var(--joy-palette-text-secondary)'
+                              tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
+                            />
                             <Tooltip
                               contentStyle={{
                                 backgroundColor: 'var(--joy-palette-background-level1)',
@@ -1224,12 +1329,12 @@ const ReportsOptimized: React.FC = () => {
                               }}
                             />
                             <Line
-                              type="monotone"
-                              dataKey="respirationRate"
-                              stroke="var(--joy-palette-success-500)"
+                              type='monotone'
+                              dataKey='respirationRate'
+                              stroke='var(--joy-palette-success-500)'
                               strokeWidth={2}
                               dot={{ fill: 'var(--joy-palette-success-500)', strokeWidth: 1, r: 3 }}
-                              name="Respiration Rate (breaths/min)"
+                              name='Respiration Rate (breaths/min)'
                             />
                           </LineChart>
                         </ResponsiveContainer>
@@ -1237,36 +1342,49 @@ const ReportsOptimized: React.FC = () => {
                     </Box>
 
                     {/* Borg Scale Chart */}
-                    <Box sx={{
-                      backgroundColor: 'background.surface',
-                      borderRadius: 'sm',
-                      p: 1.5,
-                      border: '1px solid',
-                      borderColor: 'divider'
-                    }}>
-                      <Typography level="body-xs" sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}>
+                    <Box
+                      sx={{
+                        backgroundColor: 'background.surface',
+                        borderRadius: 'sm',
+                        p: 1.5,
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    >
+                      <Typography
+                        level='body-xs'
+                        sx={{ mb: 1, color: '#ffffff', fontWeight: 'bold', textAlign: 'center' }}
+                      >
                         Borg Scale (Exertion)
                       </Typography>
                       <Box sx={{ width: '100%', height: 180 }}>
-                        <ResponsiveContainer width="100%" height={160} minWidth={200} minHeight={150}>
+                        <ResponsiveContainer
+                          width='100%'
+                          height={160}
+                          minWidth={200}
+                          minHeight={150}
+                        >
                           <LineChart
                             data={vitalSignsData}
                             margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
                           >
                             <CartesianGrid
-                              strokeDasharray="3 3"
-                              stroke="var(--joy-palette-neutral-outlinedBorder)"
+                              strokeDasharray='3 3'
+                              stroke='var(--joy-palette-neutral-outlinedBorder)'
                               strokeOpacity={0.3}
                             />
                             <XAxis
-                              dataKey="date"
-                              stroke="var(--joy-palette-text-secondary)"
+                              dataKey='date'
+                              stroke='var(--joy-palette-text-secondary)'
                               tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
                               angle={-45}
-                              textAnchor="end"
+                              textAnchor='end'
                               height={50}
                             />
-                            <YAxis stroke="var(--joy-palette-text-secondary)" tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }} />
+                            <YAxis
+                              stroke='var(--joy-palette-text-secondary)'
+                              tick={{ fill: 'var(--joy-palette-text-secondary)', fontSize: 10 }}
+                            />
                             <Tooltip
                               contentStyle={{
                                 backgroundColor: 'var(--joy-palette-background-level1)',
@@ -1277,12 +1395,12 @@ const ReportsOptimized: React.FC = () => {
                               }}
                             />
                             <Line
-                              type="monotone"
-                              dataKey="borgScale"
-                              stroke="var(--joy-palette-info-500)"
+                              type='monotone'
+                              dataKey='borgScale'
+                              stroke='var(--joy-palette-info-500)'
                               strokeWidth={2}
                               dot={{ fill: 'var(--joy-palette-info-500)', strokeWidth: 1, r: 3 }}
-                              name="Borg Scale (1-10)"
+                              name='Borg Scale (1-10)'
                             />
                           </LineChart>
                         </ResponsiveContainer>
@@ -1296,22 +1414,25 @@ const ReportsOptimized: React.FC = () => {
 
           {/* Initial State */}
           {!selectedPatient && debouncedSearchTerm.trim() === '' && (
-            <Box sx={{
-              p: 4,
-              textAlign: 'center',
-              backgroundColor: 'background.level1',
-              borderRadius: 'sm',
-              border: '1px dashed',
-              borderColor: 'divider'
-            }}>
+            <Box
+              sx={{
+                p: 4,
+                textAlign: 'center',
+                backgroundColor: 'background.level1',
+                borderRadius: 'sm',
+                border: '1px dashed',
+                borderColor: 'divider'
+              }}
+            >
               <Person sx={{ fontSize: 48, color: '#ffffff', opacity: 0.3, mb: 2 }} />
-              <Typography level="title-lg" sx={{ mb: 1, color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='title-lg' sx={{ mb: 1, color: '#ffffff', opacity: 0.8 }}>
                 Patient Search (Optimized)
               </Typography>
-              <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.6 }}>
-                Start typing a patient name or record number above to analyze their vital signs trends
+              <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.6 }}>
+                Start typing a patient name or record number above to analyze their vital signs
+                trends
               </Typography>
-              <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.4, mt: 1 }}>
+              <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.4, mt: 1 }}>
                 Search is now optimized for {patients.length} patients
               </Typography>
             </Box>
@@ -1322,7 +1443,7 @@ const ReportsOptimized: React.FC = () => {
       {/* Optimized Invoices Modal */}
       <Modal open={showInvoicesModal} onClose={handleCloseInvoicesModal}>
         <ModalDialog
-          variant="outlined"
+          variant='outlined'
           sx={{
             maxWidth: '800px',
             width: '90%',
@@ -1331,13 +1452,15 @@ const ReportsOptimized: React.FC = () => {
           }}
         >
           <ModalClose />
-          <Typography level="h4" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography level='h4' sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Receipt />
             Invoices for {selectedOperator?.operatorName}
           </Typography>
 
-          <Typography level="body-sm" sx={{ mb: 2, color: 'text.secondary' }}>
-            {selectedMonth ? `${getMonthOptions().find(m => m.value === selectedMonth)?.label} ${selectedYear}` : selectedYear}
+          <Typography level='body-sm' sx={{ mb: 2, color: 'text.secondary' }}>
+            {selectedMonth
+              ? `${getMonthOptions().find(m => m.value === selectedMonth)?.label} ${selectedYear}`
+              : selectedYear}
           </Typography>
 
           <Divider sx={{ mb: 2 }} />
@@ -1347,17 +1470,18 @@ const ReportsOptimized: React.FC = () => {
               {loadingInvoices ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <CircularProgress />
-                  <Typography level="body-sm" sx={{ mt: 2 }}>
+                  <Typography level='body-sm' sx={{ mt: 2 }}>
                     Loading invoices...
                   </Typography>
                 </Box>
               ) : operatorInvoices.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography level="h4" sx={{ mb: 2 }}>
+                  <Typography level='h4' sx={{ mb: 2 }}>
                     No invoices found
                   </Typography>
-                  <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                    No invoices were generated by {selectedOperator.operatorName} during the selected period.
+                  <Typography level='body-sm' sx={{ color: 'text.secondary' }}>
+                    No invoices were generated by {selectedOperator.operatorName} during the
+                    selected period.
                   </Typography>
                 </Box>
               ) : (
@@ -1373,35 +1497,34 @@ const ReportsOptimized: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {operatorInvoices.map((invoice) => (
+                      {operatorInvoices.map(invoice => (
                         <tr key={invoice.id}>
                           <td style={{ padding: '8px' }}>
-                            <Typography level="body-sm" fontWeight="bold">
+                            <Typography level='body-sm' fontWeight='bold'>
                               {invoice.invoiceNumber}
                             </Typography>
                           </td>
                           <td style={{ padding: '8px' }}>
-                            <Typography level="body-sm">
-                              {formatDate(invoice.date)}
-                            </Typography>
+                            <Typography level='body-sm'>{formatDate(invoice.date)}</Typography>
                           </td>
                           <td style={{ padding: '8px' }}>
-                            <Typography level="body-sm">
-                              {invoice.patientName}
-                            </Typography>
+                            <Typography level='body-sm'>{invoice.patientName}</Typography>
                           </td>
                           <td style={{ padding: '8px', textAlign: 'right' }}>
-                            <Typography level="body-sm" fontWeight="bold">
+                            <Typography level='body-sm' fontWeight='bold'>
                               {formatCurrencyWhole(invoice.totalAmount)}
                             </Typography>
                           </td>
                           <td style={{ padding: '8px', textAlign: 'center' }}>
                             <Chip
-                              variant="soft"
-                              size="sm"
+                              variant='soft'
+                              size='sm'
                               color={
-                                invoice.status === 'paid' ? 'success' :
-                                invoice.status === 'unpaid' ? 'warning' : 'danger'
+                                invoice.status === 'paid'
+                                  ? 'success'
+                                  : invoice.status === 'unpaid'
+                                    ? 'warning'
+                                    : 'danger'
                               }
                             >
                               {invoice.status}
@@ -1412,12 +1535,15 @@ const ReportsOptimized: React.FC = () => {
                     </tbody>
                   </Table>
 
-                  <Box sx={{ mt: 3, p: 2, backgroundColor: 'background.level1', borderRadius: 'sm' }}>
-                    <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                  <Box
+                    sx={{ mt: 3, p: 2, backgroundColor: 'background.level1', borderRadius: 'sm' }}
+                  >
+                    <Typography level='body-sm' sx={{ color: 'text.secondary' }}>
                       Total Invoices: {operatorInvoices.length.toLocaleString()}
                     </Typography>
-                    <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                      Total Amount: {formatCurrencyWhole(
+                    <Typography level='body-sm' sx={{ color: 'text.secondary', mt: 0.5 }}>
+                      Total Amount:{' '}
+                      {formatCurrencyWhole(
                         operatorInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0)
                       )}
                     </Typography>
@@ -1428,6 +1554,16 @@ const ReportsOptimized: React.FC = () => {
           )}
         </ModalDialog>
       </Modal>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.isOpen}
+        onClose={alertDialog.closeDialog}
+        title={alertDialog.config.title}
+        message={alertDialog.config.message}
+        buttonText={alertDialog.config.buttonText}
+        variant={alertDialog.config.variant}
+      />
     </Box>
   );
 };

@@ -16,6 +16,8 @@ import CalendarMonth from '@mui/icons-material/CalendarMonth';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ClearAll from '@mui/icons-material/ClearAll';
 import { storage, ActivityLog, UnifiedStorage } from '../../services/UnifiedStorage';
+import { ConfirmDialog, AlertDialog } from '../../components/ConfirmDialog';
+import { useConfirmDialog, useAlertDialog } from '../../hooks/useDialog';
 
 interface LogEntry {
   id: number;
@@ -36,6 +38,10 @@ const ActivityLogsSettings: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Dialog hooks
+  const confirmDialog = useConfirmDialog();
+  const alertDialog = useAlertDialog();
+
   const loadLogs = useCallback(async () => {
     try {
       // Clean up old logs (older than 7 days)
@@ -46,7 +52,13 @@ const ActivityLogsSettings: React.FC = () => {
         // Transform ActivityLog to LogEntry format using type-safe conversion
         const logsData: LogEntry[] = storedLogs.map((log: unknown) => {
           // Type guard to ensure we have an ActivityLog
-          if (log && typeof log === 'object' && 'id' in log && 'action' in log && 'timestamp' in log) {
+          if (
+            log &&
+            typeof log === 'object' &&
+            'id' in log &&
+            'action' in log &&
+            'timestamp' in log
+          ) {
             return UnifiedStorage.convertActivityLogToLogEntry(log as ActivityLog);
           }
           // Fallback for malformed logs
@@ -55,7 +67,7 @@ const ActivityLogsSettings: React.FC = () => {
             action: 'unknown',
             operatorName: 'Unknown',
             targetType: 'patient' as const,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date().toISOString()
           };
         });
         setLogs(logsData);
@@ -64,8 +76,7 @@ const ActivityLogsSettings: React.FC = () => {
         const unreadLogs = logsData.filter(log => log.id > parseInt(lastSeen));
         setUnreadCount(unreadLogs.length);
       }
-    } catch (error) {
-      console.error('Error loading logs:', error);
+    } catch { // Error handled silently
     } finally {
       setLoading(false);
     }
@@ -86,7 +97,13 @@ const ActivityLogsSettings: React.FC = () => {
       // Transform ActivityLog to LogEntry format using type-safe conversion
       const logsData: LogEntry[] = storedLogs.map((log: unknown) => {
         // Type guard to ensure we have an ActivityLog
-        if (log && typeof log === 'object' && 'id' in log && 'action' in log && 'timestamp' in log) {
+        if (
+          log &&
+          typeof log === 'object' &&
+          'id' in log &&
+          'action' in log &&
+          'timestamp' in log
+        ) {
           return UnifiedStorage.convertActivityLogToLogEntry(log as ActivityLog);
         }
         // Fallback for malformed logs
@@ -95,7 +112,7 @@ const ActivityLogsSettings: React.FC = () => {
           action: 'unknown',
           operatorName: 'Unknown',
           targetType: 'patient' as const,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date().toISOString()
         };
       });
       const sevenDaysAgo = new Date();
@@ -137,8 +154,7 @@ const ActivityLogsSettings: React.FC = () => {
           await storage.setLogsLastSeen(latestLogId.toString());
         }
       }
-    } catch (error) {
-      console.error('Error cleaning up old logs:', error);
+    } catch { // Error handled silently
     }
   };
 
@@ -150,18 +166,26 @@ const ActivityLogsSettings: React.FC = () => {
     }
   };
 
-  const clearAllLogs = async () => {
-    if (window.confirm('Are you sure you want to clear all activity logs? This action cannot be undone.')) {
-      try {
-        await storage.storeActivityLogs([]);
-        await storage.setLogsLastSeen('0');
-        setLogs([]);
-        setUnreadCount(0);
-      } catch (error) {
-        console.error('Error clearing logs:', error);
-        alert('Failed to clear logs. Please try again.');
+  const clearAllLogs = () => {
+    confirmDialog.openDialog({
+      title: 'Clear All Logs',
+      message: 'Are you sure you want to clear all activity logs? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await storage.storeActivityLogs([]);
+          await storage.setLogsLastSeen('0');
+          setLogs([]);
+          setUnreadCount(0);
+        } catch {
+          alertDialog.openDialog({
+            title: 'Error',
+            message: 'Failed to clear logs. Please try again.',
+            buttonText: 'OK',
+            variant: 'danger'
+          });
+        }
       }
-    }
+    });
   };
 
   const getActionIcon = (action: string) => {
@@ -190,12 +214,13 @@ const ActivityLogsSettings: React.FC = () => {
 
   const formatLogMessage = (log: LogEntry) => {
     // Check if this is a destructive action (edit/delete) - don't create links for these
-    const isDestructiveAction = log.action.toLowerCase().includes('edit') ||
-                               log.action.toLowerCase().includes('update') ||
-                               log.action.toLowerCase().includes('delete') ||
-                               log.action.toLowerCase().includes('remove') ||
-                               log.action.toLowerCase().includes('deleted') ||
-                               log.action.toLowerCase().includes('updated');
+    const isDestructiveAction =
+      log.action.toLowerCase().includes('edit') ||
+      log.action.toLowerCase().includes('update') ||
+      log.action.toLowerCase().includes('delete') ||
+      log.action.toLowerCase().includes('remove') ||
+      log.action.toLowerCase().includes('deleted') ||
+      log.action.toLowerCase().includes('updated');
 
     // Build the message piece by piece to avoid spacing issues
     const elements: React.ReactNode[] = [];
@@ -217,7 +242,10 @@ const ActivityLogsSettings: React.FC = () => {
       // Check if this word is the start of the patient name
       if (log.patientName && !processedPatientName) {
         const nameParts = log.patientName.toLowerCase().split(' ');
-        const remainingWords = words.slice(index).map(w => w.toLowerCase()).join(' ');
+        const remainingWords = words
+          .slice(index)
+          .map(w => w.toLowerCase())
+          .join(' ');
 
         // Check if the remaining text starts with the patient name
         if (remainingWords.startsWith(nameParts.join(' '))) {
@@ -226,9 +254,9 @@ const ActivityLogsSettings: React.FC = () => {
             elements.push(
               <Typography
                 key={`patient-${index}`}
-                component="a"
-                href="#"
-                onClick={(e) => {
+                component='a'
+                href='#'
+                onClick={e => {
                   e.preventDefault();
                   navigate(`/patients/${log.patientId}`);
                 }}
@@ -244,7 +272,7 @@ const ActivityLogsSettings: React.FC = () => {
             );
           } else {
             elements.push(
-              <Typography key={`patient-${index}`} component="span" sx={{ fontWeight: 'bold' }}>
+              <Typography key={`patient-${index}`} component='span' sx={{ fontWeight: 'bold' }}>
                 {log.patientName}
               </Typography>
             );
@@ -256,15 +284,18 @@ const ActivityLogsSettings: React.FC = () => {
         } else {
           // Not a patient name match, process as regular word
           elements.push(
-            <Typography key={`word-${index}`} component="span">
+            <Typography key={`word-${index}`} component='span'>
               {word}
             </Typography>
           );
         }
       }
       // Check if this is an entity word that should be styled
-      else if ((lowerWord === 'appointment' || lowerWord === 'patient' || lowerWord === 'invoice') &&
-               log.targetType === lowerWord && log.targetId) {
+      else if (
+        (lowerWord === 'appointment' || lowerWord === 'patient' || lowerWord === 'invoice') &&
+        log.targetType === lowerWord &&
+        log.targetId
+      ) {
         if (!isDestructiveAction) {
           // Create clickable link for non-destructive actions
           const handleClick = (e: React.MouseEvent) => {
@@ -277,8 +308,8 @@ const ActivityLogsSettings: React.FC = () => {
           elements.push(
             <Typography
               key={`${lowerWord}-${index}`}
-              component="a"
-              href="#"
+              component='a'
+              href='#'
               onClick={handleClick}
               sx={{
                 color: 'primary.500',
@@ -293,7 +324,7 @@ const ActivityLogsSettings: React.FC = () => {
         } else {
           // Just bold text for destructive actions
           elements.push(
-            <Typography key={`${lowerWord}-${index}`} component="span" sx={{ fontWeight: 'bold' }}>
+            <Typography key={`${lowerWord}-${index}`} component='span' sx={{ fontWeight: 'bold' }}>
               {word}
             </Typography>
           );
@@ -302,7 +333,7 @@ const ActivityLogsSettings: React.FC = () => {
       // Regular word
       else {
         elements.push(
-          <Typography key={`word-${index}`} component="span">
+          <Typography key={`word-${index}`} component='span'>
             {word}
           </Typography>
         );
@@ -311,7 +342,7 @@ const ActivityLogsSettings: React.FC = () => {
       // Add space after each word except the last one
       if (index < words.length - 1) {
         elements.push(
-          <Typography key={`space-${index}`} component="span">
+          <Typography key={`space-${index}`} component='span'>
             {' '}
           </Typography>
         );
@@ -323,47 +354,49 @@ const ActivityLogsSettings: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Typography level="body-lg">Loading activity logs...</Typography>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+      >
+        <Typography level='body-lg'>Loading activity logs...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      p: { xs: 1, md: 2 },
-      pt: { xs: 0, md: 2 },
-      pr: { xs: 2, md: 2 },
-      boxSizing: 'border-box',
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        p: { xs: 1, md: 2 },
+        pt: { xs: 0, md: 2 },
+        pr: { xs: 2, md: 2 },
+        boxSizing: 'border-box',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/settings')}
           sx={{ borderRadius: 'sm' }}
         >
           Back to Settings
         </Button>
-        <Typography level="h2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography level='h2' sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <History />
           Activity Logs
-          {unreadCount > 0 && (
-            <Badge badgeContent={unreadCount} color="danger" sx={{ ml: 2 }} />
-          )}
+          {unreadCount > 0 && <Badge badgeContent={unreadCount} color='danger' sx={{ ml: 2 }} />}
         </Typography>
       </Box>
 
       <Card>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
           <Box>
-            <Typography level="h4">System Activity</Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            <Typography level='h4'>System Activity</Typography>
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               View operator actions and system activity history (logs auto-clear after 7 days)
             </Typography>
           </Box>
@@ -371,18 +404,18 @@ const ActivityLogsSettings: React.FC = () => {
             <IconButton
               onClick={markAsRead}
               disabled={unreadCount === 0}
-              variant="outlined"
-              color="neutral"
-              title="Mark all as read"
+              variant='outlined'
+              color='neutral'
+              title='Mark all as read'
             >
               <History />
             </IconButton>
             <IconButton
               onClick={clearAllLogs}
               disabled={logs.length === 0}
-              variant="outlined"
-              color="danger"
-              title="Clear all logs"
+              variant='outlined'
+              color='danger'
+              title='Clear all logs'
             >
               <ClearAll />
             </IconButton>
@@ -392,10 +425,10 @@ const ActivityLogsSettings: React.FC = () => {
         {logs.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <History sx={{ fontSize: 48, color: 'text.tertiary', mb: 2 }} />
-            <Typography level="title-lg" sx={{ color: 'text.tertiary', mb: 1 }}>
+            <Typography level='title-lg' sx={{ color: 'text.tertiary', mb: 1 }}>
               No activity logs
             </Typography>
-            <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
+            <Typography level='body-sm' sx={{ color: 'text.tertiary' }}>
               Operator actions will appear here
             </Typography>
           </Box>
@@ -414,40 +447,57 @@ const ActivityLogsSettings: React.FC = () => {
               }
             }}
           >
-            {logs.map((log) => (
+            {logs.map(log => (
               <ListItem key={log.id}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
-                  <Box sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: `${getActionColor(log.action)}.500`,
-                    mt: 0.5,
-                    fontSize: '20px'
-                  }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: `${getActionColor(log.action)}.500`,
+                      mt: 0.5,
+                      fontSize: '20px'
+                    }}
+                  >
                     {getActionIcon(log.action)}
                   </Box>
                   <ListItemContent sx={{ flex: 1 }}>
                     <Box sx={{ mb: 1 }}>
-                      <Typography level="body-sm" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography
+                        level='body-sm'
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+                      >
                         <Person sx={{ fontSize: 14 }} />
                         <strong>{log.operatorName}</strong>
                         <Chip
-                          size="sm"
-                          variant="soft"
+                          size='sm'
+                          variant='soft'
                           color={getActionColor(log.action)}
                           sx={{ fontSize: '10px', px: 1 }}
                         >
-                          {log.action.includes('new') || log.action.includes('created') ? 'Created' :
-                           log.action.includes('edit') || log.action.includes('updated') ? 'Updated' :
-                           log.action.includes('delete') || log.action.includes('removed') ? 'Deleted' : 'Action'}
+                          {log.action.includes('new') || log.action.includes('created')
+                            ? 'Created'
+                            : log.action.includes('edit') || log.action.includes('updated')
+                              ? 'Updated'
+                              : log.action.includes('delete') || log.action.includes('removed')
+                                ? 'Deleted'
+                                : 'Action'}
                         </Chip>
                       </Typography>
-                      <Typography level="body-sm" sx={{ lineHeight: 1.4 }}>
+                      <Typography level='body-sm' sx={{ lineHeight: 1.4 }}>
                         {formatLogMessage(log)}
                       </Typography>
                     </Box>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography
+                      level='body-xs'
+                      sx={{
+                        color: 'text.tertiary',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5
+                      }}
+                    >
                       <CalendarMonth sx={{ fontSize: 12 }} />
                       {formatDate(log.timestamp)}
                     </Typography>
@@ -458,6 +508,28 @@ const ActivityLogsSettings: React.FC = () => {
           </List>
         )}
       </Card>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.isOpen}
+        onClose={confirmDialog.closeDialog}
+        onConfirm={confirmDialog.handleConfirm}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        variant={confirmDialog.config.variant}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.isOpen}
+        onClose={alertDialog.closeDialog}
+        title={alertDialog.config.title}
+        message={alertDialog.config.message}
+        buttonText={alertDialog.config.buttonText}
+        variant={alertDialog.config.variant}
+      />
     </Box>
   );
 };

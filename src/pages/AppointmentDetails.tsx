@@ -25,11 +25,11 @@ import Textarea from '@mui/joy/Textarea';
 import FormLabel from '@mui/joy/FormLabel';
 import DialogContent from '@mui/joy/DialogContent';
 import FormControl from '@mui/joy/FormControl';
-import { Invoice, Appointment, Treatment } from '../types';
-import SimpleDataService from '../services/SimpleDataService';
+import { Appointment, Treatment } from '../types';
+import { dataService } from '../services/SimpleMedRecDataService';
+import { storage } from '../services/UnifiedStorage';
 import { log } from '../utils/logger';
 import { formatCurrencyWhole } from '../utils/currencyUtils';
-
 
 interface AppointmentTreatment {
   id: number;
@@ -38,13 +38,12 @@ interface AppointmentTreatment {
   notes?: string;
 }
 
-
 const AppointmentDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [hasInvoice, setHasInvoice] = useState(false);
   const [notesModalOpen, setNotesModalOpen] = useState(false);
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<number | null>(null);
@@ -53,40 +52,61 @@ const AppointmentDetails: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const checkIfInvoiceExists = useCallback(async (appointmentId: number) => {
+    try {
+      const invoices = await storage.getInvoices();
+      const existingInvoice = invoices.find(inv => inv.appointmentId === appointmentId);
+      setHasInvoice(!!existingInvoice);
+      return existingInvoice;
+    } catch (_error) {
+      log.error('Error checking invoice existence', { _error, appointmentId }, 'AppointmentDetails');
+      setHasInvoice(false);
+      return null;
+    }
+  }, []);
+
   const loadAppointment = useCallback(async (appointmentId: number) => {
     try {
-      console.log(`📅 Loading appointment ${appointmentId} using SimpleDataService...`);
-      const foundAppointment = await SimpleDataService.getAppointmentById(appointmentId);
+      const foundAppointment = await dataService.getAppointmentById(appointmentId);
 
       if (foundAppointment) {
         // Ensure the appointment has a created_at field
         const appointmentWithDate = {
           ...foundAppointment,
-          created_at: foundAppointment.created_at || foundAppointment.date || new Date().toISOString()
+          created_at:
+            foundAppointment.created_at || foundAppointment.date || new Date().toISOString()
         };
         setAppointment(appointmentWithDate);
         setEditedTreatments(appointmentWithDate.treatments);
         await checkIfInvoiceExists(appointmentWithDate.id);
-        log.debug('Appointment loaded successfully', { id: appointmentId }, 'AppointmentDetails');
       } else {
         setError('Appointment not found');
         log.warn('Appointment not found', { id: appointmentId }, 'AppointmentDetails');
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load appointment');
-      log.error('Error loading appointment', { error, appointmentId }, 'AppointmentDetails');
+      log.error('Error loading appointment', { _error, appointmentId }, 'AppointmentDetails');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkIfInvoiceExists, _error]);
 
   useEffect(() => {
     if (id) {
-      loadAppointment(parseInt(id));
+      const appointmentId = parseInt(id, 10);
+
+      if (!isNaN(appointmentId)) {
+        loadAppointment(appointmentId);
+      } else {
+        setError('Invalid appointment ID. The ID must be a number.');
+        setLoading(false);
+      }
+    } else {
+      setError('No appointment ID provided');
+      setLoading(false);
     }
   }, [id, loadAppointment]);
 
-  
   const formatDate = (dateString: string) => {
     if (!dateString) {
       return 'Date not available';
@@ -111,8 +131,7 @@ const AppointmentDetails: React.FC = () => {
       };
 
       return date.toLocaleDateString('en-GB', options);
-    } catch (error) {
-      console.error('Error formatting date:', error);
+    } catch {
       return 'Invalid date';
     }
   };
@@ -152,31 +171,16 @@ const AppointmentDetails: React.FC = () => {
     return 'High exertion';
   };
 
-  const checkIfInvoiceExists = async (appointmentId: number) => {
-    try {
-      const result = await SimpleDataService.getInvoices({ limit: 10000 });
-      const existingInvoice = result.data.find(inv => inv.appointmentId === appointmentId);
-      setHasInvoice(!!existingInvoice);
-      return existingInvoice;
-    } catch (error) {
-      console.error('❌ Error checking invoice existence:', error);
-      log.error('Error checking invoice existence', { error, appointmentId }, 'AppointmentDetails');
-      setHasInvoice(false);
-      return null;
-    }
-  };
-
   const generateInvoiceNumber = async () => {
     try {
-      const result = await SimpleDataService.getInvoices({ limit: 10000 });
-      const invoiceCount = result.data.length + 1;
+      const invoices = await storage.getInvoices();
+      const invoiceCount = invoices.length + 1;
       const date = new Date();
       const year = date.getFullYear();
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       return `INV-${year}${month}-${invoiceCount.toString().padStart(4, '0')}`;
-    } catch (error) {
-      console.error('❌ Error generating invoice number:', error);
-      log.error('Error generating invoice number', { error }, 'AppointmentDetails');
+    } catch (_error) {
+      log.error('Error generating invoice number', { error: _error }, 'AppointmentDetails');
       // Fallback to simple timestamp if error occurs
       const date = new Date();
       const year = date.getFullYear();
@@ -204,28 +208,43 @@ const AppointmentDetails: React.FC = () => {
       date: new Date().toISOString(),
       appointmentDate: appointment.date,
       vitalSigns: appointment.vitalSigns,
-      treatments: editedTreatments,
+      treatments: editedTreatments as Treatment[],
       totalAmount: appointment.totalPrice,
       status: 'unpaid' as const,
-      created_at: new Date().toISOString(),
+      created_at: new Date().toISOString()
     };
 
     try {
-      const savedInvoice = await SimpleDataService.saveInvoice(newInvoice as Omit<Invoice, 'id'>);
-      log.info('Invoice created successfully', {
-        id: savedInvoice.id,
-        appointmentId: appointment.id,
-        patientId: appointment.patientId,
-        patientName: appointment.patientName,
-        operatorName: appointment.operatorName
-      }, 'AppointmentDetails');
+      // Save invoice using unified storage
+      const invoices = await storage.getInvoices();
+      const maxInvoiceId = invoices.length > 0 ? Math.max(...invoices.map(i => i.id || 0)) : 0;
+      const savedInvoice = {
+        ...newInvoice,
+        id: maxInvoiceId + 1
+      };
+      invoices.push(savedInvoice);
+      await storage.storeInvoices(invoices);
+      log.info(
+        'Invoice created successfully',
+        {
+          id: savedInvoice.id,
+          appointmentId: appointment.id,
+          patientId: appointment.patientId,
+          patientName: appointment.patientName,
+          operatorName: appointment.operatorName
+        },
+        'AppointmentDetails'
+      );
 
       setHasInvoice(true);
       navigate(`/invoices/${savedInvoice.id}`);
-    } catch (error) {
-      console.error('❌ Error generating invoice:', error);
-      log.error('Error generating invoice', { error, appointmentId: appointment.id }, 'AppointmentDetails');
-      alert('Failed to generate invoice. Please try again.');
+    } catch {
+      log.error(
+        'Error generating invoice',
+        { _error, appointmentId: appointment.id },
+        'AppointmentDetails'
+      );
+      setError('Failed to generate invoice. Please try again.');
       return;
     }
   };
@@ -261,31 +280,41 @@ const AppointmentDetails: React.FC = () => {
     setDeleting(true);
     try {
       // Log the deletion before removing
-      log.info('Appointment deleted', {
-        id: appointment.id,
-        patientId: appointment.patientId,
-        patientName: appointment.patientName
-      }, 'AppointmentDetails');
+      log.info(
+        'Appointment deleted',
+        {
+          id: appointment.id,
+          patientId: appointment.patientId,
+          patientName: appointment.patientName
+        },
+        'AppointmentDetails'
+      );
 
-      // Remove appointment using SimpleDataService
-      const success = await SimpleDataService.deleteAppointment(appointment.id);
+      // Remove appointment using unified storage
+      const appointments = await storage.getAppointments();
+      const updatedAppointments = appointments.filter(apt => apt.id !== appointment.id);
+      await storage.storeAppointments(updatedAppointments);
+      const success = true;
 
       if (success) {
         // Remove associated invoice if it exists
-        const result = await SimpleDataService.getInvoices({ limit: 10000 });
-        const associatedInvoices = result.data.filter(inv => inv.appointmentId === appointment.id);
+        const invoices = await storage.getInvoices();
+        const associatedInvoices = invoices.filter(inv => inv.appointmentId === appointment.id);
 
         for (const invoice of associatedInvoices) {
-          await SimpleDataService.deleteInvoice(invoice.id);
+          await storage.deleteInvoice(invoice.id);
         }
 
         navigate('/appointments');
       } else {
         setError('Appointment not found or already deleted.');
       }
-    } catch (error) {
-      console.error('Error deleting appointment:', error);
-      log.error('Error deleting appointment', { error, appointmentId: appointment.id }, 'AppointmentDetails');
+    } catch {
+      log.error(
+        'Error deleting appointment',
+        { _error, appointmentId: appointment.id },
+        'AppointmentDetails'
+      );
       setError('Failed to delete appointment. Please try again.');
     } finally {
       setDeleting(false);
@@ -297,33 +326,48 @@ const AppointmentDetails: React.FC = () => {
     if (!appointment || selectedTreatmentId === null) return;
 
     const updatedTreatments = editedTreatments.map(treatment =>
-      treatment.id === selectedTreatmentId
-        ? { ...treatment, notes: treatmentNotes }
-        : treatment
+      treatment.id === selectedTreatmentId ? { ...treatment, notes: treatmentNotes } : treatment
     );
 
     setEditedTreatments(updatedTreatments);
 
-    // Update appointment using SimpleDataService
+    // Update appointment using unified storage
     try {
-      const updatedAppointment = await SimpleDataService.updateAppointment(appointment.id, {
+      const appointments = await storage.getAppointments();
+      const appointmentIndex = appointments.findIndex(apt => apt.id === appointment.id);
+      if (appointmentIndex === -1) {
+        throw new Error('Appointment not found');
+      }
+
+      const updatedAppointment = {
+        ...appointments[appointmentIndex],
         treatments: updatedTreatments as Treatment[]
-      });
+      };
+
+      appointments[appointmentIndex] = updatedAppointment;
+      await storage.storeAppointments(appointments);
 
       if (updatedAppointment) {
         // Update local appointment state
         setAppointment(updatedAppointment);
         setEditedTreatments(updatedAppointment.treatments);
 
-        log.info('Appointment updated (treatment notes)', {
-          id: appointment.id,
-          patientId: appointment.patientId,
-          patientName: appointment.patientName
-        }, 'AppointmentDetails');
+        log.info(
+          'Appointment updated (treatment notes)',
+          {
+            id: appointment.id,
+            patientId: appointment.patientId,
+            patientName: appointment.patientName
+          },
+          'AppointmentDetails'
+        );
       }
-    } catch (error) {
-      console.error('Error saving treatment notes:', error);
-      log.error('Error saving treatment notes', { error, appointmentId: appointment.id }, 'AppointmentDetails');
+    } catch {
+      log.error(
+        'Error saving treatment notes',
+        { _error, appointmentId: appointment.id },
+        'AppointmentDetails'
+      );
     }
 
     closeNotesModal();
@@ -331,21 +375,25 @@ const AppointmentDetails: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Stack alignItems="center" spacing={2}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+      >
+        <Stack alignItems='center' spacing={2}>
           <CircularProgress />
-          <Typography level="body-lg" sx={{ color: '#ffffff' }}>Loading appointment details...</Typography>
+          <Typography level='body-lg' sx={{ color: '#ffffff' }}>
+            Loading appointment details...
+          </Typography>
         </Stack>
       </Box>
     );
   }
 
-  if (error || !appointment) {
+  if (_error || !appointment) {
     return (
       <Box sx={{ p: 2 }}>
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
-            variant="outlined"
+            variant='outlined'
             startDecorator={<ArrowBack />}
             onClick={() => navigate('/appointments')}
             sx={{ borderRadius: 'sm' }}
@@ -355,16 +403,13 @@ const AppointmentDetails: React.FC = () => {
         </Box>
         <Card>
           <Box sx={{ textAlign: 'center', py: 6 }}>
-            <Typography level="h4" color="danger" sx={{ mb: 2 }}>
-              {error || 'Appointment not found'}
+            <Typography level='h4' color='danger' sx={{ mb: 2 }}>
+              {_error || 'Appointment not found'}
             </Typography>
-            <Typography level="body-sm" sx={{ mb: 3, color: '#ffffff' }}>
+            <Typography level='body-sm' sx={{ mb: 3, color: '#ffffff' }}>
               The appointment you're looking for doesn't exist or has been removed.
             </Typography>
-            <Button
-              variant="solid"
-              onClick={() => navigate('/appointments')}
-            >
+            <Button variant='solid' onClick={() => navigate('/appointments')}>
               Back to Appointments
             </Button>
           </Box>
@@ -374,27 +419,29 @@ const AppointmentDetails: React.FC = () => {
   }
 
   return (
-    <Box sx={{
-      width: '100%',
-      height: '100%',
-      p: 2,
-      boxSizing: 'border-box',
-      minWidth: 0
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        p: 2,
+        boxSizing: 'border-box',
+        minWidth: 0
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/appointments')}
           sx={{ borderRadius: 'sm' }}
         >
           Back to Appointments
         </Button>
-        <Typography level="h2">Appointment Details</Typography>
+        <Typography level='h2'>Appointment Details</Typography>
         <Box sx={{ flexGrow: 1 }} />
         <Button
-          variant="solid"
-          color="primary"
+          variant='solid'
+          color='primary'
           startDecorator={<Receipt />}
           onClick={generateInvoice}
           sx={{ borderRadius: 'sm' }}
@@ -403,18 +450,23 @@ const AppointmentDetails: React.FC = () => {
         </Button>
       </Box>
 
-      <Stack spacing={3} alignItems="flex-start">
+      <Stack spacing={3} alignItems='flex-start'>
         {/* Patient & Operator Info */}
         <Card sx={{ maxWidth: '800px', width: '100%' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-            <Typography level="h4" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}
+          >
+            <Typography
+              level='h4'
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1 }}
+            >
               <People sx={{ color: '#ffffff' }} />
               Basic Information
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
-                variant="solid"
-                color="neutral"
+                variant='solid'
+                color='neutral'
                 startDecorator={<Person />}
                 onClick={viewPatient}
                 sx={{ borderRadius: 'sm' }}
@@ -422,8 +474,8 @@ const AppointmentDetails: React.FC = () => {
                 View Patient
               </Button>
               <Button
-                variant="solid"
-                color="danger"
+                variant='solid'
+                color='danger'
                 startDecorator={<Delete />}
                 onClick={openDeleteModal}
                 sx={{ borderRadius: 'sm' }}
@@ -433,17 +485,33 @@ const AppointmentDetails: React.FC = () => {
             </Box>
           </Box>
           <Stack spacing={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Patient:</Typography>
-              <Typography level="body-sm" fontWeight="bold">{appointment.patientName}</Typography>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Patient:
+              </Typography>
+              <Typography level='body-sm' fontWeight='bold'>
+                {appointment.patientName}
+              </Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Operator:</Typography>
-              <Typography level="body-sm" fontWeight="bold">{appointment.operatorName}</Typography>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Operator:
+              </Typography>
+              <Typography level='body-sm' fontWeight='bold'>
+                {appointment.operatorName}
+              </Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Appointment date:</Typography>
-              <Typography level="body-sm" fontWeight="bold">
+            <Box
+              sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Appointment date:
+              </Typography>
+              <Typography level='body-sm' fontWeight='bold'>
                 {formatDate(appointment.date)}
               </Typography>
             </Box>
@@ -452,49 +520,70 @@ const AppointmentDetails: React.FC = () => {
 
         {/* Vital Signs */}
         <Card sx={{ maxWidth: '800px', width: '100%' }}>
-          <Typography level="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1 }}>
+          <Typography
+            level='h4'
+            sx={{
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: 1
+            }}
+          >
             <MonitorHeart sx={{ color: '#ffffff' }} />
             Vital Signs
           </Typography>
           <Stack spacing={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Blood Pressure:</Typography>
-              <Typography level="body-sm" fontWeight="bold">
+            <Box
+              sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Blood Pressure:
+              </Typography>
+              <Typography level='body-sm' fontWeight='bold'>
                 {appointment.vitalSigns.bloodPressure === 'Not recorded'
                   ? 'Not recorded'
-                  : appointment.vitalSigns.bloodPressure
-                }
+                  : appointment.vitalSigns.bloodPressure}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Respiration Rate:</Typography>
-              <Typography level="body-sm" fontWeight="bold">
+            <Box
+              sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Respiration Rate:
+              </Typography>
+              <Typography level='body-sm' fontWeight='bold'>
                 {appointment.vitalSigns.respirationRate > 0
                   ? `${appointment.vitalSigns.respirationRate} breaths/min`
-                  : 'Not recorded'
-                }
+                  : 'Not recorded'}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Heart Rate:</Typography>
-              <Typography level="body-sm" fontWeight="bold">
+            <Box
+              sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Heart Rate:
+              </Typography>
+              <Typography level='body-sm' fontWeight='bold'>
                 {appointment.vitalSigns.heartRate > 0
                   ? `${appointment.vitalSigns.heartRate} bpm`
-                  : 'Not recorded'
-                }
+                  : 'Not recorded'}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>Borg Scale:</Typography>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 2 }}
+            >
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Borg Scale:
+              </Typography>
               <Chip
-                size="sm"
+                size='sm'
                 color={getBorgScaleColor(appointment.vitalSigns.borgScale)}
-                variant="soft"
+                variant='soft'
               >
                 {appointment.vitalSigns.borgScale > 0
                   ? `${appointment.vitalSigns.borgScale}/10 - ${getBorgScaleText(appointment.vitalSigns.borgScale)}`
-                  : 'Not recorded'
-                }
+                  : 'Not recorded'}
               </Chip>
             </Box>
           </Stack>
@@ -503,11 +592,26 @@ const AppointmentDetails: React.FC = () => {
         {/* Additional Examinations */}
         {getCustomExaminations().length > 0 && (
           <Card sx={{ maxWidth: '800px', width: '100%' }}>
-            <Typography level="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1 }}>
+            <Typography
+              level='h4'
+              sx={{
+                mb: 3,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 1
+              }}
+            >
               <Science sx={{ color: '#ffffff' }} />
               Additional Examinations
             </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: 2
+              }}
+            >
               {getCustomExaminations().map((exam, index) => (
                 <Box
                   key={index}
@@ -523,14 +627,14 @@ const AppointmentDetails: React.FC = () => {
                   }}
                 >
                   <Box>
-                    <Typography level="body-sm" fontWeight="bold" sx={{ color: '#ffffff' }}>
+                    <Typography level='body-sm' fontWeight='bold' sx={{ color: '#ffffff' }}>
                       {exam.name}
                     </Typography>
-                    <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.7 }}>
+                    <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.7 }}>
                       Value: {exam.value}
                     </Typography>
                   </Box>
-                  <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                  <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
                     {exam.unit}
                   </Typography>
                 </Box>
@@ -541,12 +645,21 @@ const AppointmentDetails: React.FC = () => {
 
         {/* Treatments */}
         <Card sx={{ maxWidth: '800px', width: '100%' }}>
-          <Typography level="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1 }}>
+          <Typography
+            level='h4'
+            sx={{
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: 1
+            }}
+          >
             <MedicalServices sx={{ color: '#ffffff' }} />
             Treatments
           </Typography>
           {appointment.treatments.length === 0 ? (
-            <Typography level="body-sm" color="neutral" sx={{ textAlign: 'left', py: 2 }}>
+            <Typography level='body-sm' color='neutral' sx={{ textAlign: 'left', py: 2 }}>
               No treatments recorded
             </Typography>
           ) : (
@@ -565,20 +678,20 @@ const AppointmentDetails: React.FC = () => {
                   }}
                 >
                   <Box sx={{ flex: 1 }}>
-                    <Typography level="body-sm">{treatment.name}</Typography>
+                    <Typography level='body-sm'>{treatment.name}</Typography>
                     {treatment.notes && (
-                      <Typography level="body-xs" sx={{ color: '#ffffff', opacity: 0.8, mt: 0.5 }}>
+                      <Typography level='body-xs' sx={{ color: '#ffffff', opacity: 0.8, mt: 0.5 }}>
                         Notes: {treatment.notes}
                       </Typography>
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography level="body-sm" color="success" fontWeight="bold">
+                    <Typography level='body-sm' color='success' fontWeight='bold'>
                       {formatCurrencyWhole(treatment.price)}
                     </Typography>
                     <Button
-                      variant="outlined"
-                      size="sm"
+                      variant='outlined'
+                      size='sm'
                       startDecorator={<EditNote />}
                       onClick={() => openNotesModal(treatment.id, treatment.notes)}
                       sx={{ borderRadius: 'sm' }}
@@ -594,9 +707,11 @@ const AppointmentDetails: React.FC = () => {
 
         {/* Total Price */}
         <Card sx={{ backgroundColor: 'background.level1', maxWidth: '800px', width: '100%' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-            <Typography level="h4">Total Price:</Typography>
-            <Typography level="h3" color="success" fontWeight="bold">
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}
+          >
+            <Typography level='h4'>Total Price:</Typography>
+            <Typography level='h3' color='success' fontWeight='bold'>
               {formatCurrencyWhole(appointment.totalPrice)}
             </Typography>
           </Box>
@@ -604,7 +719,7 @@ const AppointmentDetails: React.FC = () => {
 
         {/* Appointment Info */}
         <Card sx={{ maxWidth: '800px', width: '100%' }}>
-          <Typography level="body-xs" sx={{ textAlign: 'left', color: '#ffffff' }}>
+          <Typography level='body-xs' sx={{ textAlign: 'left', color: '#ffffff' }}>
             Created on {formatDate(appointment.created_at || appointment.date)}
           </Typography>
         </Card>
@@ -613,7 +728,7 @@ const AppointmentDetails: React.FC = () => {
       {/* Delete Confirmation Modal */}
       <Modal open={deleteModalOpen} onClose={closeDeleteModal}>
         <ModalDialog
-          aria-labelledby="delete-modal-title"
+          aria-labelledby='delete-modal-title'
           sx={{
             maxWidth: 400,
             borderRadius: 'sm',
@@ -624,23 +739,26 @@ const AppointmentDetails: React.FC = () => {
           <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', p: 3, pb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Warning sx={{ color: 'danger' }} />
-              <Typography id="delete-modal-title" level="h4">
+              <Typography id='delete-modal-title' level='h4'>
                 Delete Appointment
               </Typography>
             </Box>
           </Box>
           <Box sx={{ p: 3 }}>
             <DialogContent>
-              <Typography level="body-sm" sx={{ mb: 2 }}>
+              <Typography level='body-sm' sx={{ mb: 2 }}>
                 Are you sure you want to delete this appointment? This action cannot be undone.
               </Typography>
-              <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
-                <strong>Patient:</strong> {appointment?.patientName}<br />
-                <strong>Date:</strong> {appointment ? formatDate(appointment.date) : ''}<br />
-                <strong>Total:</strong> {appointment ? formatCurrencyWhole(appointment.totalPrice) : ''}
+              <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
+                <strong>Patient:</strong> {appointment?.patientName}
+                <br />
+                <strong>Date:</strong> {appointment ? formatDate(appointment.date) : ''}
+                <br />
+                <strong>Total:</strong>{' '}
+                {appointment ? formatCurrencyWhole(appointment.totalPrice) : ''}
               </Typography>
               {hasInvoice && (
-                <Typography level="body-xs" color="danger" sx={{ mt: 1 }}>
+                <Typography level='body-xs' color='danger' sx={{ mt: 1 }}>
                   Note: The associated invoice will also be deleted.
                 </Typography>
               )}
@@ -649,8 +767,8 @@ const AppointmentDetails: React.FC = () => {
           <Box sx={{ borderTop: '1px solid', borderColor: 'divider', p: 3, pt: 2 }}>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
               <Button
-                variant="outlined"
-                color="neutral"
+                variant='outlined'
+                color='neutral'
                 onClick={closeDeleteModal}
                 disabled={deleting}
                 sx={{ borderRadius: 'sm' }}
@@ -658,8 +776,8 @@ const AppointmentDetails: React.FC = () => {
                 Cancel
               </Button>
               <Button
-                variant="solid"
-                color="danger"
+                variant='solid'
+                color='danger'
                 onClick={deleteAppointment}
                 loading={deleting}
                 startDecorator={<Delete />}
@@ -675,7 +793,7 @@ const AppointmentDetails: React.FC = () => {
       {/* Treatment Notes Modal */}
       <Modal open={notesModalOpen} onClose={closeNotesModal}>
         <ModalDialog
-          aria-labelledby="treatment-notes-modal-title"
+          aria-labelledby='treatment-notes-modal-title'
           sx={{
             maxWidth: 500,
             borderRadius: 'sm',
@@ -684,7 +802,7 @@ const AppointmentDetails: React.FC = () => {
           }}
         >
           <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', p: 3, pb: 2 }}>
-            <Typography id="treatment-notes-modal-title" level="h4">
+            <Typography id='treatment-notes-modal-title' level='h4'>
               Add Treatment Notes
             </Typography>
           </Box>
@@ -692,9 +810,9 @@ const AppointmentDetails: React.FC = () => {
             <FormControl>
               <FormLabel>Treatment Notes</FormLabel>
               <Textarea
-                placeholder="Enter treatment notes..."
+                placeholder='Enter treatment notes...'
                 value={treatmentNotes}
-                onChange={(e) => setTreatmentNotes(e.target.value)}
+                onChange={e => setTreatmentNotes(e.target.value)}
                 minRows={4}
                 maxRows={8}
                 sx={{
@@ -712,16 +830,16 @@ const AppointmentDetails: React.FC = () => {
           <Box sx={{ borderTop: '1px solid', borderColor: 'divider', p: 3, pt: 2 }}>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
               <Button
-                variant="outlined"
-                color="neutral"
+                variant='outlined'
+                color='neutral'
                 onClick={closeNotesModal}
                 startDecorator={<Close />}
               >
                 Cancel
               </Button>
               <Button
-                variant="solid"
-                color="primary"
+                variant='solid'
+                color='primary'
                 onClick={saveTreatmentNotes}
                 startDecorator={<Save />}
               >

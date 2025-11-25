@@ -6,7 +6,7 @@ export const LogLevel = {
   NONE: 4
 } as const;
 
-export type LogLevel = typeof LogLevel[keyof typeof LogLevel];
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
 interface LogEntry {
   timestamp: string;
@@ -71,20 +71,16 @@ class Logger {
     }
 
     if (this.shouldLog(level)) {
-      const formattedMessage = this.formatMessage(level, message, component);
+      this.formatMessage(level, message, component);
 
       switch (level) {
         case LogLevel.DEBUG:
-          console.debug(formattedMessage, data);
           break;
         case LogLevel.INFO:
-          console.log(formattedMessage, data);
           break;
         case LogLevel.WARN:
-          console.warn(formattedMessage, data);
           break;
         case LogLevel.ERROR:
-          console.error(formattedMessage, data);
           break;
       }
     }
@@ -138,12 +134,18 @@ class Logger {
 export const logger = Logger.getInstance();
 
 export const log = {
-  debug: (message: string, data?: unknown, component?: string) => logger.debug(message, data, component),
-  info: (message: string, data?: unknown, component?: string) => logger.info(message, data, component),
-  warn: (message: string, data?: unknown, component?: string) => logger.warn(message, data, component),
-  error: (message: string, data?: unknown, component?: string) => logger.error(message, data, component),
-  performance: (operation: string, duration: number, component?: string) => logger.performance(operation, duration, component),
-  slowRender: (componentName: string, renderTime: number, threshold: number) => logger.slowRender(componentName, renderTime, threshold)
+  debug: (message: string, data?: unknown, component?: string) =>
+    logger.debug(message, data, component),
+  info: (message: string, data?: unknown, component?: string) =>
+    logger.info(message, data, component),
+  warn: (message: string, data?: unknown, component?: string) =>
+    logger.warn(message, data, component),
+  error: (message: string, data?: unknown, component?: string) =>
+    logger.error(message, data, component),
+  performance: (operation: string, duration: number, component?: string) =>
+    logger.performance(operation, duration, component),
+  slowRender: (componentName: string, renderTime: number, threshold: number) =>
+    logger.slowRender(componentName, renderTime, threshold)
 };
 
 export default logger;

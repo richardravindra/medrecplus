@@ -5,10 +5,11 @@ import { useContext } from 'react';
 import { GlobalPerformanceContext } from '../utils/performanceContext';
 import { log } from '../utils/logger';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePerformanceMonitor = (componentName: string, thresholdMs: number = 100) => {
   const renderStartTime = useRef<number>(0);
   const [metrics, setMetrics] = useState<PerformanceMetrics[]>([]);
-  const [stats, setStats] = useState<PerformanceStats>({
+  const [_stats, setStats] = useState<PerformanceStats>({
     averageRenderTime: 0,
     peakMemoryUsage: 0,
     currentCacheSize: 0,
@@ -42,7 +43,8 @@ export const usePerformanceMonitor = (componentName: string, thresholdMs: number
 
     // Update stats
     const totalRenders = metricsRef.current.length;
-    const averageRenderTime = metricsRef.current.reduce((sum, m) => sum + m.renderTime, 0) / totalRenders;
+    const averageRenderTime =
+      metricsRef.current.reduce((sum, m) => sum + m.renderTime, 0) / totalRenders;
     const peakMemoryUsage = Math.max(...metricsRef.current.map(m => m.memoryUsage));
     const currentCacheSize = memoryStats.totalCachesSize;
     const slowRenders = metricsRef.current.filter(m => m.renderTime > thresholdMs).length;
@@ -77,21 +79,24 @@ export const usePerformanceMonitor = (componentName: string, thresholdMs: number
     MemoryManager.clearAllCaches();
   }, []);
 
-  const profile = useCallback((operation: string, fn: () => void | Promise<void>) => {
-    const startTime = performance.now();
-    const result = fn();
-    const endTime = performance.now();
+  const profile = useCallback(
+    (operation: string, fn: () => void | Promise<void>) => {
+      const startTime = performance.now();
+      const result = fn();
+      const endTime = performance.now();
 
-    log.performance(operation, endTime - startTime, componentName);
-    return result;
-  }, [componentName]);
+      log.performance(operation, endTime - startTime, componentName);
+      return result;
+    },
+    [componentName]
+  );
 
   const getComponentDetailedStats = useCallback(() => {
-    return getDetailedStats(componentName, stats, metrics);
-  }, [componentName, stats, metrics]);
+    return getDetailedStats(componentName, _stats, metrics);
+  }, [componentName, _stats, metrics]);
 
   return {
-    stats,
+    _stats,
     metrics,
     optimizeMemory,
     clearCaches,
@@ -100,6 +105,7 @@ export const usePerformanceMonitor = (componentName: string, thresholdMs: number
   };
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useGlobalPerformance = () => {
   const context = useContext(GlobalPerformanceContext);
   if (!context) {
@@ -109,4 +115,3 @@ export const useGlobalPerformance = () => {
 };
 
 export { PerformanceProvider } from '../utils/performanceHooks';
-

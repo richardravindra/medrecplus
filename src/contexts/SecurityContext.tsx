@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { SecurityContext, SecurityState, SecurityContextType } from './SecurityContextCore';
 import { storage } from '../services/UnifiedStorage';
+import { SecurityService } from '../services/SecurityService';
 
 const AUTO_LOCK_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 const MAX_FAILED_ATTEMPTS = 5;
@@ -12,7 +13,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     isLocked: false,
     failedAttempts: 0,
     lastActivity: Date.now(),
-    lockoutTime: null,
+    lockoutTime: null
   });
 
   // Refs for debouncing
@@ -24,11 +25,18 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     : 0;
 
   const lockApp = useCallback(() => {
+    // Log lock event
+    SecurityService.logSecurityEvent('app_locked', {
+      timestamp: Date.now(),
+      fingerprint: SecurityService.getBrowserFingerprint(),
+      reason: 'manual_or_timeout'
+    });
+
     setSecurityState(prev => ({
       ...prev,
       isLocked: true,
       failedAttempts: 0,
-      lockoutTime: null,
+      lockoutTime: null
     }));
 
     // Persist lock state to localStorage
@@ -36,62 +44,88 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('medrec_lock_time', Date.now().toString());
   }, []);
 
-  const unlockApp = useCallback(async (password: string): Promise<boolean> => {
-    // Check if currently locked out
-    if (securityState.lockoutTime && Date.now() < securityState.lockoutTime) {
-      return false;
-    }
-
-    try {
-      // Check if Tauri API is available
-      if (typeof window !== 'undefined' && '__TAURI__' in window) {
-        await invoke('unlock_database', { password });
-      } else {
-        // Running in web browser - validate against stored password for development
-        const storedPasswordHash = await storage.getPassword();
-
-        if (!storedPasswordHash) {
-          throw new Error('No stored password found');
-        }
-
-        const enteredPasswordHash = btoa(password);
-        if (enteredPasswordHash !== storedPasswordHash) {
-          throw new Error('Invalid password');
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+  const unlockApp = useCallback(
+    async (password: string): Promise<boolean> => {
+      // Check if currently locked out
+      if (securityState.lockoutTime && Date.now() < securityState.lockoutTime) {
+        return false;
       }
 
-      // Successful unlock - reset state
-      setSecurityState(prev => ({
-        ...prev,
-        isLocked: false,
-        failedAttempts: 0,
-        lastActivity: Date.now(),
-        lockoutTime: null,
-      }));
+      try {
+        // Log unlock attempt
+        SecurityService.logSecurityEvent('unlock_attempt', {
+          timestamp: Date.now(),
+          fingerprint: SecurityService.getBrowserFingerprint()
+        });
 
-      // Clear persisted lock state from localStorage
-      localStorage.removeItem('medrec_app_locked');
-      localStorage.removeItem('medrec_lock_time');
+        // Check if Tauri API is available
+        if (typeof window !== 'undefined' && '__TAURI__' in window) {
+          await invoke('unlock_database', { password });
+        } else {
+          // Running in web browser - validate against stored password for development
+          const storedPasswordHash = await storage.getPassword();
 
-      return true;
-    } catch {
-      // Failed unlock - increment attempts and potentially lockout
-      setSecurityState(prev => {
-        const newFailedAttempts = prev.failedAttempts + 1;
-        const shouldLockout = newFailedAttempts >= MAX_FAILED_ATTEMPTS;
+          if (!storedPasswordHash) {
+            throw new Error('No stored password found');
+          }
 
-        return {
+          // Use secure password verification instead of insecure btoa()
+          const isValidPassword = await SecurityService.verifyPassword(
+            password,
+            storedPasswordHash
+          );
+          if (!isValidPassword) {
+            throw new Error('Invalid password');
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+        }
+
+        // Successful unlock - reset state
+        setSecurityState(prev => ({
           ...prev,
-          failedAttempts: newFailedAttempts,
-          lockoutTime: shouldLockout ? Date.now() + LOCKOUT_DURATION : null,
-        };
-      });
+          isLocked: false,
+          failedAttempts: 0,
+          lastActivity: Date.now(),
+          lockoutTime: null
+        }));
 
-      return false;
-    }
-  }, [securityState.lockoutTime]);
+        // Clear persisted lock state from localStorage
+        localStorage.removeItem('medrec_app_locked');
+        localStorage.removeItem('medrec_lock_time');
+
+        // Log successful unlock
+        SecurityService.logSecurityEvent('unlock_success', {
+          timestamp: Date.now(),
+          fingerprint: SecurityService.getBrowserFingerprint()
+        });
+
+        return true;
+      } catch (_error) {
+        // Log failed unlock attempt
+        SecurityService.logSecurityEvent('unlock_failed', {
+          timestamp: Date.now(),
+          fingerprint: SecurityService.getBrowserFingerprint(),
+          error: _error instanceof Error ? _error.message : 'Unknown error'
+        });
+
+        // Failed unlock - increment attempts and potentially lockout
+        setSecurityState(prev => {
+          const newFailedAttempts = prev.failedAttempts + 1;
+          const shouldLockout = newFailedAttempts >= MAX_FAILED_ATTEMPTS;
+
+          return {
+            ...prev,
+            failedAttempts: newFailedAttempts,
+            lockoutTime: shouldLockout ? Date.now() + LOCKOUT_DURATION : null
+          };
+        });
+
+        return false;
+      }
+    },
+    [securityState.lockoutTime]
+  );
 
   const recordActivity = useCallback(() => {
     // Update the ref immediately for accurate timing
@@ -105,7 +139,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     activityTimeoutRef.current = setTimeout(() => {
       setSecurityState(prev => ({
         ...prev,
-        lastActivity: lastActivityRef.current,
+        lastActivity: lastActivityRef.current
       }));
     }, 1000); // Update state once per second maximum
   }, []);
@@ -122,7 +156,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSecurityState(prev => ({
       ...prev,
       failedAttempts: 0,
-      lockoutTime: null,
+      lockoutTime: null
     }));
   }, []);
 
@@ -185,7 +219,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isLocked: true,
         failedAttempts: 0,
         lockoutTime: null,
-        lastActivity: lockTime ? parseInt(lockTime) : Date.now(),
+        lastActivity: lockTime ? parseInt(lockTime) : Date.now()
       }));
     }
   }, []);
@@ -208,14 +242,10 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     unlockApp,
     recordActivity,
     checkInactivity,
-    resetFailedAttempts,
+    resetFailedAttempts
   };
 
-  return (
-    <SecurityContext.Provider value={value}>
-      {children}
-    </SecurityContext.Provider>
-  );
+  return <SecurityContext.Provider value={value}>{children}</SecurityContext.Provider>;
 };
 
 // Hook is exported from separate file to comply with react-refresh rules

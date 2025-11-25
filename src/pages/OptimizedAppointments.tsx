@@ -18,7 +18,14 @@ import FirstPage from '@mui/icons-material/FirstPage';
 import LastPage from '@mui/icons-material/LastPage';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
+import { ConfirmDialog, AlertDialog } from '../components/ConfirmDialog';
+import { useConfirmDialog, useAlertDialog } from '../hooks/useDialog';
 import CircularProgress from '@mui/joy/CircularProgress';
+import {
+  useDebounce,
+  useMemoizedCallback,
+  usePerformanceMonitor
+} from '../hooks/usePerformanceOptimization';
 import { Appointment } from '../types';
 import SimpleDataService from '../services/SimpleDataService';
 import { log } from '../utils/logger';
@@ -27,111 +34,137 @@ import DateRangeDropdown from '../components/DateRangeDropdown';
 import dayjs, { Dayjs } from 'dayjs';
 
 const OptimizedAppointments: React.FC = () => {
-  console.log('🔍 OptimizedAppointments component rendering');
+  // Performance monitoring
+  const perfMonitor = usePerformanceMonitor('OptimizedAppointments');
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const searchTimeoutRef = useRef<number | undefined>(undefined);
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([
     dayjs().startOf('day'),
     dayjs().endOf('day')
   ]);
+
+  // Store initial dateRange for mount effect - only set on initial render
+  const initialDateRangeRef = useRef<[Dayjs | null, Dayjs | null] | null>(null);
+  if (initialDateRangeRef.current === null) {
+    initialDateRangeRef.current = dateRange;
+  }
   const [columnVisibility, setColumnVisibility] = useState({
-    date: true,              // Date - shown by default (*)
-    patientName: true,       // Patient Name - shown by default (*)
-    vitalSigns: false,       // Vital Signs - hidden by default
-    treatments: false,        // Treatments - hidden by default
-    totalPrice: true,        // Total Price - shown by default (*)
-    operatorName: true,       // Operator - shown by default (*)
+    date: true, // Date - shown by default (*)
+    patientName: true, // Patient Name - shown by default (*)
+    vitalSigns: false, // Vital Signs - hidden by default
+    treatments: false, // Treatments - hidden by default
+    totalPrice: true, // Total Price - shown by default (*)
+    operatorName: true // Operator - shown by default (*)
   });
   const [sortField, setSortField] = useState<keyof Appointment | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+
+  // Dialog hooks
+  const confirmDialog = useConfirmDialog();
+  const alertDialog = useAlertDialog();
+  const [itemsPerPage] = useState(10); // Load 10 entries per page
   const [totalItems, setTotalItems] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [_hasMore, setHasMore] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const navigate = useNavigate();
 
   // Optimized data loading with pagination
-  const loadAppointments = useCallback(async (page: number = 1, search: string = '', reset: boolean = false, startDate?: string, endDate?: string) => {
-    console.log(`🔍 loadAppointments: Loading page ${page} with search "${search}" and date range ${startDate} to ${endDate}`);
-    try {
-      if (reset || page === 1) {
-        setLoading(true);
+  const loadAppointments = useCallback(
+    async (
+      page: number = 1,
+      search: string = '',
+      reset: boolean = false,
+      startDate?: string,
+      endDate?: string
+    ) => {
+      perfMonitor.start();
+      try {
+        if (reset || page === 1) {
+          setLoading(true);
+        }
+
+        const result = await SimpleDataService.getAppointments({
+          page,
+          limit: itemsPerPage,
+          search: search || undefined,
+          filters:
+            startDate && endDate
+              ? {
+                  startDate: startDate,
+                  endDate: endDate
+                }
+              : undefined
+        });
+
+        if (reset || page === 1) {
+          setAppointments(result.data);
+        } else {
+          // Append for infinite scroll behavior
+          setAppointments(prev => [...prev, ...result.data]);
+        }
+
+        setTotalItems(result.totalCount);
+        setHasMore(result.hasNext);
+      } catch (_error) {
+        log.error(
+          'Error loading appointments',
+          { error: _error, page, search, startDate, endDate },
+          'OptimizedAppointments'
+        );
+      } finally {
+        setLoading(false);
+        setInitialLoad(false);
+        perfMonitor.end();
       }
-
-      const result = await SimpleDataService.getAppointments({
-        page,
-        limit: itemsPerPage,
-        search: search || undefined,
-        filters: startDate && endDate ? {
-          startDate: startDate,
-          endDate: endDate
-        } : undefined
-      });
-
-      if (reset || page === 1) {
-        setAppointments(result.data);
-      } else {
-        // Append for infinite scroll behavior
-        setAppointments(prev => [...prev, ...result.data]);
-      }
-
-      setTotalItems(result.totalCount);
-      setHasMore(result.hasNext);
-      console.log(`🔍 loadAppointments: Loaded ${result.data.length} appointments (total: ${result.totalCount})`);
-    } catch (error) {
-      log.error('Error loading appointments', { error, page, search, startDate, endDate }, 'OptimizedAppointments');
-    } finally {
-      setLoading(false);
-      setInitialLoad(false);
-    }
-  }, [itemsPerPage]);
+    },
+    [itemsPerPage, perfMonitor] // Include perfMonitor dependency
+  );
 
   // Initial load
   useEffect(() => {
-    console.log('🔍 OptimizedAppointments useEffect - initial load');
-    loadAppointments(1, '', true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-  }, [loadAppointments, dateRange]);
-
-  // SimpleDataService handles caching automatically
-
-  // Debounced search effect
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+    const initialDateRange = initialDateRangeRef.current;
+    if (initialDateRange) {
+      loadAppointments(1, '', true, initialDateRange[0]?.toISOString(), initialDateRange[1]?.toISOString());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1);
-      loadAppointments(1, searchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-    }, 500);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchTerm, loadAppointments, dateRange]);
-
-  // Date range change effect
+  // Optimized search effect using debounced hook - reduced dependencies to prevent infinite loops
   useEffect(() => {
     setCurrentPage(1);
     loadAppointments(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-  }, [dateRange, loadAppointments, debouncedSearchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm, dateRange]); // Remove loadAppointments to prevent infinite loop
 
-  // Load more data for pagination
-  const loadMore = useCallback(() => {
-    if (!loading && hasMore) {
-      const nextPage = currentPage + 1;
-      setCurrentPage(nextPage);
-      loadAppointments(nextPage, debouncedSearchTerm, false, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-    }
-  }, [loading, hasMore, currentPage, debouncedSearchTerm, loadAppointments, dateRange]);
+  // Calculate totalPages for pagination
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  // Memoized pagination handlers to prevent inline function recreation
+  const handleFirstPage = useMemoizedCallback(() => {
+    setCurrentPage(1);
+    loadAppointments(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+  }, [debouncedSearchTerm, dateRange]);
+
+  const handlePrevPage = useMemoizedCallback(() => {
+    const prevPage = Math.max(1, currentPage - 1);
+    setCurrentPage(prevPage);
+    loadAppointments(prevPage, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+  }, [currentPage, debouncedSearchTerm, dateRange]);
+
+  const handleNextPage = useMemoizedCallback(() => {
+    const nextPage = Math.min(totalPages, currentPage + 1);
+    setCurrentPage(nextPage);
+    loadAppointments(nextPage, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+  }, [currentPage, totalPages, debouncedSearchTerm, dateRange]);
+
+  const handleLastPage = useMemoizedCallback(() => {
+    setCurrentPage(totalPages);
+    loadAppointments(totalPages, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+  }, [totalPages, debouncedSearchTerm, dateRange]);
 
   // Memoized filtered and sorted appointments for client-side operations
   const processedAppointments = useMemo(() => {
@@ -164,7 +197,7 @@ const OptimizedAppointments: React.FC = () => {
 
   const handleSort = (field: keyof Appointment) => {
     if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
       setSortDirection('asc');
@@ -172,21 +205,43 @@ const OptimizedAppointments: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this appointment?')) {
-      try {
-        const result = await SimpleDataService.deleteAppointment(id);
-        if (result) {
-          log.info('Appointment deleted successfully', { id }, 'OptimizedAppointments');
-          alert('Appointment deleted successfully!');
-        } else {
-          alert('Appointment not found or already deleted');
+    confirmDialog.openDialog({
+      title: 'Confirm Deletion',
+      message: 'Are you sure you want to delete this appointment? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          const result = await SimpleDataService.deleteAppointment(id);
+          if (result) {
+            log.info('Appointment deleted successfully', { id }, 'OptimizedAppointments');
+            alertDialog.openDialog({
+              title: 'Success',
+              message: 'Appointment deleted successfully!',
+              variant: 'success'
+            });
+          } else {
+            alertDialog.openDialog({
+              title: 'Warning',
+              message: 'Appointment not found or already deleted',
+              variant: 'warning'
+            });
+          }
+          await loadAppointments(
+            1,
+            debouncedSearchTerm,
+            true,
+            dateRange[0]?.toISOString(),
+            dateRange[1]?.toISOString()
+          );
+        } catch (_error) {
+          log.error('Error deleting appointment', { error: _error, id }, 'OptimizedAppointments');
+          alertDialog.openDialog({
+            title: 'Error',
+            message: 'Failed to delete appointment. Please try again.',
+            variant: 'danger'
+          });
         }
-        await loadAppointments(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-      } catch (error) {
-        log.error('Error deleting appointment', { error, id }, 'OptimizedAppointments');
-        alert('Failed to delete appointment. Please try again.');
       }
-    }
+    });
   };
 
   const toggleColumnVisibility = (column: keyof typeof columnVisibility) => {
@@ -196,21 +251,20 @@ const OptimizedAppointments: React.FC = () => {
     }));
   };
 
-  
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-
   if (initialLoad) {
     return (
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '50vh',
-        flexDirection: 'column',
-        gap: 2
-      }}>
-        <CircularProgress size="lg" />
-        <Typography level="body-sm" color="neutral">
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '50vh',
+          flexDirection: 'column',
+          gap: 2
+        }}
+      >
+        <CircularProgress size='lg' />
+        <Typography level='body-sm' color='neutral'>
           Loading appointment records...
         </Typography>
       </Box>
@@ -218,17 +272,26 @@ const OptimizedAppointments: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{
+    <Box
+      sx={{
+        p: 3,
+        height: '100vh', // Full viewport height
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        mb: 3,
-        flexWrap: 'wrap',
-        gap: 2
-      }}>
+        flexDirection: 'column',
+        gap: 1
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0, // Don't shrink
+          mb: 0.5 // Reduced bottom margin
+        }}
+      >
         <Box>
-          <Typography level="h2" sx={{ mb: 1 }}>
+          <Typography level='h2' sx={{ mb: 0.5 }}>
             Appointments
           </Typography>
         </Box>
@@ -238,46 +301,77 @@ const OptimizedAppointments: React.FC = () => {
           onClick={() => navigate('/appointments/new')}
           sx={{
             backgroundColor: '#1976d2',
-            '&:hover': { backgroundColor: '#1565c0' },
+            '&:hover': { backgroundColor: '#1565c0' }
           }}
         >
           New Appointment
         </Button>
       </Box>
 
-      <Card sx={{
-        mb: '8px',
-        p: '8px !important',
-        '& .MuiCard-root': {
-          padding: '8px !important'
-        }
-      }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box
+        sx={{
+          mb: 1,
+          p: 1,
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 1,
+          alignItems: 'center',
+          border: '1px solid #333',
+          borderRadius: '8px',
+          backgroundColor: '#1a1a1a'
+        }}
+      >
           <Input
-            startDecorator={<Search sx={{ color: '#ffffff' }} />}
-            placeholder="Search appointments..."
+            startDecorator={<Search sx={{ color: '#ffffff', fontSize: '16px' }} />}
+            placeholder='Search...'
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             sx={{
-              minWidth: 300,
+              width: { xs: '100%', sm: '350px' },
+              height: '36px',
+              minHeight: '36px',
               backgroundColor: '#2d2d2d',
-              '& input': { color: '#ffffff' },
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              '& input': {
+                color: '#ffffff',
+                fontSize: '14px',
+                py: 0,
+                lineHeight: '36px',
+                height: '36px'
+              },
               '&::placeholder': { color: '#666' },
+              '& .MuiInput-startDecorator': {
+                pl: 1.5,
+                height: '36px'
+              }
             }}
           />
 
           <Dropdown>
             <MenuButton
-              startDecorator={<ViewColumn />}
-              variant="outlined"
               sx={{
                 borderColor: '#ffffff',
                 color: '#ffffff',
+                width: '36px',
+                height: '36px',
+                minWidth: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                flexShrink: 0,
                 '&:hover': { borderColor: '#ffffff' },
-                '& svg': { color: '#ffffff' },
+                '& svg': {
+                  color: '#ffffff',
+                  fontSize: '18px'
+                }
               }}
             >
-              Columns
+              <ViewColumn />
             </MenuButton>
             <Menu sx={{ backgroundColor: '#1a1a1a' }}>
               {Object.entries(columnVisibility).map(([key, visible]) => {
@@ -298,15 +392,16 @@ const OptimizedAppointments: React.FC = () => {
                   >
                     <Checkbox
                       checked={visible}
-                      onChange={(e) => {
+                      onChange={e => {
                         e.stopPropagation();
                         toggleColumnVisibility(key as keyof typeof columnVisibility);
                       }}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
                       sx={{ mr: 1 }}
                     />
-                    <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-                      {labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                      {labelMap[key] ||
+                        key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </Typography>
                   </MenuItem>
                 );
@@ -314,22 +409,37 @@ const OptimizedAppointments: React.FC = () => {
             </Menu>
           </Dropdown>
 
-          {/* Date Range Picker */}
-          <DateRangeDropdown
-            value={dateRange}
-            onChange={setDateRange}
-          />
-        </Box>
-      </Card>
+          <Box sx={{ flexShrink: 0 }}>
+            <DateRangeDropdown
+              value={dateRange}
+              onChange={setDateRange}
+            />
+          </Box>
+    </Box>
 
-      <Card>
-        <Box sx={{ overflowX: 'auto' }}>
+      <Card
+        sx={{
+          flex: 1, // Take remaining space
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0 // Allow flex shrinking
+        }}
+      >
+        <Box
+          sx={{
+            overflowY: 'auto',
+            overflowX: 'auto',
+            flex: 1, // Take remaining space
+            minHeight: 0, // Allow shrinking
+            position: 'relative'
+          }}
+        >
           <LazyAppointmentTable
             appointments={processedAppointments}
             columnVisibility={columnVisibility}
-            onView={(appointment) => navigate(`/appointments/${appointment.id}`)}
+            onView={appointment => navigate(`/appointments/${appointment.id}`)}
             onDelete={handleDelete}
-            onPatientClick={(patientId) => navigate(`/patients/${patientId}`)}
+            onPatientClick={patientId => navigate(`/patients/${patientId}`)}
             currentPage={currentPage}
             itemsPerPage={itemsPerPage}
             sortField={sortField}
@@ -340,19 +450,19 @@ const OptimizedAppointments: React.FC = () => {
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            p: 2,
-            borderTop: '1px solid #333'
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              px: 2, // Only horizontal padding
+              py: 1, // Reduced vertical padding
+              borderTop: '1px solid #333'
+            }}
+          >
             <Box sx={{ display: 'flex', gap: 1 }}>
               <IconButton
-                onClick={() => {
-                  setCurrentPage(1);
-                  loadAppointments(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-                }}
+                onClick={handleFirstPage}
                 disabled={currentPage === 1}
                 sx={{
                   color: '#ffffff',
@@ -366,11 +476,7 @@ const OptimizedAppointments: React.FC = () => {
                 <FirstPage />
               </IconButton>
               <IconButton
-                onClick={() => {
-                  const prevPage = Math.max(1, currentPage - 1);
-                  setCurrentPage(prevPage);
-                  loadAppointments(prevPage, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-                }}
+                onClick={handlePrevPage}
                 disabled={currentPage === 1}
                 sx={{
                   color: '#ffffff',
@@ -384,11 +490,7 @@ const OptimizedAppointments: React.FC = () => {
                 <ChevronLeft />
               </IconButton>
               <IconButton
-                onClick={() => {
-                  const nextPage = Math.min(totalPages, currentPage + 1);
-                  setCurrentPage(nextPage);
-                  loadAppointments(nextPage, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-                }}
+                onClick={handleNextPage}
                 disabled={currentPage === totalPages}
                 sx={{
                   color: '#ffffff',
@@ -402,10 +504,7 @@ const OptimizedAppointments: React.FC = () => {
                 <ChevronRight />
               </IconButton>
               <IconButton
-                onClick={() => {
-                  setCurrentPage(totalPages);
-                  loadAppointments(totalPages, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-                }}
+                onClick={handleLastPage}
                 disabled={currentPage === totalPages}
                 sx={{
                   color: '#ffffff',
@@ -420,28 +519,36 @@ const OptimizedAppointments: React.FC = () => {
               </IconButton>
             </Box>
 
-            {hasMore && (
-              <Button
-                variant="outlined"
-                onClick={loadMore}
-                disabled={loading}
-                sx={{
-                  borderColor: '#444',
-                  color: '#ffffff',
-                  '&:hover': { borderColor: '#666' },
-                }}
-              >
-                {loading ? 'Loading...' : 'Load More'}
-              </Button>
-            )}
-
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} -{' '}
               {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} appointments
             </Typography>
           </Box>
         )}
       </Card>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.isOpen}
+        onClose={confirmDialog.closeDialog}
+        onConfirm={confirmDialog.handleConfirm}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        variant={confirmDialog.config.variant}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.isOpen}
+        onClose={alertDialog.closeDialog}
+        title={alertDialog.config.title}
+        message={alertDialog.config.message}
+        buttonText={alertDialog.config.buttonText}
+        variant={alertDialog.config.variant}
+      />
     </Box>
   );
 };

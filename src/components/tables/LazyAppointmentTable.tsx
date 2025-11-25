@@ -1,11 +1,5 @@
 import React, { Suspense } from 'react';
-import {
-  Table,
-  Box,
-  CircularProgress,
-  Typography,
-  IconButton
-} from '@mui/joy';
+import { Table, Box, CircularProgress, Typography, IconButton } from '@mui/joy';
 import Visibility from '@mui/icons-material/Visibility';
 import Delete from '@mui/icons-material/Delete';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
@@ -60,8 +54,8 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
           gap: 2
         }}
       >
-        <CircularProgress size="lg" />
-        <Typography level="body-sm" color="neutral">
+        <CircularProgress size='lg' />
+        <Typography level='body-sm' color='neutral'>
           Loading appointments...
         </Typography>
       </Box>
@@ -71,68 +65,69 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
   return (
     <>
       <Table
-        aria-label="Appointment records table"
-        stripe="odd"
+        aria-label='Appointment records table'
+        stripe='odd'
         hoverRow
         sx={{
           '& tbody tr:hover': {
-            backgroundColor: 'rgba(25, 118, 210, 0.08)',
+            backgroundColor: 'rgba(25, 118, 210, 0.08)'
           },
           '& th': {
             backgroundColor: '#1d293d',
             color: '#ffffff',
-            fontWeight: '600',
+            fontWeight: '600'
           },
           '& td': {
-            color: '#ffffff',
+            color: '#ffffff'
           },
           '& tr:nth-of-type(odd) td': {
-            backgroundColor: 'rgba(45, 45, 45, 0.5)',
-          },
+            backgroundColor: 'rgba(45, 45, 45, 0.5)'
+          }
         }}
       >
-      <thead>
-        <tr>
-          {columnVisibility.date && (
-            <th
-              style={{
-                whiteSpace: 'nowrap',
-                padding: '12px',
-                cursor: 'pointer',
-                userSelect: 'none'
-              }}
-              onClick={() => onSort && onSort('date')}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                Date
-                {sortField === 'date' && (
-                  sortDirection === 'asc' ?
-                    <ArrowUpward sx={{ fontSize: 14, color: '#ffffff' }} /> :
-                    <ArrowDownward sx={{ fontSize: 14, color: '#ffffff' }} />
-                )}
-              </Box>
-            </th>
-          )}
-          {columnVisibility.patientName && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Patient Name</th>
-          )}
-          {columnVisibility.vitalSigns && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Vital Signs</th>
-          )}
-          {columnVisibility.treatments && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Treatments</th>
-          )}
-          {columnVisibility.totalPrice && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Total Price</th>
-          )}
-          {columnVisibility.operatorName && (
-            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Operator</th>
-          )}
-          <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Actions</th>
-        </tr>
-      </thead>
+        <thead>
+          <tr>
+            {columnVisibility.date && (
+              <th
+                style={{
+                  whiteSpace: 'nowrap',
+                  padding: '12px',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}
+                onClick={() => onSort && onSort('date')}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Date
+                  {sortField === 'date' &&
+                    (sortDirection === 'asc' ? (
+                      <ArrowUpward sx={{ fontSize: 14, color: '#ffffff' }} />
+                    ) : (
+                      <ArrowDownward sx={{ fontSize: 14, color: '#ffffff' }} />
+                    ))}
+                </Box>
+              </th>
+            )}
+            {columnVisibility.patientName && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Patient Name</th>
+            )}
+            {columnVisibility.vitalSigns && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Vital Signs</th>
+            )}
+            {columnVisibility.treatments && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Treatments</th>
+            )}
+            {columnVisibility.totalPrice && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Total Price</th>
+            )}
+            {columnVisibility.operatorName && (
+              <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Operator</th>
+            )}
+            <th style={{ whiteSpace: 'nowrap', padding: '12px' }}>Actions</th>
+          </tr>
+        </thead>
         <tbody>
-          {paginatedAppointments.map((appointment) => {
+          {paginatedAppointments.map(appointment => {
             const formatDate = (dateString: string) => {
               try {
                 const date = new Date(dateString);
@@ -148,19 +143,23 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
             };
 
             const formatVitalSigns = (vitalSigns: {
-  bloodPressure?: string;
-  heartRate?: number | string;
-  temperature?: string;
-  weight?: string;
-  height?: string;
-  respirationRate?: number;
-  borgScale?: number;
-}) => {
+              bloodPressure?: string;
+              heartRate?: number | string;
+              temperature?: string;
+              weight?: string;
+              height?: string;
+              respirationRate?: number;
+              borgScale?: number;
+            }) => {
               const signs = [];
               if (vitalSigns.bloodPressure && vitalSigns.bloodPressure !== 'Not recorded') {
                 signs.push(`BP: ${vitalSigns.bloodPressure}`);
               }
-              if (vitalSigns.heartRate && typeof vitalSigns.heartRate === 'number' && vitalSigns.heartRate > 0) {
+              if (
+                vitalSigns.heartRate &&
+                typeof vitalSigns.heartRate === 'number' &&
+                vitalSigns.heartRate > 0
+              ) {
                 signs.push(`HR: ${vitalSigns.heartRate}`);
               }
               if (vitalSigns.respirationRate && vitalSigns.respirationRate > 0) {
@@ -177,7 +176,7 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
                 {columnVisibility.date && (
                   <td style={{ padding: '12px' }}>
                     <Typography
-                      level="body-sm"
+                      level='body-sm'
                       onClick={() => onView(appointment)}
                       sx={{
                         cursor: 'pointer',
@@ -197,8 +196,12 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
                 {columnVisibility.patientName && (
                   <td style={{ padding: '12px' }}>
                     <Typography
-                      level="body-sm"
-                      onClick={() => onPatientClick && appointment.patientId && onPatientClick(appointment.patientId)}
+                      level='body-sm'
+                      onClick={() =>
+                        onPatientClick &&
+                        appointment.patientId &&
+                        onPatientClick(appointment.patientId)
+                      }
                       sx={{
                         cursor: 'pointer',
                         color: '#ffffff',
@@ -223,8 +226,7 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
                   <td style={{ padding: '12px' }}>
                     {appointment.treatments && appointment.treatments.length > 0
                       ? appointment.treatments.map(t => t.name).join(', ')
-                      : 'No treatment'
-                    }
+                      : 'No treatment'}
                   </td>
                 )}
                 {columnVisibility.totalPrice && (
@@ -238,20 +240,20 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
                 <td style={{ padding: '12px' }}>
                   <Box sx={{ display: 'flex', gap: 0.5 }}>
                     <IconButton
-                      size="sm"
-                      variant="outlined"
-                      color="primary"
+                      size='sm'
+                      variant='outlined'
+                      color='primary'
                       onClick={() => onView(appointment)}
-                      title="View appointment details"
+                      title='View appointment details'
                     >
                       <Visibility />
                     </IconButton>
                     <IconButton
-                      size="sm"
-                      variant="outlined"
-                      color="danger"
+                      size='sm'
+                      variant='outlined'
+                      color='danger'
                       onClick={() => onDelete(appointment.id)}
-                      title="Delete appointment"
+                      title='Delete appointment'
                     >
                       <Delete />
                     </IconButton>
@@ -273,7 +275,7 @@ const TableComponent: React.FC<LazyAppointmentTableProps> = ({
             gap: 2
           }}
         >
-          <Typography level="body-lg" sx={{ color: '#ffffff' }}>
+          <Typography level='body-lg' sx={{ color: '#ffffff' }}>
             No appointments found
           </Typography>
         </Box>
@@ -293,14 +295,14 @@ const LoadingFallback: React.FC = () => (
       gap: 2
     }}
   >
-    <CircularProgress size="lg" />
-    <Typography level="body-sm" color="neutral">
+    <CircularProgress size='lg' />
+    <Typography level='body-sm' color='neutral'>
       Loading table...
     </Typography>
   </Box>
 );
 
-export const LazyAppointmentTable: React.FC<LazyAppointmentTableProps> = (props) => {
+export const LazyAppointmentTable: React.FC<LazyAppointmentTableProps> = props => {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <TableComponent {...props} />

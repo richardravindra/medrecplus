@@ -1,5 +1,6 @@
 import { Patient, Appointment, Invoice, VitalSigns, Treatment } from '../types';
 import { OptimizedDataService } from './OptimizedDataService';
+import { log } from '../utils/logger';
 
 const STORAGE_KEY = 'patient_management_data';
 const RECORD_COUNTER_KEY = 'patient_record_counter';
@@ -10,33 +11,33 @@ const INVOICES_KEY = 'invoices';
 const templateData: Patient[] = [
   {
     id: 1,
-    record_number: "PT202500001",
-    name: "John Doe",
+    record_number: 'PT202500001',
+    name: 'John Doe',
     age: 45,
-    address: "123 Main St, City, State 12345",
-    phone_number: "+1-555-0123",
-    initial_diagnosis: "Hypertension, Type 2 Diabetes",
-    created_at: "2025-01-15T10:30:00Z"
+    address: '123 Main St, City, State 12345',
+    phone_number: '+1-555-0123',
+    initial_diagnosis: 'Hypertension, Type 2 Diabetes',
+    created_at: '2025-01-15T10:30:00Z'
   },
   {
     id: 2,
-    record_number: "PT202500002",
-    name: "Jane Smith",
+    record_number: 'PT202500002',
+    name: 'Jane Smith',
     age: 32,
-    address: "456 Oak Ave, Town, State 67890",
-    phone_number: "+1-555-0456",
-    initial_diagnosis: "Diabetes Mellitus Type 1",
-    created_at: "2025-01-16T14:20:00Z"
+    address: '456 Oak Ave, Town, State 67890',
+    phone_number: '+1-555-0456',
+    initial_diagnosis: 'Diabetes Mellitus Type 1',
+    created_at: '2025-01-16T14:20:00Z'
   },
   {
     id: 3,
-    record_number: "PT202500003",
-    name: "Robert Johnson",
+    record_number: 'PT202500003',
+    name: 'Robert Johnson',
     age: 58,
-    address: "789 Pine Rd, Village, State 11111",
-    phone_number: "+1-555-0789",
-    initial_diagnosis: "Coronary Artery Disease",
-    created_at: "2025-01-17T09:15:00Z"
+    address: '789 Pine Rd, Village, State 11111',
+    phone_number: '+1-555-0789',
+    initial_diagnosis: 'Coronary Artery Disease',
+    created_at: '2025-01-17T09:15:00Z'
   }
 ];
 
@@ -51,7 +52,7 @@ const getInitialPatientsSync = (): Patient[] => {
       }
     }
   } catch (error) {
-    console.error("Error parsing localStorage data:", error);
+    log.error('Error parsing localStorage data:', error, 'optimizedDatabaseMock');
   }
 
   // Return template data if no data found
@@ -67,9 +68,9 @@ const getNextId = (): number => {
 const savePatients = async (patients: Patient[]): Promise<void> => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
-    console.log(`💾 Saved ${patients.length} patients to localStorage`);
+    log.info(`💾 Saved ${patients.length} patients to localStorage`);
   } catch (error) {
-    console.error("❌ Failed to save patients:", error);
+    log.error('❌ Failed to save patients:', error);
   }
 };
 
@@ -79,7 +80,7 @@ export const optimizedDatabaseService = {
     try {
       return await OptimizedDataService.getPatientsPaginated(page, limit, search);
     } catch (error) {
-      console.error("Error in getPatients:", error);
+      log.error('Error in getPatients:', error);
       // Fallback to sync method
       const patients = getInitialPatientsSync();
       const filtered = search ? patients.filter(p =>
@@ -90,7 +91,7 @@ export const optimizedDatabaseService = {
       const total = filtered.length;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedPatients = filtered.sort((a, b) => b.id! - a.id!).slice(startIndex, endIndex);
+      const paginatedPatients = filtered.sort((a, b) => (b.id || 0) - (a.id || 0)).slice(startIndex, endIndex);
       const hasMore = endIndex < total;
 
       return { patients: paginatedPatients, total, hasMore };
@@ -105,7 +106,7 @@ export const optimizedDatabaseService = {
       });
       return patients.length > 0 ? patients[0] : null;
     } catch (error) {
-      console.error("Error getting patient by ID:", error);
+      log.error('Error getting patient by ID:', error);
       const patients = getInitialPatientsSync();
       return patients.find(p => p.id === id) || null;
     }
@@ -116,7 +117,7 @@ export const optimizedDatabaseService = {
     try {
       return await OptimizedDataService.getPatients({ search: query });
     } catch (error) {
-      console.error("Error searching patients:", error);
+      log.error('Error searching patients:', error);
       const patients = getInitialPatientsSync();
       return patients.filter(patient =>
         patient.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -154,12 +155,15 @@ export const optimizedDatabaseService = {
       try {
         localStorage.setItem(RECORD_COUNTER_KEY, String(currentCounter + 1));
       } catch (error) {
-        console.warn("Could not update counter:", error);
+        log.warn('Could not update counter:', error);
       }
 
-      return newPatient.id!;
+      if (!newPatient.id) {
+        throw new Error('Failed to generate ID for new patient');
+      }
+      return newPatient.id;
     } catch (error) {
-      console.error("Error adding patient:", error);
+      log.error('Error adding patient:', error);
       throw error;
     }
   },
@@ -188,7 +192,7 @@ export const optimizedDatabaseService = {
 
       return 'Patient updated successfully';
     } catch (error) {
-      console.error("Error updating patient:", error);
+      log.error('Error updating patient:', error);
       throw error;
     }
   },
@@ -211,7 +215,7 @@ export const optimizedDatabaseService = {
 
       return 'Patient deleted successfully';
     } catch (error) {
-      console.error("Error deleting patient:", error);
+      log.error('Error deleting patient:', error);
       throw error;
     }
   },
@@ -238,12 +242,12 @@ export const optimizedDatabaseService = {
   async getPatientsBatch(ids: number[]): Promise<Patient[]> {
     try {
       const allPatients = await OptimizedDataService.getPatients();
-      const patients = allPatients.filter(p => ids.includes(p.id!));
+      const patients = allPatients.filter(p => p.id && ids.includes(p.id));
       return patients;
     } catch (error) {
-      console.error("Error getting patients batch:", error);
+      log.error('Error getting patients batch:', error);
       const allPatients = getInitialPatientsSync();
-      return allPatients.filter(p => ids.includes(p.id!));
+      return allPatients.filter(p => p.id && ids.includes(p.id));
     }
   },
 
@@ -281,7 +285,7 @@ export const optimizedDatabaseService = {
         averageAge
       };
     } catch (error) {
-      console.error("Error getting patient statistics:", error);
+      log.error('Error getting patient statistics:', error);
       return {
         total: 0,
         thisMonth: 0,
@@ -314,10 +318,10 @@ export const optimizedDatabaseService = {
         const existingAppointments = localStorage.getItem(APPOINTMENTS_KEY);
         if (existingAppointments) {
           appointments = JSON.parse(existingAppointments);
-          console.log(`📊 Loaded ${appointments.length} appointments from localStorage`);
+          log.info(`📊 Loaded ${appointments.length} appointments from localStorage`);
         }
       } catch (error) {
-        console.error("Error parsing appointments data:", error);
+        log.error('Error parsing appointments data:', error);
       }
 
       // Filter by search term and date range
@@ -344,13 +348,13 @@ export const optimizedDatabaseService = {
       const total = filtered.length;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedAppointments = filtered.sort((a, b) => b.id! - a.id!).slice(startIndex, endIndex);
+      const paginatedAppointments = filtered.sort((a, b) => (b.id || 0) - (a.id || 0)).slice(startIndex, endIndex);
       const hasMore = endIndex < total;
 
-      console.log(`🔍 getAppointments: Returning ${paginatedAppointments.length} appointments (total: ${total})`);
+      log.info(`🔍 getAppointments: Returning ${paginatedAppointments.length} appointments (total: ${total})`);
       return { appointments: paginatedAppointments, total, hasMore };
     } catch (error) {
-      console.error("Error in getAppointments:", error);
+      log.error('Error in getAppointments:', error);
       return { appointments: [], total: 0, hasMore: false };
     }
   },
@@ -360,7 +364,7 @@ export const optimizedDatabaseService = {
       const appointments = await this.getAppointments(1, 1000);
       return appointments.appointments.find(a => a.id === id) || null;
     } catch (error) {
-      console.error("Error getting appointment by ID:", error);
+      log.error('Error getting appointment by ID:', error);
       return null;
     }
   },
@@ -386,9 +390,12 @@ export const optimizedDatabaseService = {
       const updatedAppointments = [...appointments.appointments, newAppointment];
       localStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(updatedAppointments));
 
-      return newAppointment.id!;
+      if (!newAppointment.id) {
+        throw new Error('Failed to generate ID for new appointment');
+      }
+      return newAppointment.id;
     } catch (error) {
-      console.error("Error adding appointment:", error);
+      log.error('Error adding appointment:', error);
       throw error;
     }
   },
@@ -408,7 +415,7 @@ export const optimizedDatabaseService = {
       localStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(updatedAppointments));
       return 'Appointment updated successfully';
     } catch (error) {
-      console.error("Error updating appointment:", error);
+      log.error('Error updating appointment:', error);
       throw error;
     }
   },
@@ -425,7 +432,7 @@ export const optimizedDatabaseService = {
       localStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(filteredAppointments));
       return 'Appointment deleted successfully';
     } catch (error) {
-      console.error("Error deleting appointment:", error);
+      log.error('Error deleting appointment:', error);
       throw error;
     }
   },
@@ -439,10 +446,10 @@ export const optimizedDatabaseService = {
         const existingInvoices = localStorage.getItem(INVOICES_KEY);
         if (existingInvoices) {
           invoices = JSON.parse(existingInvoices);
-          console.log(`📊 Loaded ${invoices.length} invoices from localStorage`);
+          log.info(`📊 Loaded ${invoices.length} invoices from localStorage`);
         }
       } catch (error) {
-        console.error("Error parsing invoices data:", error);
+        log.error('Error parsing invoices data:', error);
       }
 
       // Filter by search term and date range
@@ -470,13 +477,13 @@ export const optimizedDatabaseService = {
       const total = filtered.length;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedInvoices = filtered.sort((a, b) => b.id! - a.id!).slice(startIndex, endIndex);
+      const paginatedInvoices = filtered.sort((a, b) => (b.id || 0) - (a.id || 0)).slice(startIndex, endIndex);
       const hasMore = endIndex < total;
 
-      console.log(`🔍 getInvoices: Returning ${paginatedInvoices.length} invoices (total: ${total})`);
+      log.info(`🔍 getInvoices: Returning ${paginatedInvoices.length} invoices (total: ${total})`);
       return { invoices: paginatedInvoices, total, hasMore };
     } catch (error) {
-      console.error("Error in getInvoices:", error);
+      log.error('Error in getInvoices:', error);
       return { invoices: [], total: 0, hasMore: false };
     }
   },
@@ -486,7 +493,7 @@ export const optimizedDatabaseService = {
       const invoices = await this.getInvoices(1, 1000);
       return invoices.invoices.find(i => i.id === id) || null;
     } catch (error) {
-      console.error("Error getting invoice by ID:", error);
+      log.error('Error getting invoice by ID:', error);
       return null;
     }
   },
@@ -515,9 +522,12 @@ export const optimizedDatabaseService = {
       const updatedInvoices = [...invoices.invoices, newInvoice];
       localStorage.setItem(INVOICES_KEY, JSON.stringify(updatedInvoices));
 
-      return newInvoice.id!;
+      if (!newInvoice.id) {
+        throw new Error('Failed to generate ID for new invoice');
+      }
+      return newInvoice.id;
     } catch (error) {
-      console.error("Error adding invoice:", error);
+      log.error('Error adding invoice:', error);
       throw error;
     }
   },
@@ -537,7 +547,7 @@ export const optimizedDatabaseService = {
       localStorage.setItem(INVOICES_KEY, JSON.stringify(updatedInvoices));
       return 'Invoice updated successfully';
     } catch (error) {
-      console.error("Error updating invoice:", error);
+      log.error('Error updating invoice:', error);
       throw error;
     }
   },
@@ -554,7 +564,7 @@ export const optimizedDatabaseService = {
       localStorage.setItem(INVOICES_KEY, JSON.stringify(filteredInvoices));
       return 'Invoice deleted successfully';
     } catch (error) {
-      console.error("Error deleting invoice:", error);
+      log.error('Error deleting invoice:', error);
       throw error;
     }
   }

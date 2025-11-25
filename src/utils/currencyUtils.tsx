@@ -29,23 +29,22 @@ async function loadCurrencyFromStorage(): Promise<CurrencyConfig> {
         code: saved.code || 'IDR',
         name: getCurrencyName(saved.code),
         symbol: saved.symbol || 'Rp',
-        locale: getLocaleForCurrency(saved.code),
+        locale: getLocaleForCurrency(saved.code)
       };
     }
-  } catch (error) {
-    console.error('Error loading currency from storage:', error);
-  }
+  } catch { // Error handled silently
+    }
   return DEFAULT_CURRENCY;
 }
 
 // Helper function to get currency name from code
 function getCurrencyName(code: string): string {
   const names: Record<string, string> = {
-    'USD': 'US Dollar',
-    'EUR': 'Euro',
-    'GBP': 'British Pound',
-    'JPY': 'Japanese Yen',
-    'IDR': 'Indonesian Rupiah',
+    USD: 'US Dollar',
+    EUR: 'Euro',
+    GBP: 'British Pound',
+    JPY: 'Japanese Yen',
+    IDR: 'Indonesian Rupiah'
   };
   return names[code] || code;
 }
@@ -53,11 +52,11 @@ function getCurrencyName(code: string): string {
 // Helper function to get locale for currency
 function getLocaleForCurrency(code: string): string {
   const locales: Record<string, string> = {
-    'USD': 'en-US',
-    'EUR': 'de-DE',
-    'GBP': 'en-GB',
-    'JPY': 'ja-JP',
-    'IDR': 'id-ID',
+    USD: 'en-US',
+    EUR: 'de-DE',
+    GBP: 'en-GB',
+    JPY: 'ja-JP',
+    IDR: 'id-ID'
   };
   return locales[code] || 'en-US';
 }
@@ -71,12 +70,11 @@ async function saveCurrencyToStorage(config: CurrencyConfig): Promise<void> {
       symbol: config.symbol,
       decimalPlaces: 0, // Default value
       thousandSeparator: '.', // Default for IDR
-      decimalSeparator: ',', // Default for IDR
+      decimalSeparator: ',' // Default for IDR
     };
     await storage.storeCurrencySettings(currencySettings);
-  } catch (error) {
-    console.error('Error saving currency to storage:', error);
-  }
+  } catch { // Error handled silently
+    }
 }
 
 // Get current currency configuration
@@ -110,7 +108,7 @@ export function formatCurrency(amount: number, config?: CurrencyConfig): string 
       style: 'currency',
       currency: currencyConfig.code,
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount);
   } catch {
     // Fallback formatting if Intl.NumberFormat fails
@@ -127,7 +125,7 @@ export function formatCurrencyWhole(amount: number, config?: CurrencyConfig): st
       style: 'currency',
       currency: currencyConfig.code,
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount);
   } catch {
     // Fallback formatting if Intl.NumberFormat fails
@@ -144,7 +142,7 @@ export function formatCurrencyForPrint(amount: number, config?: CurrencyConfig):
       style: 'currency',
       currency: currencyConfig.code,
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount);
 
     // Remove currency code and use symbol for better printing
@@ -174,8 +172,8 @@ export function useCurrency(): [CurrencyConfig, (config: CurrencyConfig) => void
 
   const updateCurrency = (newConfig: CurrencyConfig) => {
     // Fire and forget for UI updates, but log if it fails
-    setCurrencyConfig(newConfig).catch(error => {
-      console.error('Failed to save currency config:', error);
+    setCurrencyConfig(newConfig).catch(() => {
+      // Error handled silently for UI updates
     });
   };
 

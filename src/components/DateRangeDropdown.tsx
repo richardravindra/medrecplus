@@ -59,7 +59,9 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
 
   const handleQuickRange = (days: number) => {
     const endDate = dayjs().endOf('day');
-    const startDate = dayjs().subtract(days - 1, 'day').startOf('day');
+    const startDate = dayjs()
+      .subtract(days - 1, 'day')
+      .startOf('day');
     onChange([startDate, endDate]);
     handleClose();
   };
@@ -68,7 +70,7 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Button
         ref={buttonRef}
-        variant="outlined"
+        variant='outlined'
         onClick={handleOpen}
         startDecorator={<CalendarToday />}
         sx={{
@@ -84,16 +86,14 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
           '& svg': { color: '#ffffff' }
         }}
       >
-        <Typography sx={{ fontSize: '14px', color: '#ffffff' }}>
-          {getButtonText()}
-        </Typography>
+        <Typography sx={{ fontSize: '14px', color: '#ffffff' }}>{getButtonText()}</Typography>
       </Button>
 
       {value[0] || value[1] ? (
         <IconButton
           onClick={handleClear}
-          size="sm"
-          variant="outlined"
+          size='sm'
+          variant='outlined'
           sx={{
             color: '#ffffff',
             borderColor: '#ffffff',
@@ -106,7 +106,7 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
               color: '#ffffff'
             }
           }}
-          title="Clear date range"
+          title='Clear date range'
         >
           <Clear />
         </IconButton>
@@ -116,7 +116,7 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
         anchorEl={buttonRef.current}
         open={isOpen}
         onClose={handleClose}
-        placement="bottom-start"
+        placement='bottom-start'
         sx={{
           '& .MuiMenu-list': {
             backgroundColor: '#1a1a1a',
@@ -129,7 +129,7 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
       >
         <Card sx={{ backgroundColor: '#1a1a1a', p: 2, border: 'none' }}>
           <Box sx={{ mb: 2 }}>
-            <Typography level="body-sm" sx={{ color: '#ffffff', mb: 1, fontWeight: 'bold' }}>
+            <Typography level='body-sm' sx={{ color: '#ffffff', mb: 1, fontWeight: 'bold' }}>
               Select Date Range
             </Typography>
 
@@ -185,13 +185,13 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
             {/* Custom Date Range */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box>
-                <Typography level="body-xs" sx={{ color: '#ffffff', mb: 1 }}>
+                <Typography level='body-xs' sx={{ color: '#ffffff', mb: 1 }}>
                   Start Date
                 </Typography>
                 <Input
-                  type="date"
+                  type='date'
                   value={tempStartDate ? tempStartDate.format('YYYY-MM-DD') : ''}
-                  onChange={(e) => {
+                  onChange={e => {
                     const newDate = e.target.value ? dayjs(e.target.value) : null;
                     setTempStartDate(newDate);
                   }}
@@ -214,13 +214,13 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
               </Box>
 
               <Box>
-                <Typography level="body-xs" sx={{ color: '#ffffff', mb: 1 }}>
+                <Typography level='body-xs' sx={{ color: '#ffffff', mb: 1 }}>
                   End Date
                 </Typography>
                 <Input
-                  type="date"
+                  type='date'
                   value={tempEndDate ? tempEndDate.format('YYYY-MM-DD') : ''}
-                  onChange={(e) => {
+                  onChange={e => {
                     const newDate = e.target.value ? dayjs(e.target.value) : null;
                     setTempEndDate(newDate);
                   }}
@@ -246,8 +246,8 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-end' }}>
               <Button
-                size="sm"
-                variant="plain"
+                size='sm'
+                variant='plain'
                 onClick={handleClose}
                 sx={{
                   color: '#ffffff',
@@ -259,7 +259,7 @@ const DateRangeDropdown: React.FC<DateRangeDropdownProps> = ({ value, onChange }
                 Cancel
               </Button>
               <Button
-                size="sm"
+                size='sm'
                 onClick={handleApply}
                 sx={{
                   backgroundColor: '#1976d2',

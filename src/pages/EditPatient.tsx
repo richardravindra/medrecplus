@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -23,23 +23,17 @@ const EditPatient: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     age: '',
     address: '',
     phone_number: '',
-    initial_diagnosis: '',
+    initial_diagnosis: ''
   });
 
-  useEffect(() => {
-    if (id) {
-      loadPatient(parseInt(id));
-    }
-  }, [id]);
-
-  const loadPatient = async (patientId: number) => {
+  const loadPatient = useCallback(async (patientId: number) => {
     try {
       setFetching(true);
       const foundPatient = await SimpleDataService.getPatientById(patientId);
@@ -51,27 +45,34 @@ const EditPatient: React.FC = () => {
           age: foundPatient.age.toString(),
           address: foundPatient.address || '',
           phone_number: foundPatient.phone_number,
-          initial_diagnosis: foundPatient.initial_diagnosis || '',
+          initial_diagnosis: foundPatient.initial_diagnosis || ''
         });
         log.debug('Patient loaded successfully for editing', { id: patientId }, 'EditPatient');
       } else {
         setError('Patient not found');
         log.warn('Patient not found for editing', { id: patientId }, 'EditPatient');
       }
-    } catch (error) {
+    } catch (err) {
       setError('Failed to load patient details');
-      log.error('Error loading patient', { error, patientId }, 'EditPatient');
+      log.error('Error loading patient', { error: err, patientId }, 'EditPatient');
     } finally {
       setFetching(false);
     }
-  };
+  }, []);
 
-  const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
+  useEffect(() => {
+    if (id) {
+      loadPatient(parseInt(id));
+    }
+  }, [id, loadPatient]);
+
+  const handleInputChange =
+    (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: event.target.value
+      }));
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,25 +104,29 @@ const EditPatient: React.FC = () => {
         age: parseInt(formData.age),
         address: formData.address.trim() || undefined,
         phone_number: formData.phone_number.trim(),
-        initial_diagnosis: formData.initial_diagnosis.trim() || undefined,
+        initial_diagnosis: formData.initial_diagnosis.trim() || undefined
       };
 
       const updatedPatient = await SimpleDataService.updatePatient(patient.id, patientData);
 
       // Log patient update
-      log.info('Patient updated successfully', {
-        id: patient.id,
-        name: patientData.name
-      }, 'EditPatient');
+      log.info(
+        'Patient updated successfully',
+        {
+          id: patient.id,
+          name: patientData.name
+        },
+        'EditPatient'
+      );
 
       if (updatedPatient) {
         navigate(`/patients/${patient.id}`);
       } else {
         setError('Patient not found');
       }
-    } catch (error) {
+    } catch (err) {
       setError('Failed to update patient. Please try again.');
-      log.error('Error updating patient', { error, patientId: patient.id }, 'EditPatient');
+      log.error('Error updating patient', { error: err, patientId: patient.id }, 'EditPatient');
     } finally {
       setLoading(false);
     }
@@ -129,63 +134,69 @@ const EditPatient: React.FC = () => {
 
   if (fetching) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Stack alignItems="center" spacing={2}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+      >
+        <Stack alignItems='center' spacing={2}>
           <CircularProgress />
-          <Typography level="body-lg">Loading patient details...</Typography>
+          <Typography level='body-lg'>Loading patient details...</Typography>
         </Stack>
       </Box>
     );
   }
 
-  if (error && !patient) {
+  if (_error && !patient) {
     return (
-      <Box sx={{
-        maxWidth: '100%',
-        mx: 'auto',
-        px: { xs: 2, sm: 0 }
-      }}>
+      <Box
+        sx={{
+          maxWidth: '100%',
+          mx: 'auto',
+          px: { xs: 2, sm: 0 }
+        }}
+      >
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
-            variant="outlined"
+            variant='outlined'
             startDecorator={<ArrowBack />}
             onClick={() => navigate('/patients')}
             sx={{ borderRadius: 'sm' }}
           >
             Back to Patients
           </Button>
-          <Typography level="h3">Edit Patient</Typography>
+          <Typography level='h3'>Edit Patient</Typography>
         </Box>
-        <Alert color="danger" startDecorator={<Info />}>
-          {error}
+        <Alert color='danger' startDecorator={<Info />}>
+          {_error}
         </Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{
-      width: '100%',
-      height: '100%',
-      p: 2,
-      boxSizing: 'border-box',
-      minWidth: 0
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        p: 2,
+        boxSizing: 'border-box',
+        minWidth: 0
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
-          onClick={() => patient ? navigate(`/patients/${patient.id}`) : navigate('/')}
+          onClick={() => (patient ? navigate(`/patients/${patient.id}`) : navigate('/'))}
           sx={{ borderRadius: 'sm' }}
         >
           {patient ? 'Back to Details' : 'Back to Patients'}
         </Button>
-        <Typography level="h3">Edit Patient</Typography>
+        <Typography level='h3'>Edit Patient</Typography>
       </Box>
 
-      {error && (
-        <Alert color="danger" sx={{ mb: 3 }} startDecorator={<Info />}>
-          {error}
+      {_error && (
+        <Alert color='danger' sx={{ mb: 3 }} startDecorator={<Info />}>
+          {_error}
         </Alert>
       )}
 
@@ -193,21 +204,25 @@ const EditPatient: React.FC = () => {
         <Card>
           <form onSubmit={handleSubmit}>
             <Stack spacing={3}>
-              <Box sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', sm: 'row' },
-                gap: 3
-              }}>
-              <FormControl sx={{
-                width: { xs: '100%', sm: 'auto' }
-              }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: 3
+                }}
+              >
+                <FormControl
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' }
+                  }}
+                >
                   <FormLabel>Record Number</FormLabel>
                   <Input
                     value={patient.record_number}
                     disabled
                     sx={{ width: '150px' }}
                     startDecorator={
-                      <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                      <Typography level='body-sm' sx={{ color: 'text.secondary' }}>
                         Cannot be modified
                       </Typography>
                     }
@@ -215,14 +230,18 @@ const EditPatient: React.FC = () => {
                 </FormControl>
               </Box>
 
-              <Box sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', lg: 'row' },
-                gap: 3
-              }}>
-              <FormControl sx={{
-                width: { xs: '100%', lg: '300px' }
-              }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', lg: 'row' },
+                  gap: 3
+                }}
+              >
+                <FormControl
+                  sx={{
+                    width: { xs: '100%', lg: '300px' }
+                  }}
+                >
                   <FormLabel>Patient Name *</FormLabel>
                   <Input
                     value={formData.name}
@@ -235,14 +254,14 @@ const EditPatient: React.FC = () => {
                 <FormControl sx={{ width: { xs: '100%', sm: '80px' } }}>
                   <FormLabel>Age *</FormLabel>
                   <Input
-                    type="number"
+                    type='number'
                     value={formData.age}
                     onChange={handleInputChange('age')}
-                    placeholder="Age"
+                    placeholder='Age'
                     slotProps={{
                       input: {
                         min: 0,
-                        max: 150,
+                        max: 150
                       }
                     }}
                     required
@@ -255,7 +274,7 @@ const EditPatient: React.FC = () => {
                 <Input
                   value={formData.phone_number}
                   onChange={handleInputChange('phone_number')}
-                  placeholder="Enter phone number (optional)"
+                  placeholder='Enter phone number (optional)'
                 />
               </FormControl>
 
@@ -264,7 +283,7 @@ const EditPatient: React.FC = () => {
                 <Input
                   value={formData.address}
                   onChange={handleInputChange('address')}
-                  placeholder="Enter address (optional)"
+                  placeholder='Enter address (optional)'
                 />
               </FormControl>
 
@@ -273,7 +292,7 @@ const EditPatient: React.FC = () => {
                 <Textarea
                   value={formData.initial_diagnosis}
                   onChange={handleInputChange('initial_diagnosis')}
-                  placeholder="Enter initial diagnosis (optional)"
+                  placeholder='Enter initial diagnosis (optional)'
                   minRows={3}
                   maxRows={6}
                 />
@@ -281,15 +300,15 @@ const EditPatient: React.FC = () => {
 
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 2 }}>
                 <Button
-                  variant="outlined"
-                  color="neutral"
+                  variant='outlined'
+                  color='neutral'
                   onClick={() => navigate(`/patients/${patient.id}`)}
                   disabled={loading}
                 >
                   Cancel
                 </Button>
                 <Button
-                  type="submit"
+                  type='submit'
                   loading={loading}
                   startDecorator={<Save />}
                   disabled={loading}

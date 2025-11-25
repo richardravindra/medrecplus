@@ -1,5 +1,13 @@
 import React, { Suspense } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 import Box from '@mui/joy/Box';
 import CircularProgress from '@mui/joy/CircularProgress';
 import Typography from '@mui/joy/Typography';
@@ -46,16 +54,10 @@ const ChartComponent: React.FC<LazyLineChartProps> = ({
         minWidth={minWidth}
         minHeight={minHeight}
       >
-        <LineChart
-          data={data}
-          margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#444"
-          />
+        <LineChart data={data} margin={{ top: 10, right: 15, left: 10, bottom: 10 }}>
+          <CartesianGrid strokeDasharray='3 3' stroke='#444' />
           <XAxis
-            dataKey="month"
+            dataKey='month'
             tick={{ fill: '#ffffff', fontSize: 12 }}
             axisLine={{ stroke: '#666' }}
           />
@@ -84,7 +86,7 @@ const ChartComponent: React.FC<LazyLineChartProps> = ({
             }}
           />
           <Line
-            type="monotone"
+            type='monotone'
             dataKey={dataKey}
             stroke={stroke}
             strokeWidth={2}
@@ -108,14 +110,14 @@ const LoadingFallback: React.FC<{ height?: number }> = ({ height = 220 }) => (
       color: '#666'
     }}
   >
-    <CircularProgress size="lg" />
-    <Typography level="body-sm" sx={{ mt: 1, color: '#ffffff' }}>
+    <CircularProgress size='lg' />
+    <Typography level='body-sm' sx={{ mt: 1, color: '#ffffff' }}>
       Loading chart...
     </Typography>
   </Box>
 );
 
-export const LazyLineChart: React.FC<LazyLineChartProps> = (props) => {
+export const LazyLineChart: React.FC<LazyLineChartProps> = props => {
   return (
     <Suspense fallback={<LoadingFallback height={props.height} />}>
       <ChartComponent {...props} />

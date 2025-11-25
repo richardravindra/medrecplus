@@ -56,14 +56,16 @@ const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) => {
   };
 
   return (
-    <SidebarContext.Provider value={{ 
-      isCollapsed, 
-      isMobileOpen,
-      toggleSidebar, 
-      openMobileSidebar,
-      closeMobileSidebar,
-      isMobile 
-    }}>
+    <SidebarContext.Provider
+      value={{
+        isCollapsed,
+        isMobileOpen,
+        toggleSidebar,
+        openMobileSidebar,
+        closeMobileSidebar,
+        isMobile
+      }}
+    >
       {children}
     </SidebarContext.Provider>
   );

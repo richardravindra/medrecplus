@@ -12,35 +12,260 @@ import { DataService } from '../services/DataService';
 // Comprehensive arrays for realistic medical professional names
 const FIRST_NAMES = [
   // Male names
-  'James', 'John', 'Robert', 'Michael', 'William', 'David', 'Richard', 'Joseph', 'Thomas', 'Charles',
-  'Christopher', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Donald', 'Steven', 'Paul', 'Andrew', 'Joshua',
-  'Kenneth', 'Kevin', 'Brian', 'George', 'Timothy', 'Ronald', 'Jason', 'Edward', 'Jeffrey', 'Ryan',
-  'Jacob', 'Gary', 'Nicholas', 'Eric', 'Jonathan', 'Stephen', 'Larry', 'Justin', 'Scott', 'Brandon',
-  'Benjamin', 'Samuel', 'Gregory', 'Alexander', 'Patrick', 'Frank', 'Raymond', 'Jack', 'Dennis', 'Jerry',
-  'Tyler', 'Aaron', 'Jose', 'Adam', 'Nathan', 'Henry', 'Douglas', 'Zachary', 'Peter', 'Christian',
-  'Marcus', 'Albert', 'Kyle', 'Walter', 'Harold', 'Jeremy', 'Ethan', 'Carl', 'Austin', 'Gerald',
-  'Connor', 'Dylan', 'Ian', 'Bryan', 'Adrian', 'Nathaniel', 'Caleb', 'Oliver', 'Eli', 'Aaron',
+  'James',
+  'John',
+  'Robert',
+  'Michael',
+  'William',
+  'David',
+  'Richard',
+  'Joseph',
+  'Thomas',
+  'Charles',
+  'Christopher',
+  'Daniel',
+  'Matthew',
+  'Anthony',
+  'Mark',
+  'Donald',
+  'Steven',
+  'Paul',
+  'Andrew',
+  'Joshua',
+  'Kenneth',
+  'Kevin',
+  'Brian',
+  'George',
+  'Timothy',
+  'Ronald',
+  'Jason',
+  'Edward',
+  'Jeffrey',
+  'Ryan',
+  'Jacob',
+  'Gary',
+  'Nicholas',
+  'Eric',
+  'Jonathan',
+  'Stephen',
+  'Larry',
+  'Justin',
+  'Scott',
+  'Brandon',
+  'Benjamin',
+  'Samuel',
+  'Gregory',
+  'Alexander',
+  'Patrick',
+  'Frank',
+  'Raymond',
+  'Jack',
+  'Dennis',
+  'Jerry',
+  'Tyler',
+  'Aaron',
+  'Jose',
+  'Adam',
+  'Nathan',
+  'Henry',
+  'Douglas',
+  'Zachary',
+  'Peter',
+  'Christian',
+  'Marcus',
+  'Albert',
+  'Kyle',
+  'Walter',
+  'Harold',
+  'Jeremy',
+  'Ethan',
+  'Carl',
+  'Austin',
+  'Gerald',
+  'Connor',
+  'Dylan',
+  'Ian',
+  'Bryan',
+  'Adrian',
+  'Nathaniel',
+  'Caleb',
+  'Oliver',
+  'Eli',
+  'Aaron',
   // Female names
-  'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Barbara', 'Susan', 'Jessica', 'Sarah', 'Karen',
-  'Lisa', 'Nancy', 'Betty', 'Helen', 'Sandra', 'Donna', 'Carol', 'Ruth', 'Sharon', 'Michelle',
-  'Laura', 'Sarah', 'Kimberly', 'Ashley', 'Deborah', 'Dorothy', 'Amy', 'Angela', 'Emily', 'Brenda',
-  'Emma', 'Olivia', 'Cynthia', 'Marie', 'Janet', 'Catherine', 'Frances', 'Heather', 'Tiffany', 'Shirley',
-  'Samantha', 'Melissa', 'Debra', 'Stephanie', 'Rebecca', 'Laura', 'Virginia', 'Kathleen', 'Pamela', 'Martha',
-  'Christina', 'Amanda', 'Melissa', 'Jacqueline', 'Stephanie', 'Patricia', 'Rachel', 'Carolyn', 'Janet', 'Virginia',
-  'Maria', 'Heather', 'Diane', 'Julie', 'Joyce', 'Victoria', 'Kelly', 'Nicole', 'Lauren', 'Cynthia'
+  'Mary',
+  'Patricia',
+  'Jennifer',
+  'Linda',
+  'Elizabeth',
+  'Barbara',
+  'Susan',
+  'Jessica',
+  'Sarah',
+  'Karen',
+  'Lisa',
+  'Nancy',
+  'Betty',
+  'Helen',
+  'Sandra',
+  'Donna',
+  'Carol',
+  'Ruth',
+  'Sharon',
+  'Michelle',
+  'Laura',
+  'Sarah',
+  'Kimberly',
+  'Ashley',
+  'Deborah',
+  'Dorothy',
+  'Amy',
+  'Angela',
+  'Emily',
+  'Brenda',
+  'Emma',
+  'Olivia',
+  'Cynthia',
+  'Marie',
+  'Janet',
+  'Catherine',
+  'Frances',
+  'Heather',
+  'Tiffany',
+  'Shirley',
+  'Samantha',
+  'Melissa',
+  'Debra',
+  'Stephanie',
+  'Rebecca',
+  'Laura',
+  'Virginia',
+  'Kathleen',
+  'Pamela',
+  'Martha',
+  'Christina',
+  'Amanda',
+  'Melissa',
+  'Jacqueline',
+  'Stephanie',
+  'Patricia',
+  'Rachel',
+  'Carolyn',
+  'Janet',
+  'Virginia',
+  'Maria',
+  'Heather',
+  'Diane',
+  'Julie',
+  'Joyce',
+  'Victoria',
+  'Kelly',
+  'Nicole',
+  'Lauren',
+  'Cynthia'
 ];
 
 const LAST_NAMES = [
-  'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez',
-  'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin',
-  'Lee', 'Thompson', 'White', 'Harris', 'Clark', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen',
-  'King', 'Wright', 'Baker', 'Carter', 'Green', 'Adams', 'Nelson', 'Campbell', 'Mitchell', 'Roberts',
-  'Turner', 'Phillips', 'Campbell', 'Parker', 'Evans', 'Edwards', 'Collins', 'Stewart', 'Sanchez', 'Morris',
-  'Rogers', 'Reed', 'Cook', 'Morgan', 'Bell', 'Murphy', 'Bailey', 'Rivera', 'Cooper', 'Richardson',
-  'Cox', 'Howard', 'Ward', 'Torres', 'Peterson', 'Gray', 'Ramirez', 'James', 'Watson', 'Brooks',
-  'Kelly', 'Sanders', 'Price', 'Bennett', 'Wood', 'Barnes', 'Ross', 'Henderson', 'Coleman', 'Jenkins',
-  'Perry', 'Powell', 'Long', 'Patterson', 'Hughes', 'Flores', 'Washington', 'Butler', 'Simmons', 'Foster',
-  'Gonzales', 'Bryant', 'Alexander', 'Russell', 'Griffin', 'Diaz', 'Hayes', 'Myers', 'Ford', 'Hamilton'
+  'Smith',
+  'Johnson',
+  'Williams',
+  'Brown',
+  'Jones',
+  'Garcia',
+  'Miller',
+  'Davis',
+  'Rodriguez',
+  'Martinez',
+  'Hernandez',
+  'Lopez',
+  'Gonzalez',
+  'Wilson',
+  'Anderson',
+  'Thomas',
+  'Taylor',
+  'Moore',
+  'Jackson',
+  'Martin',
+  'Lee',
+  'Thompson',
+  'White',
+  'Harris',
+  'Clark',
+  'Lewis',
+  'Robinson',
+  'Walker',
+  'Young',
+  'Allen',
+  'King',
+  'Wright',
+  'Baker',
+  'Carter',
+  'Green',
+  'Adams',
+  'Nelson',
+  'Campbell',
+  'Mitchell',
+  'Roberts',
+  'Turner',
+  'Phillips',
+  'Campbell',
+  'Parker',
+  'Evans',
+  'Edwards',
+  'Collins',
+  'Stewart',
+  'Sanchez',
+  'Morris',
+  'Rogers',
+  'Reed',
+  'Cook',
+  'Morgan',
+  'Bell',
+  'Murphy',
+  'Bailey',
+  'Rivera',
+  'Cooper',
+  'Richardson',
+  'Cox',
+  'Howard',
+  'Ward',
+  'Torres',
+  'Peterson',
+  'Gray',
+  'Ramirez',
+  'James',
+  'Watson',
+  'Brooks',
+  'Kelly',
+  'Sanders',
+  'Price',
+  'Bennett',
+  'Wood',
+  'Barnes',
+  'Ross',
+  'Henderson',
+  'Coleman',
+  'Jenkins',
+  'Perry',
+  'Powell',
+  'Long',
+  'Patterson',
+  'Hughes',
+  'Flores',
+  'Washington',
+  'Butler',
+  'Simmons',
+  'Foster',
+  'Gonzales',
+  'Bryant',
+  'Alexander',
+  'Russell',
+  'Griffin',
+  'Diaz',
+  'Hayes',
+  'Myers',
+  'Ford',
+  'Hamilton'
 ];
 
 // Comprehensive medical roles and specialties
@@ -126,7 +351,7 @@ const MEDICAL_ROLES = [
   'Family Nurse Practitioner',
   'Adult-Gerontology Nurse Practitioner',
   'Pediatric Nurse Practitioner',
-  'Women\'s Health Nurse Practitioner',
+  "Women's Health Nurse Practitioner",
   'Neonatal Nurse Practitioner',
   'Psychiatric-Mental Health Nurse Practitioner',
   'Certified Nurse Midwife (CNM)',
@@ -364,11 +589,23 @@ function addProfessionalTitle(name: string, role: string): string {
   } else if (role.includes('Pharmacist')) {
     const pharmacistTitle = pharmacistTitles[Math.floor(Math.random() * pharmacistTitles.length)];
     return `${name}, ${pharmacistTitle}`;
-  } else if (role.includes('Psychologist') || role.includes('Therapist') || role.includes('Counselor')) {
+  } else if (
+    role.includes('Psychologist') ||
+    role.includes('Therapist') ||
+    role.includes('Counselor')
+  ) {
     return name; // No medical doctor title for these roles
-  } else if (role.includes('Technician') || role.includes('Technologist') || role.includes('Assistant') ||
-             role.includes('Coordinator') || role.includes('Manager') || role.includes('Administrator') ||
-             role.includes('Secretary') || role.includes('Clerk') || role.includes('Worker')) {
+  } else if (
+    role.includes('Technician') ||
+    role.includes('Technologist') ||
+    role.includes('Assistant') ||
+    role.includes('Coordinator') ||
+    role.includes('Manager') ||
+    role.includes('Administrator') ||
+    role.includes('Secretary') ||
+    role.includes('Clerk') ||
+    role.includes('Worker')
+  ) {
     return name; // No professional titles for support staff
   } else {
     return `${randomTitle} ${name}`;
@@ -391,7 +628,6 @@ function generateOperatorRecord(counter: number): Operator {
 
 // Main function to generate all operators
 export async function generate800Operators(): Promise<void> {
-  console.log('🚀 Starting generation of 800 medical operators...');
 
   const totalOperators = 800;
   const batchSize = 50; // Process in batches to avoid overwhelming the system
@@ -402,10 +638,10 @@ export async function generate800Operators(): Promise<void> {
   try {
     const existingOperators = await DataService.getOperators();
     if (existingOperators.length > 0) {
-      console.log(`📊 Found ${existingOperators.length} existing operators`);
+      // Start counter from existing operators
     }
   } catch {
-    console.log('⚠️ Could not fetch existing operators, starting fresh');
+    // Error getting existing operators
   }
 
   // Generate operators in batches
@@ -414,16 +650,10 @@ export async function generate800Operators(): Promise<void> {
     const batchEnd = Math.min(batchStart + batchSize, totalOperators);
     const batchOperators: Operator[] = [];
 
-    console.log(`📝 Generating batch ${batch + 1}/${totalOperators / batchSize} (operators ${batchStart + 1}-${batchEnd})`);
-
+  
     for (let i = batchStart; i < batchEnd; i++) {
       const operator = generateOperatorRecord(startCounter + i);
       batchOperators.push(operator);
-
-      // Progress indicator for every 10 operators in batch
-      if ((i - batchStart + 1) % 10 === 0) {
-        console.log(`   Generated ${i - batchStart + 1}/${batchEnd - batchStart} operators in current batch`);
-      }
     }
 
     allOperators.push(...batchOperators);
@@ -433,89 +663,74 @@ export async function generate800Operators(): Promise<void> {
   }
 
   // Get existing operators and combine with new ones
-  try {
-    const existingOperators = await DataService.getOperators();
-    const combinedOperators = [...existingOperators, ...allOperators];
+  const existingOperators = await DataService.getOperators();
+  const combinedOperators = [...existingOperators, ...allOperators];
 
-    // Remove duplicates based on name and role combination
-    const uniqueOperators = combinedOperators.filter((operator, index, self) =>
-      index === self.findIndex((op) =>
-        op.name === operator.name && op.role === operator.role
-      )
-    );
+  // Remove duplicates based on name and role combination
+  const uniqueOperators = combinedOperators.filter(
+    (operator, index, self) =>
+      index === self.findIndex(op => op.name === operator.name && op.role === operator.role)
+  );
 
-    console.log(`💾 Saving ${uniqueOperators.length} total operators to storage...`);
-    await DataService.saveData('operators', uniqueOperators);
-    console.log(`✅ Successfully saved ${uniqueOperators.length} operators (${allOperators.length} new, ${existingOperators.length} existing)`);
+  await DataService.saveData('operators', uniqueOperators);
 
-    // Statistics
-    console.log('\n🎉 Successfully generated 800 medical operators!');
-    console.log('📊 Generation Statistics:');
-    console.log(`   • Total Operators in System: ${uniqueOperators.length}`);
-    console.log(`   • New Operators Added: ${allOperators.length}`);
-    console.log(`   • Existing Operators: ${existingOperators.length}`);
+  // Statistics
 
-    // Role distribution analysis
-    const roleCounts = uniqueOperators.reduce((acc, operator) => {
+  // Role distribution analysis
+  const roleCounts = uniqueOperators.reduce(
+    (acc, operator) => {
       const category = getRoleCategory(operator.role);
       acc[category] = (acc[category] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>);
+    },
+    {} as Record<string, number>
+  );
 
-    console.log('\n👥 Staff Distribution by Category:');
-    Object.entries(roleCounts)
-      .sort(([,a], [,b]) => b - a)
-      .forEach(([category, count]) => {
-        const percentage = ((count / uniqueOperators.length) * 100).toFixed(1);
-        console.log(`   • ${category}: ${count} (${percentage}%)`);
-      });
+  Object.entries(roleCounts)
+    .sort(([, a], [, b]) => b - a)
+    .forEach(([_category, count]) => {
+      ((count / uniqueOperators.length) * 100).toFixed(1);
+    });
 
-    // Top 15 most common roles
-    const roleDistribution = uniqueOperators.reduce((acc, operator) => {
+  // Top 15 most common roles
+  const roleDistribution = uniqueOperators.reduce(
+    (acc, operator) => {
       acc[operator.role] = (acc[operator.role] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>);
+    },
+    {} as Record<string, number>
+  );
 
-    console.log('\n🏥 Top 15 Most Common Roles:');
-    Object.entries(roleDistribution)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 15)
-      .forEach(([role, count]) => {
-        const percentage = ((count / uniqueOperators.length) * 100).toFixed(1);
-        console.log(`   • ${role}: ${count} (${percentage}%)`);
-      });
-
-  } catch (error) {
-    console.error('❌ Error saving operators:', error);
-    throw error;
-  }
+  Object.entries(roleDistribution)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 15)
+    .forEach(([_role, count]) => {
+      ((count / uniqueOperators.length) * 100).toFixed(1);
+    });
 }
 
 // Helper function to categorize roles
 function getRoleCategory(role: string): string {
   if (role.includes('Surgeon')) return 'Surgical Specialists';
-  if (role.includes('Cardi') || role.includes('Neuro') || role.includes('Pediatric')) return 'Medical Specialists';
+  if (role.includes('Cardi') || role.includes('Neuro') || role.includes('Pediatric'))
+    return 'Medical Specialists';
   if (role.includes('Nurse')) return 'Nursing Staff';
   if (role.includes('Physician Assistant') || role.includes('PA')) return 'Physician Assistants';
   if (role.includes('Pharmacist')) return 'Pharmacy Staff';
-  if (role.includes('Therapist') || role.includes('Physical') || role.includes('Occupational')) return 'Therapy & Rehabilitation';
+  if (role.includes('Therapist') || role.includes('Physical') || role.includes('Occupational'))
+    return 'Therapy & Rehabilitation';
   if (role.includes('Technologist') || role.includes('Technician')) return 'Technical Staff';
-  if (role.includes('Manager') || role.includes('Director') || role.includes('Administrator')) return 'Administration & Management';
-  if (role.includes('Coordinator') || role.includes('Navigator') || role.includes('Case Manager')) return 'Care Coordination';
+  if (role.includes('Manager') || role.includes('Director') || role.includes('Administrator'))
+    return 'Administration & Management';
+  if (role.includes('Coordinator') || role.includes('Navigator') || role.includes('Case Manager'))
+    return 'Care Coordination';
   if (role.includes('Assistant') || role.includes('Aide')) return 'Support Staff';
   return 'Other Medical Professionals';
 }
 
 // Utility function to clear all operators (use with caution)
 export async function clearAllOperators(): Promise<void> {
-  console.log('🗑️ Clearing all existing operators...');
-  try {
-    await DataService.saveData('operators', []);
-    console.log('✅ All operators cleared successfully');
-  } catch (error) {
-    console.error('❌ Error clearing operators:', error);
-    throw error;
-  }
+  await DataService.saveData('operators', []);
 }
 
 // Export for use in console or component
@@ -538,7 +753,4 @@ if (typeof window !== 'undefined') {
   window.generate800Operators = generate800Operators;
   window.clearAllOperators = clearAllOperators;
 
-  console.log('📋 Operator Data Generator Console Functions Available:');
-  console.log('   • generate800Operators() - Generate 800 medical operators');
-  console.log('   • clearAllOperators() - Clear all existing operators');
 }

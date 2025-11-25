@@ -18,6 +18,8 @@ import Alert from '@mui/joy/Alert';
 import IconButton from '@mui/joy/IconButton';
 import Edit from '@mui/icons-material/Edit';
 import Delete from '@mui/icons-material/Delete';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useConfirmDialog } from '../../hooks/useDialog';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Sheet from '@mui/joy/Sheet';
@@ -38,7 +40,7 @@ const TreatmentSettings: React.FC = () => {
   const [currency] = useCurrency();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [isTreatmentModalOpen, setIsTreatmentModalOpen] = useState(false);
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
   const [treatmentFormData, setTreatmentFormData] = useState({
@@ -46,6 +48,9 @@ const TreatmentSettings: React.FC = () => {
     description: '',
     price: ''
   });
+
+  // Dialog hook
+  const confirmDialog = useConfirmDialog();
 
   useEffect(() => {
     loadTreatments();
@@ -60,22 +65,26 @@ const TreatmentSettings: React.FC = () => {
       const storedTreatments = await SimpleDataService.getTreatments();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTreatments(storedTreatments as any);
-      log.debug('Treatments loaded successfully', { count: storedTreatments.length }, 'TreatmentSettings');
-    } catch (error) {
-      console.error('Error loading treatments:', error);
-      log.error('Failed to load treatments', { error }, 'TreatmentSettings');
+      log.debug(
+        'Treatments loaded successfully',
+        { count: storedTreatments.length },
+        'TreatmentSettings'
+      );
+    } catch {
+      log.error('Failed to load treatments', { _error: 'Failed to load treatments' }, 'TreatmentSettings');
       setError('Failed to load treatments');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTreatmentInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setTreatmentFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
+  const handleTreatmentInputChange =
+    (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      setTreatmentFormData(prev => ({
+        ...prev,
+        [field]: event.target.value
+      }));
+    };
 
   const handleAddTreatment = () => {
     setEditingTreatment(null);
@@ -93,20 +102,31 @@ const TreatmentSettings: React.FC = () => {
     setIsTreatmentModalOpen(true);
   };
 
-  const handleDeleteTreatment = async (treatment: Treatment) => {
-    if (window.confirm(`Are you sure you want to delete treatment "${treatment.name}"?`)) {
-      try {
-        const updatedTreatments = treatments.filter(t => t.id !== treatment.id);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await SimpleDataService.saveTreatments(updatedTreatments as any);
-        setTreatments(updatedTreatments);
-        log.info('Treatment deleted', { id: treatment.id, name: treatment.name }, 'TreatmentSettings');
-      } catch (error) {
-        console.error('Failed to delete treatment:', error);
-        log.error('Failed to delete treatment', { error, treatmentId: treatment.id }, 'TreatmentSettings');
-        setError('Failed to delete treatment');
+  const handleDeleteTreatment = (treatment: Treatment) => {
+    confirmDialog.openDialog({
+      title: 'Delete Treatment',
+      message: `Are you sure you want to delete treatment "${treatment.name}"?`,
+      onConfirm: async () => {
+        try {
+          const updatedTreatments = treatments.filter(t => t.id !== treatment.id);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await SimpleDataService.saveTreatments(updatedTreatments as any);
+          setTreatments(updatedTreatments);
+          log.info(
+            'Treatment deleted',
+            { id: treatment.id, name: treatment.name },
+            'TreatmentSettings'
+          );
+        } catch {
+          log.error(
+            'Failed to delete treatment',
+            { _error, treatmentId: treatment.id },
+            'TreatmentSettings'
+          );
+          setError('Failed to delete treatment');
+        }
       }
-    }
+    });
   };
 
   const handleTreatmentSubmit = async (e: React.FormEvent) => {
@@ -135,10 +155,19 @@ const TreatmentSettings: React.FC = () => {
         // Update existing treatment
         updatedTreatments = treatments.map(t =>
           t.id === editingTreatment.id
-            ? { ...t, name: treatmentFormData.name.trim(), description: treatmentFormData.description.trim(), price }
+            ? {
+                ...t,
+                name: treatmentFormData.name.trim(),
+                description: treatmentFormData.description.trim(),
+                price
+              }
             : t
         );
-        log.info('Treatment updated', { id: editingTreatment.id, name: treatmentFormData.name.trim() }, 'TreatmentSettings');
+        log.info(
+          'Treatment updated',
+          { id: editingTreatment.id, name: treatmentFormData.name.trim() },
+          'TreatmentSettings'
+        );
       } else {
         // Add new treatment
         const newTreatment: Treatment = {
@@ -149,20 +178,23 @@ const TreatmentSettings: React.FC = () => {
           created_at: new Date().toISOString()
         };
         updatedTreatments = [...treatments, newTreatment];
-        log.info('Treatment created', { id: newTreatment.id, name: newTreatment.name }, 'TreatmentSettings');
+        log.info(
+          'Treatment created',
+          { id: newTreatment.id, name: newTreatment.name },
+          'TreatmentSettings'
+        );
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await SimpleDataService.saveTreatments(updatedTreatments as any);
+      await SimpleDataService.saveTreatments(updatedTreatments as any);
       setTreatments(updatedTreatments);
 
       setIsTreatmentModalOpen(false);
       setTreatmentFormData({ name: '', description: '', price: '' });
       setEditingTreatment(null);
       setError(null);
-    } catch (error) {
-      console.error('Failed to save treatment:', error);
-      log.error('Failed to save treatment', { error }, 'TreatmentSettings');
+    } catch {
+      log.error('Failed to save treatment', { _error: 'Failed to save treatment' }, 'TreatmentSettings');
       setError(editingTreatment ? 'Failed to update treatment' : 'Failed to add treatment');
     }
   };
@@ -171,53 +203,57 @@ const TreatmentSettings: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Typography level="body-lg">Loading treatments...</Typography>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+      >
+        <Typography level='body-lg'>Loading treatments...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      p: { xs: 1, md: 2 },
-      pt: { xs: 0, md: 2 },
-      pr: { xs: 2, md: 2 },
-      boxSizing: 'border-box',
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        p: { xs: 1, md: 2 },
+        pt: { xs: 0, md: 2 },
+        pr: { xs: 2, md: 2 },
+        boxSizing: 'border-box',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/settings')}
           sx={{ borderRadius: 'sm' }}
         >
           Back to Settings
         </Button>
-        <Typography level="h2">Treatment Management</Typography>
+        <Typography level='h2'>Treatment Management</Typography>
       </Box>
 
-      {error && (
-        <Alert color="danger" sx={{ mb: 3 }}>
-          {error}
+      {_error && (
+        <Alert color='danger' sx={{ mb: 3 }}>
+          {_error}
         </Alert>
       )}
 
       <Card>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
-            <Typography level="h4">Available Treatments</Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            <Typography level='h4'>Available Treatments</Typography>
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               Manage available treatments and their pricing
             </Typography>
           </Box>
           <Button
-            variant="solid"
-            color="primary"
+            variant='solid'
+            color='primary'
             startDecorator={<Add />}
             onClick={handleAddTreatment}
           >
@@ -227,35 +263,33 @@ const TreatmentSettings: React.FC = () => {
 
         {treatments.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography level="body-lg" sx={{ color: '#ffffff', mb: 2 }}>
+            <Typography level='body-lg' sx={{ color: '#ffffff', mb: 2 }}>
               No treatments available
             </Typography>
-            <Button
-              variant="outlined"
-              startDecorator={<Add />}
-              onClick={handleAddTreatment}
-            >
+            <Button variant='outlined' startDecorator={<Add />} onClick={handleAddTreatment}>
               Add First Treatment
             </Button>
           </Box>
         ) : (
-          <Sheet sx={{
-            overflow: 'auto',
-            borderRadius: 'sm',
-            overflowX: 'auto',
-            width: '100%',
-            maxWidth: '100%'
-          }}>
+          <Sheet
+            sx={{
+              overflow: 'auto',
+              borderRadius: 'sm',
+              overflowX: 'auto',
+              width: '100%',
+              maxWidth: '100%'
+            }}
+          >
             <Box sx={{ overflowX: 'auto', width: '100%' }}>
               <Table
-                aria-labelledby="tableTitle"
+                aria-labelledby='tableTitle'
                 hoverRow
                 sx={{
                   minWidth: { xs: 'auto', md: 'auto' },
                   width: { xs: '100%', md: '100%' },
                   tableLayout: { xs: 'auto', md: 'auto' },
                   '& tbody tr:hover': {
-                    backgroundColor: 'background.level2',
+                    backgroundColor: 'background.level2'
                   },
                   '& thead th': {
                     backgroundColor: 'background.level1',
@@ -263,15 +297,15 @@ const TreatmentSettings: React.FC = () => {
                     color: 'text.primary',
                     whiteSpace: 'nowrap',
                     minWidth: { xs: 'auto', md: 'auto' },
-                    padding: { xs: '8px 12px', md: '12px' },
+                    padding: { xs: '8px 12px', md: '12px' }
                   },
                   '& tbody td': {
                     whiteSpace: 'nowrap',
                     minWidth: { xs: 'auto', md: 'auto' },
                     padding: { xs: '8px 12px', md: '12px' },
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  },
+                    textOverflow: 'ellipsis'
+                  }
                 }}
               >
                 <thead>
@@ -283,37 +317,37 @@ const TreatmentSettings: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {treatments.map((treatment) => (
+                  {treatments.map(treatment => (
                     <tr key={treatment.id}>
                       <td>
-                        <Typography level="body-sm" fontWeight="bold">
+                        <Typography level='body-sm' fontWeight='bold'>
                           {treatment.name}
                         </Typography>
                       </td>
                       <td>
-                        <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+                        <Typography level='body-sm' sx={{ color: '#ffffff' }}>
                           {treatment.description}
                         </Typography>
                       </td>
                       <td>
-                        <Typography level="body-sm" color="success" fontWeight="bold">
+                        <Typography level='body-sm' color='success' fontWeight='bold'>
                           {formatCurrency(treatment.price, currency)}
                         </Typography>
                       </td>
                       <td>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                           <IconButton
-                            size="sm"
-                            variant="outlined"
-                            color="neutral"
+                            size='sm'
+                            variant='outlined'
+                            color='neutral'
                             onClick={() => handleEditTreatment(treatment)}
                           >
                             <Edit />
                           </IconButton>
                           <IconButton
-                            size="sm"
-                            variant="outlined"
-                            color="danger"
+                            size='sm'
+                            variant='outlined'
+                            color='danger'
                             onClick={() => handleDeleteTreatment(treatment)}
                           >
                             <Delete />
@@ -344,7 +378,7 @@ const TreatmentSettings: React.FC = () => {
                   <Input
                     value={treatmentFormData.name}
                     onChange={handleTreatmentInputChange('name')}
-                    placeholder="Enter treatment name"
+                    placeholder='Enter treatment name'
                     required
                     sx={{
                       color: '#ffffff',
@@ -364,7 +398,7 @@ const TreatmentSettings: React.FC = () => {
                   <Input
                     value={treatmentFormData.description}
                     onChange={handleTreatmentInputChange('description')}
-                    placeholder="Enter treatment description"
+                    placeholder='Enter treatment description'
                     required
                     sx={{
                       color: '#ffffff',
@@ -382,10 +416,10 @@ const TreatmentSettings: React.FC = () => {
                 <FormControl>
                   <FormLabel>Price (IDR) *</FormLabel>
                   <Input
-                    type="number"
+                    type='number'
                     value={treatmentFormData.price}
                     onChange={handleTreatmentInputChange('price')}
-                    placeholder="Enter price in IDR"
+                    placeholder='Enter price in IDR'
                     required
                     slotProps={{ input: { min: 0 } }}
                     sx={{
@@ -403,13 +437,13 @@ const TreatmentSettings: React.FC = () => {
 
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
                   <Button
-                    variant="outlined"
-                    color="neutral"
+                    variant='outlined'
+                    color='neutral'
                     onClick={() => setIsTreatmentModalOpen(false)}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" variant="solid" color="primary">
+                  <Button type='submit' variant='solid' color='primary'>
                     {editingTreatment ? 'Update' : 'Add'} Treatment
                   </Button>
                 </Box>
@@ -418,6 +452,18 @@ const TreatmentSettings: React.FC = () => {
           </DialogContent>
         </ModalDialog>
       </Modal>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.isOpen}
+        onClose={confirmDialog.closeDialog}
+        onConfirm={confirmDialog.handleConfirm}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        variant={confirmDialog.config.variant}
+      />
     </Box>
   );
 };

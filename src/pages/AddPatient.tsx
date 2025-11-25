@@ -20,14 +20,14 @@ import { log } from '../utils/logger';
 const AddPatient: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [recordNumber, setRecordNumber] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     age: '',
     address: '',
     phone_number: '',
-    initial_diagnosis: '',
+    initial_diagnosis: ''
   });
 
   useEffect(() => {
@@ -38,17 +38,18 @@ const AddPatient: React.FC = () => {
     try {
       const number = await SimpleDataService.generateRecordNumber();
       setRecordNumber(number);
-    } catch (error) {
-      log.error('Error generating record number', { error }, 'AddPatient');
+    } catch (err) {
+      log.error('Error generating record number', { error: err }, 'AddPatient');
     }
   };
 
-  const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
+  const handleInputChange =
+    (field: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: event.target.value
+      }));
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,79 +76,87 @@ const AddPatient: React.FC = () => {
         age: parseInt(formData.age),
         address: formData.address.trim() || undefined,
         phone_number: formData.phone_number.trim(),
-        initial_diagnosis: formData.initial_diagnosis.trim() || undefined,
+        initial_diagnosis: formData.initial_diagnosis.trim() || undefined
       };
 
-      console.log('💾 About to save patient:', patientData);
       const newPatient = await SimpleDataService.savePatient(patientData);
-      console.log('✅ Patient saved successfully:', newPatient);
 
       // Debug storage after saving
       await SimpleDataService.debugPatientStorage();
 
       // Log patient creation
-      log.info('Patient created successfully', {
-        id: newPatient.id,
-        name: patientData.name
-      }, 'AddPatient');
+      log.info(
+        'Patient created successfully',
+        {
+          id: newPatient.id,
+          name: patientData.name
+        },
+        'AddPatient'
+      );
 
       if (newPatient.id) {
         navigate(`/patients/${newPatient.id}`);
       } else {
         throw new Error('Patient ID not returned from save operation');
       }
-    } catch (error) {
+    } catch (err) {
       setError('Failed to add patient. Please try again.');
-      log.error('Error adding patient', { error, formData }, 'AddPatient');
+      log.error('Error adding patient', { error: err, formData }, 'AddPatient');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box sx={{
-      width: '100%',
-      height: '100%',
-      p: 2,
-      boxSizing: 'border-box',
-      minWidth: 0
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        p: 2,
+        boxSizing: 'border-box',
+        minWidth: 0
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/patients')}
           sx={{ borderRadius: 'sm' }}
         >
           Back to Patients
         </Button>
-        <Typography level="h3">Add New Patient</Typography>
+        <Typography level='h3'>Add New Patient</Typography>
       </Box>
 
-      {error && (
-        <Alert color="danger" sx={{ mb: 3 }} startDecorator={<Info />}>
-          {error}
+      {_error && (
+        <Alert color='danger' sx={{ mb: 3 }} startDecorator={<Info />}>
+          {_error}
         </Alert>
       )}
 
       <Card>
         <form onSubmit={handleSubmit}>
           <Stack spacing={3}>
-            <Box sx={{
+            <Box
+              sx={{
                 display: 'flex',
                 flexDirection: { xs: 'column', sm: 'row' },
                 gap: 3
-              }}>
-              <FormControl sx={{
-                width: { xs: '100%', sm: 'auto' }
-              }}>
+              }}
+            >
+              <FormControl
+                sx={{
+                  width: { xs: '100%', sm: 'auto' }
+                }}
+              >
                 <FormLabel>Record Number</FormLabel>
                 <Input
                   value={recordNumber}
                   disabled
                   sx={{ width: '150px' }}
                   startDecorator={
-                    <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                    <Typography level='body-sm' sx={{ color: 'text.secondary' }}>
                       Auto-generated
                     </Typography>
                   }
@@ -155,14 +164,18 @@ const AddPatient: React.FC = () => {
               </FormControl>
             </Box>
 
-            <Box sx={{
+            <Box
+              sx={{
                 display: 'flex',
                 flexDirection: { xs: 'column', lg: 'row' },
                 gap: 3
-              }}>
-              <FormControl sx={{
-                width: { xs: '100%', lg: '300px' }
-              }}>
+              }}
+            >
+              <FormControl
+                sx={{
+                  width: { xs: '100%', lg: '300px' }
+                }}
+              >
                 <FormLabel>Patient Name *</FormLabel>
                 <Input
                   value={formData.name}
@@ -184,14 +197,14 @@ const AddPatient: React.FC = () => {
               <FormControl sx={{ width: { xs: '100%', sm: '80px' } }}>
                 <FormLabel>Age *</FormLabel>
                 <Input
-                  type="number"
+                  type='number'
                   value={formData.age}
                   onChange={handleInputChange('age')}
-                  placeholder="Age"
+                  placeholder='Age'
                   slotProps={{
                     input: {
                       min: 0,
-                      max: 150,
+                      max: 150
                     }
                   }}
                   required
@@ -213,7 +226,7 @@ const AddPatient: React.FC = () => {
               <Input
                 value={formData.phone_number}
                 onChange={handleInputChange('phone_number')}
-                placeholder="Enter phone number (optional)"
+                placeholder='Enter phone number (optional)'
                 sx={{
                   '& input': {
                     color: '#ffffff !important'
@@ -231,7 +244,7 @@ const AddPatient: React.FC = () => {
               <Input
                 value={formData.address}
                 onChange={handleInputChange('address')}
-                placeholder="Enter address (optional)"
+                placeholder='Enter address (optional)'
                 sx={{
                   '& input': {
                     color: '#ffffff !important'
@@ -249,7 +262,7 @@ const AddPatient: React.FC = () => {
               <Textarea
                 value={formData.initial_diagnosis}
                 onChange={handleInputChange('initial_diagnosis')}
-                placeholder="Enter initial diagnosis (optional)"
+                placeholder='Enter initial diagnosis (optional)'
                 minRows={3}
                 maxRows={6}
                 sx={{
@@ -264,16 +277,18 @@ const AddPatient: React.FC = () => {
               />
             </FormControl>
 
-            <Box sx={{
+            <Box
+              sx={{
                 display: 'flex',
                 flexDirection: { xs: 'column', sm: 'row' },
                 gap: 2,
                 justifyContent: 'flex-end',
                 pt: 2
-              }}>
+              }}
+            >
               <Button
-                variant="outlined"
-                color="neutral"
+                variant='outlined'
+                color='neutral'
                 onClick={() => navigate('/patients')}
                 disabled={loading}
                 sx={{ width: { xs: '100%', sm: 'auto' } }}
@@ -281,7 +296,7 @@ const AddPatient: React.FC = () => {
                 Cancel
               </Button>
               <Button
-                type="submit"
+                type='submit'
                 loading={loading}
                 startDecorator={<Save />}
                 disabled={loading}

@@ -1,6 +1,15 @@
 import { IndexedDBStorage } from '../utils/IndexedDBStorage';
 import { ChunkedDataRestore } from '../utils/ChunkedDataRestore';
-import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
+import {
+  Patient,
+  Invoice,
+  Appointment,
+  VitalSigns,
+  Treatment,
+  Operator,
+  CustomExamination,
+  ReceiptConfig
+} from '../types';
 import { log } from '../utils/logger';
 
 // Type guard functions (same as original DataService)
@@ -13,7 +22,12 @@ function isInvoice(entity: DataEntity): entity is Invoice {
 }
 
 function isAppointment(entity: DataEntity): entity is Appointment {
-  return 'patientName' in entity && 'operatorName' in entity && 'date' in entity && 'vitalSigns' in entity;
+  return (
+    'patientName' in entity &&
+    'operatorName' in entity &&
+    'date' in entity &&
+    'vitalSigns' in entity
+  );
 }
 
 function isOperator(entity: DataEntity): entity is Operator {
@@ -24,25 +38,25 @@ function isCustomExamination(entity: DataEntity): entity is CustomExamination {
   return 'unit' in entity && 'id' in entity && 'name' in entity && !('record_number' in entity);
 }
 
-
-export type DataEntity = (Patient & Record<string, unknown>) |
-                   (Invoice & Record<string, unknown>) |
-                   (Appointment & Record<string, unknown>) |
-                   (Operator & Record<string, unknown>) |
-                   (CustomExamination & Record<string, unknown>) |
-                   (ReceiptConfig & Record<string, unknown>) |
-                   (Record<string, unknown> & {
-  patientName?: string;
-  patientId?: number;
-  operatorName?: string;
-  operatorId?: number;
-  date?: string;
-  invoiceNumber?: string;
-  status?: string;
-  totalAmount?: number;
-  vitalSigns?: VitalSigns;
-  treatments?: Treatment[];
-});
+export type DataEntity =
+  | (Patient & Record<string, unknown>)
+  | (Invoice & Record<string, unknown>)
+  | (Appointment & Record<string, unknown>)
+  | (Operator & Record<string, unknown>)
+  | (CustomExamination & Record<string, unknown>)
+  | (ReceiptConfig & Record<string, unknown>)
+  | (Record<string, unknown> & {
+      patientName?: string;
+      patientId?: number;
+      operatorName?: string;
+      operatorId?: number;
+      date?: string;
+      invoiceNumber?: string;
+      status?: string;
+      totalAmount?: number;
+      vitalSigns?: VitalSigns;
+      treatments?: Treatment[];
+    });
 
 // Cache configuration
 interface CacheConfig {
@@ -107,8 +121,9 @@ export class OptimizedDataService {
 
     // If cache is too large, remove oldest entries
     if (this.cache.size > config.maxSize) {
-      const entries = Array.from(this.cache.entries())
-        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+      const entries = Array.from(this.cache.entries()).sort(
+        (a, b) => a[1].timestamp - b[1].timestamp
+      );
 
       const toRemove = entries.slice(0, this.cache.size - config.maxSize);
       toRemove.forEach(([key]) => this.cache.delete(key));
@@ -119,14 +134,17 @@ export class OptimizedDataService {
     return JSON.stringify(options);
   }
 
-  private static async getDataWithCache(key: string, options: QueryOptions = {}): Promise<DataEntity[]> {
+  private static async getDataWithCache(
+    key: string,
+    options: QueryOptions = {}
+  ): Promise<DataEntity[]> {
     const queryHash = this.generateQueryHash(options);
     const cacheKey = `${key}_${queryHash}`;
     const now = Date.now();
 
     // Check cache first
     const cachedEntry = this.cache.get(cacheKey);
-    if (cachedEntry && (now - cachedEntry.timestamp) < this.DEFAULT_CACHE_CONFIG.ttl) {
+    if (cachedEntry && now - cachedEntry.timestamp < this.DEFAULT_CACHE_CONFIG.ttl) {
       log.debug(`Cache hit for ${key}`, { queryHash }, 'DataService');
       return cachedEntry.data;
     }
@@ -154,7 +172,11 @@ export class OptimizedDataService {
       // Try IndexedDB first
       const indexedDBData = await IndexedDBStorage.getData(key);
       if (indexedDBData && indexedDBData.length > 0) {
-        log.debug(`Retrieved ${indexedDBData.length} ${key} from IndexedDB`, undefined, 'DataService');
+        log.debug(
+          `Retrieved ${indexedDBData.length} ${key} from IndexedDB`,
+          undefined,
+          'DataService'
+        );
         return indexedDBData;
       }
     } catch (error) {
@@ -165,7 +187,11 @@ export class OptimizedDataService {
     try {
       const localStorageData = ChunkedDataRestore.getDataFromStorage(key);
       if (localStorageData && localStorageData.length > 0) {
-        log.debug(`Retrieved ${localStorageData.length} ${key} from localStorage`, undefined, 'DataService');
+        log.debug(
+          `Retrieved ${localStorageData.length} ${key} from localStorage`,
+          undefined,
+          'DataService'
+        );
         return localStorageData;
       }
     } catch (error) {
@@ -182,8 +208,8 @@ export class OptimizedDataService {
     if (options.search) {
       const searchTerm = options.search.toLowerCase();
       filtered = filtered.filter(item => {
-        return Object.values(item).some(value =>
-          value && typeof value === 'string' && value.toLowerCase().includes(searchTerm)
+        return Object.values(item).some(
+          value => value && typeof value === 'string' && value.toLowerCase().includes(searchTerm)
         );
       });
     }
@@ -191,7 +217,7 @@ export class OptimizedDataService {
     // Apply custom filters
     if (options.filters) {
       filtered = filtered.filter(item => {
-        return Object.entries(options.filters!).every(([key, value]) => {
+        return Object.entries(options.filters || {}).every(([key, value]) => {
           if (value === undefined || value === null) return true;
           return (item as Record<string, unknown>)[key] === value;
         });
@@ -285,9 +311,11 @@ export class OptimizedDataService {
     return data.filter((item): item is Treatment => {
       if (typeof item !== 'object' || item === null) return false;
       const candidate = item as Record<string, unknown>;
-      return typeof candidate.id === 'number' &&
-             typeof candidate.name === 'string' &&
-             typeof candidate.price === 'number';
+      return (
+        typeof candidate.id === 'number' &&
+        typeof candidate.name === 'string' &&
+        typeof candidate.price === 'number'
+      );
     });
   }
 
@@ -302,7 +330,11 @@ export class OptimizedDataService {
     } else {
       this.cache.clear();
     }
-    log.debug(`Cache cleared${pattern ? ` for pattern: ${pattern}` : ''}`, undefined, 'DataService');
+    log.debug(
+      `Cache cleared${pattern ? ` for pattern: ${pattern}` : ''}`,
+      undefined,
+      'DataService'
+    );
   }
 
   static getCacheStats(): { size: number; keys: string[] } {

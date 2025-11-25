@@ -94,4 +94,3 @@ export interface ReceiptConfig {
   footer: string;
   [key: string]: unknown; // Index signature for DataEntity compatibility
 }
-

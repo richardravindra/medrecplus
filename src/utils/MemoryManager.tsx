@@ -55,8 +55,6 @@ export class MemoryManager {
     }, config.cleanupInterval);
 
     this.cleanupIntervals.set(cacheName, interval);
-
-    console.log(`🔧 Configured cache "${cacheName}" with TTL: ${config.ttl}ms, maxSize: ${(config.maxSize / 1024 / 1024).toFixed(2)}MB`);
   }
 
   // Store data in cache with memory management
@@ -64,20 +62,17 @@ export class MemoryManager {
     cacheName: string,
     key: string,
     data: T,
-    options: {
+    _options: {
       ttl?: number;
       priority?: 'low' | 'medium' | 'high';
     } = {}
   ): void {
     const cache = this.caches.get(cacheName);
     if (!cache) {
-      console.warn(`Cache "${cacheName}" not found. Use configureCache() first.`);
       return;
     }
 
-    // Silence unused parameter warning
-    void options;
-
+    
     // Calculate data size (approximation)
     const size = this.calculateSize(data);
     const now = Date.now();
@@ -98,8 +93,6 @@ export class MemoryManager {
 
     // Check global memory limit
     this.checkGlobalMemoryLimit();
-
-    console.log(`💾 Cached ${key} in "${cacheName}" (${(size / 1024).toFixed(2)}KB)`);
   }
 
   // Get data from cache
@@ -114,7 +107,7 @@ export class MemoryManager {
 
     // Check TTL
     const cacheConfig = this.getCacheConfig();
-    if (cacheConfig && (now - entry.timestamp) > cacheConfig.ttl) {
+    if (cacheConfig && now - entry.timestamp > cacheConfig.ttl) {
       cache.delete(key);
       return null;
     }
@@ -131,31 +124,22 @@ export class MemoryManager {
     const cache = this.caches.get(cacheName);
     if (!cache) return false;
 
-    const deleted = cache.delete(key);
-    if (deleted) {
-      console.log(`🗑️ Deleted ${key} from cache "${cacheName}"`);
-    }
-    return deleted;
+    return cache.delete(key);
   }
 
   // Clear entire cache
   static clearCache(cacheName: string): void {
     const cache = this.caches.get(cacheName);
     if (cache) {
-      const size = this.getCacheSize(cache);
       cache.clear();
-      console.log(`🗑️ Cleared cache "${cacheName}" (${(size / 1024 / 1024).toFixed(2)}MB freed)`);
     }
   }
 
   // Clear all caches
   static clearAllCaches(): void {
-    let totalFreed = 0;
     for (const [, cache] of this.caches.entries()) {
-      totalFreed += this.getCacheSize(cache);
       cache.clear();
     }
-    console.log(`🗑️ Cleared all caches (${(totalFreed / 1024 / 1024).toFixed(2)}MB freed)`);
   }
 
   // Get memory statistics
@@ -182,8 +166,6 @@ export class MemoryManager {
 
   // Force cleanup of all caches
   static forceCleanup(): void {
-    console.log('🧹 Forcing cleanup of all caches...');
-
     for (const cacheName of this.caches.keys()) {
       const config = this.getCacheConfig();
       if (config) {
@@ -192,40 +174,34 @@ export class MemoryManager {
     }
 
     this.lastGlobalCleanup = Date.now();
-    console.log('✅ Force cleanup completed');
   }
 
   // Optimize memory usage
   static optimizeMemory(): void {
-    console.log('⚡ Optimizing memory usage...');
-
     // Remove least recently used items
-    for (const [cacheName, cache] of this.caches.entries()) {
-      if (cache.size > 100) { // If cache has many items
-        const entries = Array.from(cache.entries())
-          .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+    for (const [_cacheName, cache] of this.caches.entries()) {
+      if (cache.size > 100) {
+        // If cache has many items
+        const entries = Array.from(cache.entries()).sort(
+          (a, b) => a[1].lastAccessed - b[1].lastAccessed
+        );
 
         // Remove oldest 25% of items
         const toRemove = Math.floor(entries.length * 0.25);
         for (let i = 0; i < toRemove; i++) {
           cache.delete(entries[i][0]);
         }
-
-        console.log(`🗑️ Removed ${toRemove} old items from cache "${cacheName}"`);
       }
     }
 
     // Run garbage collection if available
     if (window.gc) {
       window.gc();
-      console.log('🗑️ Garbage collection completed');
     }
   }
 
   // Cleanup on application shutdown
   static cleanup(): void {
-    console.log('🧹 Cleaning up MemoryManager...');
-
     // Clear all cleanup intervals
     for (const interval of this.cleanupIntervals.values()) {
       window.clearInterval(interval);
@@ -237,8 +213,6 @@ export class MemoryManager {
 
     // Close database connections
     this.caches.clear();
-
-    console.log('✅ MemoryManager cleanup completed');
   }
 
   // Private helper methods
@@ -285,13 +259,12 @@ export class MemoryManager {
     const cache = this.caches.get(cacheName);
     if (!cache) return;
 
-    const entries = Array.from(cache.entries())
-      .sort((a, b) => {
-        // Sort by access frequency and last accessed time
-        const scoreA = a[1].accessCount / (Date.now() - a[1].lastAccessed);
-        const scoreB = b[1].accessCount / (Date.now() - b[1].lastAccessed);
-        return scoreA - scoreB;
-      });
+    const entries = Array.from(cache.entries()).sort((a, b) => {
+      // Sort by access frequency and last accessed time
+      const scoreA = a[1].accessCount / (Date.now() - a[1].lastAccessed);
+      const scoreB = b[1].accessCount / (Date.now() - b[1].lastAccessed);
+      return scoreA - scoreB;
+    });
 
     let freed = 0;
     for (const [key, entry] of entries) {
@@ -299,27 +272,25 @@ export class MemoryManager {
       freed += entry.size;
       if (freed >= bytesToFree) break;
     }
-
-    console.log(`🗑️ Freed ${(freed / 1024).toFixed(2)}KB from cache "${cacheName}"`);
   }
 
   private static makeSpaceByItems(cacheName: string, itemsToRemove: number): void {
     const cache = this.caches.get(cacheName);
     if (!cache) return;
 
-    const entries = Array.from(cache.entries())
-      .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+    const entries = Array.from(cache.entries()).sort(
+      (a, b) => a[1].lastAccessed - b[1].lastAccessed
+    );
 
-    let removed = 0;
     for (let i = 0; i < Math.min(itemsToRemove, entries.length); i++) {
       cache.delete(entries[i][0]);
-      removed++;
     }
-
-    console.log(`🗑️ Removed ${removed} items from cache "${cacheName}"`);
   }
 
-  private static cleanupCache(cacheName: string, config: { maxSize: number; maxItems: number; ttl: number }): void {
+  private static cleanupCache(
+    cacheName: string,
+    config: { maxSize: number; maxItems: number; ttl: number }
+  ): void {
     const cache = this.caches.get(cacheName);
     if (!cache) return;
 
@@ -336,22 +307,18 @@ export class MemoryManager {
     for (const key of keysToDelete) {
       cache.delete(key);
     }
-
-    if (keysToDelete.length > 0) {
-      console.log(`🧹 Cleaned up ${keysToDelete.length} expired items from cache "${cacheName}"`);
-    }
   }
 
   private static checkGlobalMemoryLimit(): void {
     const totalSize = this.getTotalCacheSize();
 
     if (totalSize > this.globalMemoryLimit) {
-      console.warn(`⚠️ Global memory limit exceeded: ${(totalSize / 1024 / 1024).toFixed(2)}MB > ${(this.globalMemoryLimit / 1024 / 1024).toFixed(2)}MB`);
       this.optimizeMemory();
     }
 
     // Periodic global cleanup
-    if (Date.now() - this.lastGlobalCleanup > 5 * 60 * 1000) { // 5 minutes
+    if (Date.now() - this.lastGlobalCleanup > 5 * 60 * 1000) {
+      // 5 minutes
       this.forceCleanup();
     }
   }
@@ -390,19 +357,9 @@ export class MemoryManager {
   static startMemoryMonitoring(intervalMs: number = 30000): void {
     window.setInterval(() => {
       const stats = this.getMemoryStats();
-      console.log('📊 Memory Stats:', {
-        totalCachesSize: (stats.totalCachesSize / 1024 / 1024).toFixed(2) + 'MB',
-        memoryUsagePercentage: stats.memoryUsage.percentage.toFixed(1) + '%',
-        caches: Object.entries(stats.caches).map(([name, info]) => ({
-          name,
-          size: (info.size / 1024).toFixed(2) + 'KB',
-          items: info.items
-        }))
-      });
 
       // Auto-optimize if memory usage is high
       if (stats.memoryUsage.percentage > 80) {
-        console.warn('⚠️ High memory usage detected, optimizing...');
         this.optimizeMemory();
       }
     }, intervalMs);
@@ -434,7 +391,6 @@ export class MemoryManager {
       const cache = this.caches.get(importData.cacheName);
 
       if (!cache) {
-        console.warn(`Cache "${importData.cacheName}" not found for import`);
         return false;
       }
 
@@ -448,10 +404,8 @@ export class MemoryManager {
         });
       }
 
-      console.log(`✅ Imported ${importData.entries.length} entries to cache "${importData.cacheName}"`);
       return true;
-    } catch (error) {
-      console.error('❌ Error importing cache:', error);
+    } catch {
       return false;
     }
   }

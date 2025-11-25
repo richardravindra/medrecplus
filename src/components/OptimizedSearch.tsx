@@ -16,7 +16,7 @@ interface OptimizedSearchProps {
   showStats?: boolean;
   disabled?: boolean;
   dataCount?: number;
-  }
+}
 
 export function OptimizedSearch({
   onSearch,
@@ -138,7 +138,7 @@ export function OptimizedSearch({
           startDecorator={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               🔍
-              {isSearching && <CircularProgress size="sm" />}
+              {isSearching && <CircularProgress size='sm' />}
             </Box>
           }
           endDecorator={
@@ -160,7 +160,7 @@ export function OptimizedSearch({
           sx={{
             fontSize: 'md',
             '&:focus-within': {
-              '--Input-focusedHighlight': 'var(--joy-palette-primary-outlinedColor)',
+              '--Input-focusedHighlight': 'var(--joy-palette-primary-outlinedColor)'
             }
           }}
         />
@@ -168,7 +168,7 @@ export function OptimizedSearch({
         {/* Search shortcut hint */}
         {!query && !disabled && (
           <Typography
-            level="body-xs"
+            level='body-xs'
             sx={{
               position: 'absolute',
               right: 12,
@@ -194,22 +194,19 @@ export function OptimizedSearch({
             px: 1
           }}
         >
-          <Typography level="body-xs" color="neutral">
+          <Typography level='body-xs' color='neutral'>
             Searching for: <strong>{searchStats.lastQuery}</strong>
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {searchStats.searchTime > 0 && (
-              <Typography
-                level="body-xs"
-                color={getPerformanceColor(searchStats.searchTime)}
-              >
+              <Typography level='body-xs' color={getPerformanceColor(searchStats.searchTime)}>
                 ⏱️ {searchStats.searchTime.toFixed(0)}ms
               </Typography>
             )}
 
             {searchStats.resultCount > 0 && (
-              <Typography level="body-xs" color="neutral">
+              <Typography level='body-xs' color='neutral'>
                 📊 {searchStats.resultCount.toLocaleString()} results
               </Typography>
             )}
@@ -227,12 +224,10 @@ export function OptimizedSearch({
             borderRadius: 'sm'
           }}
         >
-          <Typography level="body-xs" color="warning">
+          <Typography level='body-xs' color='warning'>
             💡 Search is taking longer than expected. Consider:
-            <br />
-            • Reducing dataset size with filters
-            • Using more specific search terms
-            • Adding search indexes
+            <br />• Reducing dataset size with filters • Using more specific search terms • Adding
+            search indexes
           </Typography>
         </Box>
       )}
@@ -241,11 +236,7 @@ export function OptimizedSearch({
 }
 
 // Advanced search with filters
-export function AdvancedSearch({
-  dataCount
-}: {
-  dataCount: number;
-}) {
+export function AdvancedSearch({ dataCount }: { dataCount: number }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // const handleFilterChange = useCallback((key: keyof SearchFilters, value: string | number | { start: string; end: string }) => {
@@ -257,13 +248,15 @@ export function AdvancedSearch({
   return (
     <Box sx={{ mb: 2 }}>
       <OptimizedSearch
-        onSearch={() => {/* Search handled by parent */}}
+        onSearch={() => {
+          /* Search handled by parent */
+        }}
         dataCount={dataCount}
       />
 
       <Box sx={{ mt: 1 }}>
         <Typography
-          level="body-sm"
+          level='body-sm'
           sx={{ cursor: 'pointer', '&:hover': { color: 'primary' } }}
           onClick={() => setShowAdvanced(!showAdvanced)}
         >
@@ -273,9 +266,7 @@ export function AdvancedSearch({
         {showAdvanced && (
           <Box sx={{ mt: 1, p: 2, backgroundColor: 'neutral.level0', borderRadius: 'sm' }}>
             {/* Add advanced filter options here */}
-            <Typography level="body-sm">
-              Advanced filters coming soon...
-            </Typography>
+            <Typography level='body-sm'>Advanced filters coming soon...</Typography>
           </Box>
         )}
       </Box>

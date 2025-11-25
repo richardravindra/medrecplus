@@ -4,7 +4,6 @@ import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
 import Typography from '@mui/joy/Typography';
 import Input from '@mui/joy/Input';
-import Button from '@mui/joy/Button';
 import IconButton from '@mui/joy/IconButton';
 import Checkbox from '@mui/joy/Checkbox';
 import Menu from '@mui/joy/Menu';
@@ -17,25 +16,37 @@ import FirstPage from '@mui/icons-material/FirstPage';
 import LastPage from '@mui/icons-material/LastPage';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
+import { ConfirmDialog, AlertDialog } from '../components/ConfirmDialog';
+import { useConfirmDialog, useAlertDialog } from '../hooks/useDialog';
 import CircularProgress from '@mui/joy/CircularProgress';
+import {
+  useDebounce,
+  usePerformanceMonitor
+} from '../hooks/usePerformanceOptimization';
 import { Invoice } from '../types';
-import SimpleDataService from '../services/SimpleDataService';
+import { storage } from '../services/UnifiedStorage';
 import { log } from '../utils/logger';
 import { LazyInvoiceTable } from '../components/tables/LazyInvoiceTable';
 import DateRangeDropdown from '../components/DateRangeDropdown';
 import dayjs, { Dayjs } from 'dayjs';
 
 const OptimizedInvoices: React.FC = () => {
-  console.log('🔍 OptimizedInvoices component rendering');
+  // Performance monitoring
+  const perfMonitor = usePerformanceMonitor('OptimizedInvoices');
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const searchTimeoutRef = useRef<number | undefined>(undefined);
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([
     dayjs().startOf('day'),
     dayjs().endOf('day')
   ]);
+
+  // Store initial dateRange for mount effect - only set on initial render
+  const initialDateRangeRef = useRef<[Dayjs | null, Dayjs | null] | null>(null);
+  if (initialDateRangeRef.current === null) {
+    initialDateRangeRef.current = dateRange;
+  }
   const [columnVisibility, setColumnVisibility] = useState({
     invoiceNumber: true,
     patientName: true,
@@ -43,96 +54,112 @@ const OptimizedInvoices: React.FC = () => {
     appointmentDate: true,
     totalAmount: true,
     status: true,
-    date: false,
+    date: false
   });
   const [sortField, setSortField] = useState<keyof Invoice | null>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+
+  // Dialog hooks
+  const confirmDialog = useConfirmDialog();
+  const alertDialog = useAlertDialog();
+  const [itemsPerPage] = useState(10); // Load 10 entries per page
   const [totalItems, setTotalItems] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [_hasMore, setHasMore] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const navigate = useNavigate();
 
   // Optimized data loading with pagination
-  const loadInvoices = useCallback(async (page: number = 1, search: string = '', reset: boolean = false, startDate?: string, endDate?: string) => {
-    console.log(`🔍 loadInvoices: Loading page ${page} with search "${search}" and date range ${startDate} to ${endDate}`);
-    try {
-      if (reset || page === 1) {
-        setLoading(true);
+  const loadInvoices = useCallback(
+    async (
+      page: number = 1,
+      search: string = '',
+      reset: boolean = false,
+      startDate?: string,
+      endDate?: string
+    ) => {
+      perfMonitor.start();
+      try {
+        if (reset || page === 1) {
+          setLoading(true);
+        }
+
+        // Get all invoices from unified storage
+        const allInvoices = await storage.getInvoices();
+
+        // Apply date filtering if provided
+        let filteredInvoices = [...allInvoices];
+        if (startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          filteredInvoices = filteredInvoices.filter(invoice => {
+            const invoiceDate = new Date(invoice.date);
+            return invoiceDate >= start && invoiceDate <= end;
+          });
+        }
+
+        // Apply search filtering if provided
+        if (search) {
+          const searchLower = search.toLowerCase();
+          filteredInvoices = filteredInvoices.filter(
+            invoice =>
+              invoice.patientName.toLowerCase().includes(searchLower) ||
+              invoice.operatorName.toLowerCase().includes(searchLower) ||
+              (invoice.invoiceNumber &&
+                invoice.invoiceNumber.toLowerCase().includes(searchLower)) ||
+              invoice.id.toString().includes(searchLower)
+          );
+        }
+
+        // Sort by date (newest first) by default
+        filteredInvoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        // Apply pagination
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
+
+        if (reset || page === 1) {
+          setInvoices(paginatedInvoices);
+        } else {
+          // Append for infinite scroll behavior
+          setInvoices(prev => [...prev, ...paginatedInvoices]);
+        }
+
+        setTotalItems(filteredInvoices.length);
+        setHasMore(endIndex < filteredInvoices.length);
+      } catch (_error) {
+        log.error(
+          'Error loading invoices',
+          { error: _error, page, search, startDate, endDate },
+          'OptimizedInvoices'
+        );
+      } finally {
+        setLoading(false);
+        setInitialLoad(false);
+        perfMonitor.end();
       }
-
-      const result = await SimpleDataService.getInvoices({
-        page,
-        limit: itemsPerPage,
-        search: search || undefined,
-        filters: startDate && endDate ? {
-          startDate: startDate,
-          endDate: endDate
-        } : undefined
-      });
-
-      if (reset || page === 1) {
-        setInvoices(result.data);
-      } else {
-        // Append for infinite scroll behavior
-        setInvoices(prev => [...prev, ...result.data]);
-      }
-
-      setTotalItems(result.totalCount);
-      setHasMore(result.hasNext);
-      console.log(`🔍 loadInvoices: Loaded ${result.data.length} invoices (total: ${result.totalCount})`);
-    } catch (error) {
-      log.error('Error loading invoices', { error, page, search, startDate, endDate }, 'OptimizedInvoices');
-    } finally {
-      setLoading(false);
-      setInitialLoad(false);
-    }
-  }, [itemsPerPage]);
+    },
+    [itemsPerPage, perfMonitor]
+  );
 
   // Initial load
   useEffect(() => {
-    console.log('🔍 OptimizedInvoices useEffect - initial load');
-    loadInvoices(1, '', true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-  }, [loadInvoices, dateRange]);
-
-  // SimpleDataService handles caching automatically
-
-  // Debounced search effect
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+    const initialDateRange = initialDateRangeRef.current;
+    if (initialDateRange) {
+      loadInvoices(1, '', true, initialDateRange[0]?.toISOString(), initialDateRange[1]?.toISOString());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1);
-      loadInvoices(1, searchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-    }, 500);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchTerm, loadInvoices, dateRange]);
-
-  // Date range change effect
+  // Optimized search effect using debounced hook
   useEffect(() => {
     setCurrentPage(1);
     loadInvoices(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-  }, [dateRange, loadInvoices, debouncedSearchTerm]);
+  }, [debouncedSearchTerm, dateRange]); // Depends on search term and date range
 
-  // Load more data for pagination
-  const loadMore = useCallback(() => {
-    if (!loading && hasMore) {
-      const nextPage = currentPage + 1;
-      setCurrentPage(nextPage);
-      loadInvoices(nextPage, debouncedSearchTerm, false, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-    }
-  }, [loading, hasMore, currentPage, debouncedSearchTerm, loadInvoices, dateRange]);
-
+  
   // Memoized filtered and sorted invoices for client-side operations
   const processedInvoices = useMemo(() => {
     let processed = [...invoices];
@@ -164,7 +191,7 @@ const OptimizedInvoices: React.FC = () => {
 
   const handleSort = (field: keyof Invoice) => {
     if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
       setSortDirection('asc');
@@ -172,30 +199,50 @@ const OptimizedInvoices: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this invoice?')) {
-      try {
-        const result = await SimpleDataService.deleteInvoice(id);
-        if (result) {
+    confirmDialog.openDialog({
+      title: 'Confirm Deletion',
+      message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await storage.deleteInvoice(id);
           log.info('Invoice deleted successfully', { id }, 'OptimizedInvoices');
-          alert('Invoice deleted successfully!');
-        } else {
-          alert('Invoice not found or already deleted');
+          alertDialog.openDialog({
+            title: 'Success',
+            message: 'Invoice deleted successfully!',
+            variant: 'success'
+          });
+          await loadInvoices(
+            1,
+            debouncedSearchTerm,
+            true,
+            dateRange[0]?.toISOString(),
+            dateRange[1]?.toISOString()
+          );
+        } catch (_error) {
+          log.error('Error deleting invoice', { error: _error, id }, 'OptimizedInvoices');
+          alertDialog.openDialog({
+            title: 'Error',
+            message: 'Failed to delete invoice. Please try again.',
+            variant: 'danger'
+          });
         }
-        await loadInvoices(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
-      } catch (error) {
-        log.error('Error deleting invoice', { error, id }, 'OptimizedInvoices');
-        alert('Failed to delete invoice. Please try again.');
       }
-    }
+    });
   };
 
-  const handlePatientClick = useCallback((patientId: number) => {
-    navigate(`/patients/${patientId}`);
-  }, [navigate]);
+  const handlePatientClick = useCallback(
+    (patientId: number) => {
+      navigate(`/patients/${patientId}`);
+    },
+    [navigate]
+  );
 
-  const handleAppointmentClick = useCallback((appointmentId: number) => {
-    navigate(`/appointments/${appointmentId}`);
-  }, [navigate]);
+  const handleAppointmentClick = useCallback(
+    (appointmentId: number) => {
+      navigate(`/appointments/${appointmentId}`);
+    },
+    [navigate]
+  );
 
   const toggleColumnVisibility = useCallback((column: keyof typeof columnVisibility) => {
     setColumnVisibility(prev => ({
@@ -204,21 +251,22 @@ const OptimizedInvoices: React.FC = () => {
     }));
   }, []);
 
-  
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   if (initialLoad) {
     return (
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '50vh',
-        flexDirection: 'column',
-        gap: 2
-      }}>
-        <CircularProgress size="lg" />
-        <Typography level="body-sm" color="neutral">
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '50vh',
+          flexDirection: 'column',
+          gap: 2
+        }}
+      >
+        <CircularProgress size='lg' />
+        <Typography level='body-sm' color='neutral'>
           Loading invoice records...
         </Typography>
       </Box>
@@ -226,55 +274,95 @@ const OptimizedInvoices: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{
+    <Box
+      sx={{
+        p: 3,
+        height: '100vh', // Full viewport height
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        mb: 3,
-        flexWrap: 'wrap',
-        gap: 2
-      }}>
+        flexDirection: 'column',
+        gap: 1
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0, // Don't shrink
+          mb: 0.5 // Reduced bottom margin
+        }}
+      >
         <Box>
-          <Typography level="h2" sx={{ mb: 1 }}>
+          <Typography level='h2' sx={{ mb: 0.5 }}>
             Invoices
           </Typography>
         </Box>
       </Box>
 
-      <Card sx={{
-        mb: '8px',
-        p: '8px !important',
-        '& .MuiCard-root': {
-          padding: '8px !important'
-        }
-      }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box
+        sx={{
+          mb: 1,
+          p: 1,
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 1,
+          alignItems: 'center',
+          border: '1px solid #333',
+          borderRadius: '8px',
+          backgroundColor: '#1a1a1a'
+        }}
+      >
           <Input
-            startDecorator={<Search sx={{ color: '#ffffff' }} />}
-            placeholder="Search invoices..."
+            startDecorator={<Search sx={{ color: '#ffffff', fontSize: '16px' }} />}
+            placeholder='Search...'
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             sx={{
-              minWidth: 300,
+              width: { xs: '100%', sm: '350px' },
+              height: '36px',
+              minHeight: '36px',
               backgroundColor: '#2d2d2d',
-              '& input': { color: '#ffffff' },
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              '& input': {
+                color: '#ffffff',
+                fontSize: '14px',
+                py: 0,
+                lineHeight: '36px',
+                height: '36px'
+              },
               '&::placeholder': { color: '#666' },
+              '& .MuiInput-startDecorator': {
+                pl: 1.5,
+                height: '36px'
+              }
             }}
           />
 
           <Dropdown>
             <MenuButton
-              startDecorator={<ViewColumn />}
-              variant="outlined"
               sx={{
                 borderColor: '#ffffff',
                 color: '#ffffff',
+                width: '36px',
+                height: '36px',
+                minWidth: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                flexShrink: 0,
                 '&:hover': { borderColor: '#ffffff' },
-                '& svg': { color: '#ffffff' },
+                '& svg': {
+                  color: '#ffffff',
+                  fontSize: '18px'
+                }
               }}
             >
-              Columns
+              <ViewColumn />
             </MenuButton>
             <Menu sx={{ backgroundColor: '#1a1a1a' }}>
               {Object.entries(columnVisibility).map(([key, visible]) => (
@@ -285,14 +373,14 @@ const OptimizedInvoices: React.FC = () => {
                 >
                   <Checkbox
                     checked={visible}
-                    onChange={(e) => {
+                    onChange={e => {
                       e.stopPropagation();
                       toggleColumnVisibility(key as keyof typeof columnVisibility);
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()}
                     sx={{ mr: 1 }}
                   />
-                  <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+                  <Typography level='body-sm' sx={{ color: '#ffffff' }}>
                     {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   </Typography>
                 </MenuItem>
@@ -300,20 +388,35 @@ const OptimizedInvoices: React.FC = () => {
             </Menu>
           </Dropdown>
 
-          {/* Date Range Picker */}
-          <DateRangeDropdown
-            value={dateRange}
-            onChange={setDateRange}
-          />
-        </Box>
-      </Card>
+          <Box sx={{ flexShrink: 0 }}>
+            <DateRangeDropdown
+              value={dateRange}
+              onChange={setDateRange}
+            />
+          </Box>
+    </Box>
 
-      <Card>
-        <Box sx={{ overflowX: 'auto' }}>
+      <Card
+        sx={{
+          flex: 1, // Take remaining space
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0 // Allow flex shrinking
+        }}
+      >
+        <Box
+          sx={{
+            overflowY: 'auto',
+            overflowX: 'auto',
+            flex: 1, // Take remaining space
+            minHeight: 0, // Allow shrinking
+            position: 'relative'
+          }}
+        >
           <LazyInvoiceTable
             invoices={processedInvoices}
             columnVisibility={columnVisibility}
-            onView={(invoice) => navigate(`/invoices/${invoice.id}`)}
+            onView={invoice => navigate(`/invoices/${invoice.id}`)}
             onDelete={handleDelete}
             onPatientClick={handlePatientClick}
             onAppointmentClick={handleAppointmentClick}
@@ -327,18 +430,27 @@ const OptimizedInvoices: React.FC = () => {
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            p: 2,
-            borderTop: '1px solid #333'
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              px: 2, // Only horizontal padding
+              py: 1, // Reduced vertical padding
+              borderTop: '1px solid #333'
+            }}
+          >
             <Box sx={{ display: 'flex', gap: 1 }}>
               <IconButton
                 onClick={() => {
                   setCurrentPage(1);
-                  loadInvoices(1, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+                  loadInvoices(
+                    1,
+                    debouncedSearchTerm,
+                    true,
+                    dateRange[0]?.toISOString(),
+                    dateRange[1]?.toISOString()
+                  );
                 }}
                 disabled={currentPage === 1}
                 sx={{
@@ -356,7 +468,13 @@ const OptimizedInvoices: React.FC = () => {
                 onClick={() => {
                   const prevPage = Math.max(1, currentPage - 1);
                   setCurrentPage(prevPage);
-                  loadInvoices(prevPage, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+                  loadInvoices(
+                    prevPage,
+                    debouncedSearchTerm,
+                    true,
+                    dateRange[0]?.toISOString(),
+                    dateRange[1]?.toISOString()
+                  );
                 }}
                 disabled={currentPage === 1}
                 sx={{
@@ -374,7 +492,13 @@ const OptimizedInvoices: React.FC = () => {
                 onClick={() => {
                   const nextPage = Math.min(totalPages, currentPage + 1);
                   setCurrentPage(nextPage);
-                  loadInvoices(nextPage, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+                  loadInvoices(
+                    nextPage,
+                    debouncedSearchTerm,
+                    true,
+                    dateRange[0]?.toISOString(),
+                    dateRange[1]?.toISOString()
+                  );
                 }}
                 disabled={currentPage === totalPages}
                 sx={{
@@ -391,7 +515,13 @@ const OptimizedInvoices: React.FC = () => {
               <IconButton
                 onClick={() => {
                   setCurrentPage(totalPages);
-                  loadInvoices(totalPages, debouncedSearchTerm, true, dateRange[0]?.toISOString(), dateRange[1]?.toISOString());
+                  loadInvoices(
+                    totalPages,
+                    debouncedSearchTerm,
+                    true,
+                    dateRange[0]?.toISOString(),
+                    dateRange[1]?.toISOString()
+                  );
                 }}
                 disabled={currentPage === totalPages}
                 sx={{
@@ -407,28 +537,36 @@ const OptimizedInvoices: React.FC = () => {
               </IconButton>
             </Box>
 
-            {hasMore && (
-              <Button
-                variant="outlined"
-                onClick={loadMore}
-                disabled={loading}
-                sx={{
-                  borderColor: '#444',
-                  color: '#ffffff',
-                  '&:hover': { borderColor: '#666' },
-                }}
-              >
-                {loading ? 'Loading...' : 'Load More'}
-              </Button>
-            )}
-
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} -{' '}
               {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} invoices
             </Typography>
           </Box>
         )}
       </Card>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.isOpen}
+        onClose={confirmDialog.closeDialog}
+        onConfirm={confirmDialog.handleConfirm}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        variant={confirmDialog.config.variant}
+      />
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        open={alertDialog.isOpen}
+        onClose={alertDialog.closeDialog}
+        title={alertDialog.config.title}
+        message={alertDialog.config.message}
+        buttonText={alertDialog.config.buttonText}
+        variant={alertDialog.config.variant}
+      />
     </Box>
   );
 };

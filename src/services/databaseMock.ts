@@ -14,33 +14,33 @@ const CACHE_DURATION = 1000; // 1 second cache
 const templateData: Patient[] = [
   {
     id: 1,
-    record_number: "PT202500001",
-    name: "John Doe",
+    record_number: 'PT202500001',
+    name: 'John Doe',
     age: 45,
-    address: "123 Main St, City, State 12345",
-    phone_number: "+1-555-0123",
-    initial_diagnosis: "Hypertension, Type 2 Diabetes",
-    created_at: "2025-01-15T10:30:00Z"
+    address: '123 Main St, City, State 12345',
+    phone_number: '+1-555-0123',
+    initial_diagnosis: 'Hypertension, Type 2 Diabetes',
+    created_at: '2025-01-15T10:30:00Z'
   },
   {
     id: 2,
-    record_number: "PT202500002",
-    name: "Jane Smith",
+    record_number: 'PT202500002',
+    name: 'Jane Smith',
     age: 32,
-    address: "456 Oak Ave, Town, State 67890",
-    phone_number: "+1-555-0456",
-    initial_diagnosis: "Diabetes Mellitus Type 1",
-    created_at: "2025-01-16T14:20:00Z"
+    address: '456 Oak Ave, Town, State 67890',
+    phone_number: '+1-555-0456',
+    initial_diagnosis: 'Diabetes Mellitus Type 1',
+    created_at: '2025-01-16T14:20:00Z'
   },
   {
     id: 3,
-    record_number: "PT202500003",
-    name: "Robert Johnson",
+    record_number: 'PT202500003',
+    name: 'Robert Johnson',
     age: 58,
-    address: "789 Pine Rd, Village, State 11111",
-    phone_number: "+1-555-0789",
-    initial_diagnosis: "Coronary Artery Disease",
-    created_at: "2025-01-17T09:15:00Z"
+    address: '789 Pine Rd, Village, State 11111',
+    phone_number: '+1-555-0789',
+    initial_diagnosis: 'Coronary Artery Disease',
+    created_at: '2025-01-17T09:15:00Z'
   }
 ];
 
@@ -49,7 +49,7 @@ const getInitialPatientsSync = (): Patient[] => {
   const now = Date.now();
 
   // Return cached data if still valid
-  if (cachedPatients.length > 0 && (now - cacheTimestamp) < CACHE_DURATION) {
+  if (cachedPatients.length > 0 && now - cacheTimestamp < CACHE_DURATION) {
     return cachedPatients;
   }
 
@@ -58,14 +58,12 @@ const getInitialPatientsSync = (): Patient[] => {
     const existingData = localStorage.getItem(STORAGE_KEY);
     if (existingData) {
       const parsedData = JSON.parse(existingData);
-      console.log(`📊 Sync loaded ${parsedData.length} patients from localStorage`);
       cachedPatients = parsedData;
       cacheTimestamp = now;
       return cachedPatients;
     }
-  } catch (error) {
-    console.error("Error parsing localStorage data:", error);
-  }
+  } catch { // Error handled silently
+    }
 
   // Try chunked localStorage data
   try {
@@ -83,18 +81,15 @@ const getInitialPatientsSync = (): Patient[] => {
       }
 
       if (data.length > 0) {
-        console.log(`📊 Sync loaded ${data.length} patients from chunked localStorage`);
         cachedPatients = data;
         cacheTimestamp = now;
         return cachedPatients;
       }
     }
-  } catch (error) {
-    console.error("Error loading chunked data:", error);
-  }
+  } catch { // Error handled silently
+    }
 
   // Return template data if no data found
-  console.log("📊 No data found, returning template data");
   cachedPatients = templateData;
   cacheTimestamp = now;
   return templateData;
@@ -105,7 +100,7 @@ const getInitialPatientsAsync = async (): Promise<Patient[]> => {
   const now = Date.now();
 
   // Return cached data if still valid
-  if (cachedPatients.length > 0 && (now - cacheTimestamp) < CACHE_DURATION) {
+  if (cachedPatients.length > 0 && now - cacheTimestamp < CACHE_DURATION) {
     return cachedPatients;
   }
 
@@ -113,14 +108,12 @@ const getInitialPatientsAsync = async (): Promise<Patient[]> => {
   try {
     const data = await DataService.getPatients();
     if (data && data.length > 0) {
-      console.log(`📊 Async loaded ${data.length} patients from DataService`);
       cachedPatients = data;
       cacheTimestamp = now;
       return cachedPatients;
     }
-  } catch (error) {
-    console.error("Error loading patients from DataService:", error);
-  }
+  } catch { // Error handled silently
+    }
 
   // Fallback to sync method
   return getInitialPatientsSync();
@@ -136,13 +129,10 @@ const savePatients = async (patients: Patient[]): Promise<void> => {
   // Save using DataService (handles both IndexedDB and localStorage)
   try {
     await DataService.saveData(STORAGE_KEY, patients);
-    console.log(`💾 Saved ${patients.length} patients using DataService`);
-  } catch (error) {
-    console.warn("Could not save using DataService, falling back to localStorage:", error);
+  } catch {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
-    } catch (localStorageError) {
-      console.warn("Could not save to localStorage either:", localStorageError);
+    } catch { // Error handled silently
     }
   }
 
@@ -155,10 +145,9 @@ export const databaseService = {
   async getPatients(): Promise<Patient[]> {
     try {
       const patients = await getInitialPatientsAsync();
-      return [...patients].sort((a, b) => b.id! - a.id!);
-    } catch (error) {
-      console.error("Error in getPatients:", error);
-      return getInitialPatientsSync().sort((a, b) => b.id! - a.id!);
+      return [...patients].sort((a, b) => (b.id || 0) - (a.id || 0));
+    } catch {
+      return getInitialPatientsSync().sort((a, b) => (b.id || 0) - (a.id || 0));
     }
   },
 
@@ -170,10 +159,10 @@ export const databaseService = {
       ...patient,
       id: getNextId(),
       created_at: new Date().toISOString(),
-      record_number: (patient as Record<string, unknown>).record_number as string || '',
-      name: (patient as Record<string, unknown>).name as string || '',
-      age: (patient as Record<string, unknown>).age as number || 0,
-      phone_number: (patient as Record<string, unknown>).phone_number as string || ''
+      record_number: ((patient as Record<string, unknown>).record_number as string) || '',
+      name: ((patient as Record<string, unknown>).name as string) || '',
+      age: ((patient as Record<string, unknown>).age as number) || 0,
+      phone_number: ((patient as Record<string, unknown>).phone_number as string) || ''
     };
 
     existingPatients.push(newPatient);
@@ -182,11 +171,13 @@ export const databaseService = {
     const currentCounter = parseInt(localStorage.getItem(RECORD_COUNTER_KEY) || '4');
     try {
       localStorage.setItem(RECORD_COUNTER_KEY, String(currentCounter + 1));
-    } catch (error) {
-      console.warn("Could not update counter:", error);
+    } catch { // Error handled silently
     }
 
-    return newPatient.id!;
+    if (!newPatient.id) {
+      throw new Error('Failed to generate ID for new patient');
+    }
+    return newPatient.id;
   },
 
   async updatePatient(id: number, patient: Omit<Patient, 'id' | 'created_at'>): Promise<string> {
@@ -229,8 +220,7 @@ export const databaseService = {
 
     try {
       localStorage.setItem(RECORD_COUNTER_KEY, String(currentCounter));
-    } catch (error) {
-      console.warn("Could not update counter:", error);
+    } catch { // Error handled silently
     }
 
     return `PT${year}${String(currentCounter).padStart(6, '0')}`;

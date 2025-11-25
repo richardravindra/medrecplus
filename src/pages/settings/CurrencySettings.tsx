@@ -151,7 +151,12 @@ const WORLD_CURRENCIES_RAW = [
   { code: 'BBD', name: 'Barbadian Dollar', symbol: '$', country: 'Barbados' },
   { code: 'BZD', name: 'Belize Dollar', symbol: '$', country: 'Belize' },
   { code: 'AWG', name: 'Aruban Florin', symbol: 'ƒ', country: 'Aruba' },
-  { code: 'ANG', name: 'Netherlands Antillean Guilder', symbol: 'ƒ', country: 'Netherlands Antilles' },
+  {
+    code: 'ANG',
+    name: 'Netherlands Antillean Guilder',
+    symbol: 'ƒ',
+    country: 'Netherlands Antilles'
+  },
   { code: 'XCD', name: 'Eastern Caribbean Dollar', symbol: '$', country: 'Antigua and Barbuda' },
   { code: 'XCD', name: 'Eastern Caribbean Dollar', symbol: '$', country: 'St. Kitts and Nevis' },
   { code: 'XCD', name: 'Eastern Caribbean Dollar', symbol: '$', country: 'St. Lucia' },
@@ -189,8 +194,9 @@ const WORLD_CURRENCIES_RAW = [
 ];
 
 // Remove duplicate currencies based on code and country combination
-const WORLD_CURRENCIES = WORLD_CURRENCIES_RAW.filter((currency, index, self) =>
-  index === self.findIndex((c) => c.code === currency.code && c.country === currency.country)
+const WORLD_CURRENCIES = WORLD_CURRENCIES_RAW.filter(
+  (currency, index, self) =>
+    index === self.findIndex(c => c.code === currency.code && c.country === currency.country)
 );
 
 const CurrencySettings: React.FC = () => {
@@ -198,7 +204,10 @@ const CurrencySettings: React.FC = () => {
   const [currency, setCurrency] = useCurrency();
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Load current currency settings on component mount
   useEffect(() => {
@@ -223,11 +232,12 @@ const CurrencySettings: React.FC = () => {
     if (!searchTerm) return WORLD_CURRENCIES;
 
     const lowerSearchTerm = searchTerm.toLowerCase();
-    return WORLD_CURRENCIES.filter(currency =>
-      currency.code.toLowerCase().includes(lowerSearchTerm) ||
-      currency.name.toLowerCase().includes(lowerSearchTerm) ||
-      currency.country.toLowerCase().includes(lowerSearchTerm) ||
-      currency.symbol.toLowerCase().includes(lowerSearchTerm)
+    return WORLD_CURRENCIES.filter(
+      currency =>
+        currency.code.toLowerCase().includes(lowerSearchTerm) ||
+        currency.name.toLowerCase().includes(lowerSearchTerm) ||
+        currency.country.toLowerCase().includes(lowerSearchTerm) ||
+        currency.symbol.toLowerCase().includes(lowerSearchTerm)
     );
   }, [searchTerm]);
 
@@ -246,141 +256,141 @@ const CurrencySettings: React.FC = () => {
   const getLocaleForCurrency = (currencyCode: string): string => {
     // Map currency codes to locales for proper formatting
     const localeMap: Record<string, string> = {
-      'USD': 'en-US',
-      'EUR': 'de-DE',
-      'GBP': 'en-GB',
-      'JPY': 'ja-JP',
-      'CNY': 'zh-CN',
-      'INR': 'hi-IN',
-      'AUD': 'en-AU',
-      'CAD': 'en-CA',
-      'CHF': 'de-CH',
-      'HKD': 'zh-HK',
-      'SGD': 'en-SG',
-      'KRW': 'ko-KR',
-      'MYR': 'ms-MY',
-      'THB': 'th-TH',
-      'IDR': 'id-ID',
-      'VND': 'vi-VN',
-      'PHP': 'en-PH',
-      'BND': 'en-BN',
-      'LKR': 'si-LK',
-      'PKR': 'ur-PK',
-      'BDT': 'bn-BD',
-      'NPR': 'ne-NP',
-      'MVR': 'dv-MV',
-      'MNT': 'mn-MN',
-      'KZT': 'kk-KZ',
-      'KGS': 'ky-KG',
-      'UZS': 'uz-UZ',
-      'TJS': 'tg-TJ',
-      'TMT': 'tk-TM',
-      'AED': 'ar-AE',
-      'SAR': 'ar-SA',
-      'QAR': 'ar-QA',
-      'KWD': 'ar-KW',
-      'BHD': 'ar-BH',
-      'OMR': 'ar-OM',
-      'JOD': 'ar-JO',
-      'LBP': 'ar-LB',
-      'SYP': 'ar-SY',
-      'IQD': 'ar-IQ',
-      'IRR': 'fa-IR',
-      'ILS': 'he-IL',
-      'EGP': 'ar-EG',
-      'LYD': 'ar-LY',
-      'TND': 'ar-TN',
-      'DZD': 'ar-DZ',
-      'MAD': 'ar-MA',
-      'XOF': 'fr-SN',
-      'XAF': 'fr-CM',
-      'XPF': 'fr-PF',
-      'ZAR': 'en-ZA',
-      'NGN': 'en-NG',
-      'GHS': 'en-GH',
-      'KES': 'en-KE',
-      'UGX': 'en-UG',
-      'TZS': 'sw-TZ',
-      'RWF': 'rw-RW',
-      'BIF': 'fr-BI',
-      'ETB': 'am-ET',
-      'SOS': 'so-SO',
-      'DJF': 'fr-DJ',
-      'ERN': 'ti-ER',
-      'SDG': 'ar-SD',
-      'SSP': 'en-SS',
-      'GMD': 'en-GM',
-      'LRD': 'en-LR',
-      'SLL': 'en-SL',
-      'GNF': 'fr-GN',
-      'CVE': 'pt-CV',
-      'MGA': 'mg-MG',
-      'SCR': 'en-SC',
-      'MUR': 'en-MU',
-      'RUB': 'ru-RU',
-      'UAH': 'uk-UA',
-      'PLN': 'pl-PL',
-      'CZK': 'cs-CZ',
-      'HUF': 'hu-HU',
-      'RON': 'ro-RO',
-      'BGN': 'bg-BG',
-      'HRK': 'hr-HR',
-      'RSD': 'sr-RS',
-      'MKD': 'mk-MK',
-      'BAM': 'bs-BA',
-      'ALL': 'sq-AL',
-      'MDL': 'ro-MD',
-      'NOK': 'nn-NO',
-      'SEK': 'sv-SE',
-      'DKK': 'da-DK',
-      'ISK': 'is-IS',
-      'TRY': 'tr-TR',
-      'GEL': 'ka-GE',
-      'AMD': 'hy-AM',
-      'AZN': 'az-AZ',
-      'BYN': 'be-BY',
-      'MXN': 'es-MX',
-      'BRL': 'pt-BR',
-      'ARS': 'es-AR',
-      'CLP': 'es-CL',
-      'PEN': 'es-PE',
-      'COP': 'es-CO',
-      'VES': 'es-VE',
-      'BOB': 'es-BO',
-      'PYG': 'es-PY',
-      'UYU': 'es-UY',
-      'GYD': 'en-GY',
-      'SRD': 'nl-SR',
-      'TTD': 'en-TT',
-      'JMD': 'en-JM',
-      'HTG': 'fr-HT',
-      'XCD': 'en-XC',
-      'CUP': 'es-CU',
-      'DOP': 'es-DO',
-      'NIO': 'es-NI',
-      'HNL': 'es-HN',
-      'GTQ': 'es-GT',
-      'CRC': 'es-CR',
-      'PAB': 'es-PA',
-      'BSD': 'en-BS',
-      'BBD': 'en-BB',
-      'BZD': 'en-BZ',
-      'AWG': 'nl-AW',
-      'ANG': 'nl-AN',
-      'FJD': 'en-FJ',
-      'WST': 'sm-WS',
-      'TOP': 'to-TO',
-      'VUV': 'en-VU',
-      'SBD': 'en-SB',
-      'PGK': 'en-PG',
-      'NZD': 'en-NZ',
-      'NAD': 'en-NA',
-      'BWP': 'en-BW',
-      'ZMW': 'en-ZM',
-      'MWK': 'en-MW',
-      'LSL': 'en-LS',
-      'SZL': 'en-SZ',
-      'AOA': 'pt-AO'
+      USD: 'en-US',
+      EUR: 'de-DE',
+      GBP: 'en-GB',
+      JPY: 'ja-JP',
+      CNY: 'zh-CN',
+      INR: 'hi-IN',
+      AUD: 'en-AU',
+      CAD: 'en-CA',
+      CHF: 'de-CH',
+      HKD: 'zh-HK',
+      SGD: 'en-SG',
+      KRW: 'ko-KR',
+      MYR: 'ms-MY',
+      THB: 'th-TH',
+      IDR: 'id-ID',
+      VND: 'vi-VN',
+      PHP: 'en-PH',
+      BND: 'en-BN',
+      LKR: 'si-LK',
+      PKR: 'ur-PK',
+      BDT: 'bn-BD',
+      NPR: 'ne-NP',
+      MVR: 'dv-MV',
+      MNT: 'mn-MN',
+      KZT: 'kk-KZ',
+      KGS: 'ky-KG',
+      UZS: 'uz-UZ',
+      TJS: 'tg-TJ',
+      TMT: 'tk-TM',
+      AED: 'ar-AE',
+      SAR: 'ar-SA',
+      QAR: 'ar-QA',
+      KWD: 'ar-KW',
+      BHD: 'ar-BH',
+      OMR: 'ar-OM',
+      JOD: 'ar-JO',
+      LBP: 'ar-LB',
+      SYP: 'ar-SY',
+      IQD: 'ar-IQ',
+      IRR: 'fa-IR',
+      ILS: 'he-IL',
+      EGP: 'ar-EG',
+      LYD: 'ar-LY',
+      TND: 'ar-TN',
+      DZD: 'ar-DZ',
+      MAD: 'ar-MA',
+      XOF: 'fr-SN',
+      XAF: 'fr-CM',
+      XPF: 'fr-PF',
+      ZAR: 'en-ZA',
+      NGN: 'en-NG',
+      GHS: 'en-GH',
+      KES: 'en-KE',
+      UGX: 'en-UG',
+      TZS: 'sw-TZ',
+      RWF: 'rw-RW',
+      BIF: 'fr-BI',
+      ETB: 'am-ET',
+      SOS: 'so-SO',
+      DJF: 'fr-DJ',
+      ERN: 'ti-ER',
+      SDG: 'ar-SD',
+      SSP: 'en-SS',
+      GMD: 'en-GM',
+      LRD: 'en-LR',
+      SLL: 'en-SL',
+      GNF: 'fr-GN',
+      CVE: 'pt-CV',
+      MGA: 'mg-MG',
+      SCR: 'en-SC',
+      MUR: 'en-MU',
+      RUB: 'ru-RU',
+      UAH: 'uk-UA',
+      PLN: 'pl-PL',
+      CZK: 'cs-CZ',
+      HUF: 'hu-HU',
+      RON: 'ro-RO',
+      BGN: 'bg-BG',
+      HRK: 'hr-HR',
+      RSD: 'sr-RS',
+      MKD: 'mk-MK',
+      BAM: 'bs-BA',
+      ALL: 'sq-AL',
+      MDL: 'ro-MD',
+      NOK: 'nn-NO',
+      SEK: 'sv-SE',
+      DKK: 'da-DK',
+      ISK: 'is-IS',
+      TRY: 'tr-TR',
+      GEL: 'ka-GE',
+      AMD: 'hy-AM',
+      AZN: 'az-AZ',
+      BYN: 'be-BY',
+      MXN: 'es-MX',
+      BRL: 'pt-BR',
+      ARS: 'es-AR',
+      CLP: 'es-CL',
+      PEN: 'es-PE',
+      COP: 'es-CO',
+      VES: 'es-VE',
+      BOB: 'es-BO',
+      PYG: 'es-PY',
+      UYU: 'es-UY',
+      GYD: 'en-GY',
+      SRD: 'nl-SR',
+      TTD: 'en-TT',
+      JMD: 'en-JM',
+      HTG: 'fr-HT',
+      XCD: 'en-XC',
+      CUP: 'es-CU',
+      DOP: 'es-DO',
+      NIO: 'es-NI',
+      HNL: 'es-HN',
+      GTQ: 'es-GT',
+      CRC: 'es-CR',
+      PAB: 'es-PA',
+      BSD: 'en-BS',
+      BBD: 'en-BB',
+      BZD: 'en-BZ',
+      AWG: 'nl-AW',
+      ANG: 'nl-AN',
+      FJD: 'en-FJ',
+      WST: 'sm-WS',
+      TOP: 'to-TO',
+      VUV: 'en-VU',
+      SBD: 'en-SB',
+      PGK: 'en-PG',
+      NZD: 'en-NZ',
+      NAD: 'en-NA',
+      BWP: 'en-BW',
+      ZMW: 'en-ZM',
+      MWK: 'en-MW',
+      LSL: 'en-LS',
+      SZL: 'en-SZ',
+      AOA: 'pt-AO'
     };
     return localeMap[currencyCode] || 'en-US';
   };
@@ -393,7 +403,7 @@ const CurrencySettings: React.FC = () => {
         style: 'currency',
         currency: currency.code,
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
+        maximumFractionDigits: 2
       }).format(amount);
     } catch {
       return `${currency.symbol} ${amount.toFixed(2)}`;
@@ -418,8 +428,7 @@ const CurrencySettings: React.FC = () => {
       setTimeout(() => {
         setSaveMessage(null);
       }, 3000);
-    } catch (error) {
-      console.error('Error saving currency settings:', error);
+    } catch {
       setSaveMessage({ type: 'error', text: 'Failed to save currency settings' });
     } finally {
       setIsLoading(false);
@@ -427,21 +436,23 @@ const CurrencySettings: React.FC = () => {
   };
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      p: { xs: 1, md: 2 },
-      pt: { xs: 0, md: 2 },
-      pr: { xs: 2, md: 2 },
-      boxSizing: 'border-box',
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        p: { xs: 1, md: 2 },
+        pt: { xs: 0, md: 2 },
+        pr: { xs: 2, md: 2 },
+        boxSizing: 'border-box',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/settings')}
           sx={{ borderRadius: 'sm' }}
@@ -449,26 +460,26 @@ const CurrencySettings: React.FC = () => {
           Back to Settings
         </Button>
         <CurrencyExchange sx={{ fontSize: 32, color: '#ffffff' }} />
-        <Typography level="h2">Currency Settings</Typography>
+        <Typography level='h2'>Currency Settings</Typography>
       </Box>
 
       {/* Current Selection */}
       <Card sx={{ mb: 3 }}>
         <Box sx={{ p: 2 }}>
-          <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
+          <Typography level='h4' sx={{ mb: 2, color: '#ffffff' }}>
             Current Currency Selection
           </Typography>
           {currency ? (
             <Box>
-              <Typography level="body-lg" sx={{ color: '#ffffff', mb: 1 }}>
+              <Typography level='body-lg' sx={{ color: '#ffffff', mb: 1 }}>
                 {currency.symbol} {currency.code} - {currency.name}
               </Typography>
-              <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+              <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
                 Sample formatting: {formatSampleAmount(12345.67)}
               </Typography>
             </Box>
           ) : (
-            <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+            <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
               No currency selected
             </Typography>
           )}
@@ -481,9 +492,9 @@ const CurrencySettings: React.FC = () => {
           {/* Search Bar */}
           <Input
             startDecorator={<Search />}
-            placeholder="Search currencies by code, name, country, or symbol..."
+            placeholder='Search currencies by code, name, country, or symbol...'
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             sx={{
               backgroundColor: '#2d2d2d',
               '& input': { color: '#ffffff' },
@@ -493,36 +504,43 @@ const CurrencySettings: React.FC = () => {
           />
 
           {/* Currency List Header */}
-          <Typography level="h4" sx={{ mb: 2, color: '#ffffff' }}>
+          <Typography level='h4' sx={{ mb: 2, color: '#ffffff' }}>
             Available Currencies ({filteredCurrencies.length})
           </Typography>
 
           {filteredCurrencies.length === 0 ? (
-            <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8, textAlign: 'center', py: 4 }}>
+            <Typography
+              level='body-sm'
+              sx={{ color: '#ffffff', opacity: 0.8, textAlign: 'center', py: 4 }}
+            >
               No currencies found matching your search.
             </Typography>
           ) : (
-            <Box sx={{
-              height: '400px',
-              overflow: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1
-            }}>
+            <Box
+              sx={{
+                height: '400px',
+                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1
+              }}
+            >
               {filteredCurrencies.map((worldCurrency, index) => (
                 <Box
                   key={`${worldCurrency.code}-${worldCurrency.country}-${index}`}
                   sx={{
                     p: 1.5,
-                    border: currency?.code === worldCurrency.code
-                      ? '2px solid #1976d2'
-                      : '1px solid #444',
+                    border:
+                      currency?.code === worldCurrency.code
+                        ? '2px solid #1976d2'
+                        : '1px solid #444',
                     borderRadius: 'sm',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    backgroundColor: currency?.code === worldCurrency.code
-                      ? 'rgba(25, 118, 210, 0.1)'
-                      : 'transparent',
+                    backgroundColor:
+                      currency?.code === worldCurrency.code
+                        ? 'rgba(25, 118, 210, 0.1)'
+                        : 'transparent',
                     '&:hover': {
                       backgroundColor: 'rgba(255, 255, 255, 0.05)',
                       borderColor: '#666'
@@ -530,16 +548,18 @@ const CurrencySettings: React.FC = () => {
                   }}
                   onClick={() => handleCurrencySelect(worldCurrency.code)}
                 >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box
+                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
                     <Box>
-                      <Typography level="body-md" sx={{ color: '#ffffff', fontWeight: 'bold' }}>
+                      <Typography level='body-md' sx={{ color: '#ffffff', fontWeight: 'bold' }}>
                         {worldCurrency.symbol} {worldCurrency.code} - {worldCurrency.name}
                       </Typography>
-                      <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.8 }}>
+                      <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.8 }}>
                         {worldCurrency.country}
                       </Typography>
                     </Box>
-                    <Typography level="body-sm" sx={{ color: '#ffffff', opacity: 0.7 }}>
+                    <Typography level='body-sm' sx={{ color: '#ffffff', opacity: 0.7 }}>
                       {formatSampleAmount(1000)}
                     </Typography>
                   </Box>
@@ -554,20 +574,17 @@ const CurrencySettings: React.FC = () => {
       <Card sx={{ mt: 2 }}>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               Changes will apply to all price displays throughout the application.
             </Typography>
             {saveMessage && (
-              <Alert
-                color={saveMessage.type === 'error' ? 'danger' : 'success'}
-                sx={{ mt: 1 }}
-              >
+              <Alert color={saveMessage.type === 'error' ? 'danger' : 'success'} sx={{ mt: 1 }}>
                 {saveMessage.text}
               </Alert>
             )}
           </Box>
           <Button
-            variant="solid"
+            variant='solid'
             startDecorator={<Save />}
             onClick={saveCurrencySettings}
             disabled={!currency || isLoading}
@@ -575,7 +592,7 @@ const CurrencySettings: React.FC = () => {
             sx={{
               backgroundColor: '#1976d2',
               '&:hover': { backgroundColor: '#1565c0' },
-              '&:disabled': { backgroundColor: '#444' },
+              '&:disabled': { backgroundColor: '#444' }
             }}
           >
             Save Settings

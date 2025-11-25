@@ -57,7 +57,10 @@ export const appointmentColumns: Column<Appointment>[] = [
       const treatments = value as { name: string }[];
       return (
         <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {treatments?.slice(0, 2).map((t) => t.name).join(', ')}
+          {treatments
+            ?.slice(0, 2)
+            .map(t => t.name)
+            .join(', ')}
           {treatments?.length > 2 && ` (+${treatments.length - 2})`}
         </Box>
       );

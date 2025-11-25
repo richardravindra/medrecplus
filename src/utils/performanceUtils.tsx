@@ -26,10 +26,13 @@ export interface GlobalPerformanceContextType {
       percentage: number;
     };
     totalCachesSize: number;
-    caches: Record<string, {
-      items: number;
-      size: number;
-    }>;
+    caches: Record<
+      string,
+      {
+        items: number;
+        size: number;
+      }
+    >;
   };
   optimizeAll: () => void;
 }

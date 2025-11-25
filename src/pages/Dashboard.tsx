@@ -60,7 +60,7 @@ interface Appointment {
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [currency] = useCurrency();
-  const [stats, setStats] = useState<PatientStats>({
+  const [_stats, setStats] = useState<PatientStats>({
     totalPatients: 0,
     newThisMonth: 0,
     monthlyData: []
@@ -75,15 +75,15 @@ const Dashboard: React.FC = () => {
     thisMonth: 0,
     monthlyData: []
   });
-  
+
   useEffect(() => {
     loadStats();
   }, []);
 
   const loadStats = async () => {
     try {
-      // Load patient statistics using SimpleDataService
-      const patientsResult = await SimpleDataService.getPatients({ limit: 100000 });
+      // Load patient statistics using a reasonable limit to prevent browser freezing
+      const patientsResult = await SimpleDataService.getPatients({ limit: 1000 });
       const patients = patientsResult.data;
       const now = new Date();
       const currentMonth = now.getMonth();
@@ -93,8 +93,7 @@ const Dashboard: React.FC = () => {
       const newThisMonth = patients.filter(patient => {
         if (!patient.created_at) return false;
         const createdDate = new Date(patient.created_at);
-        return createdDate.getMonth() === currentMonth &&
-               createdDate.getFullYear() === currentYear;
+        return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
       }).length;
 
       // Generate monthly data for patients
@@ -120,15 +119,17 @@ const Dashboard: React.FC = () => {
         monthlyData: patientMonthlyData
       });
 
-      // Load appointment statistics using SimpleDataService
-      const appointmentsResult = await SimpleDataService.getAppointments({ limit: 100000 });
+      // Load appointment statistics using a reasonable limit to prevent browser freezing
+      const appointmentsResult = await SimpleDataService.getAppointments({ limit: 1000 });
       const appointments = appointmentsResult.data;
 
       // Calculate appointments this month
       const appointmentsThisMonth = appointments.filter((appointment: Appointment) => {
         const appointmentDate = new Date(appointment.date);
-        return appointmentDate.getMonth() === currentMonth &&
-               appointmentDate.getFullYear() === currentYear;
+        return (
+          appointmentDate.getMonth() === currentMonth &&
+          appointmentDate.getFullYear() === currentYear
+        );
       }).length;
 
       // Generate monthly data for appointments
@@ -153,17 +154,20 @@ const Dashboard: React.FC = () => {
         monthlyData: appointmentMonthlyData
       });
 
-      // Load invoice statistics and calculate revenue using SimpleDataService
-      const invoicesResult = await SimpleDataService.getInvoices({ limit: 100000 });
+      // Load invoice statistics and calculate revenue using a reasonable limit to prevent browser freezing
+      const invoicesResult = await SimpleDataService.getInvoices({ limit: 1000 });
       const invoices = invoicesResult.data;
       const paidInvoices = invoices.filter((invoice: Invoice) => invoice.status === 'paid');
 
       // Calculate revenue this month
-      const revenueThisMonth = paidInvoices.filter((invoice: Invoice) => {
-        const invoiceDate = new Date(invoice.date);
-        return invoiceDate.getMonth() === currentMonth &&
-               invoiceDate.getFullYear() === currentYear;
-      }).reduce((total: number, invoice: Invoice) => total + ((invoice.totalAmount || 0)), 0);
+      const revenueThisMonth = paidInvoices
+        .filter((invoice: Invoice) => {
+          const invoiceDate = new Date(invoice.date);
+          return (
+            invoiceDate.getMonth() === currentMonth && invoiceDate.getFullYear() === currentYear
+          );
+        })
+        .reduce((total: number, invoice: Invoice) => total + (invoice.totalAmount || 0), 0);
 
       // Generate monthly data for revenue
       const revenueMonthlyData = [];
@@ -178,21 +182,23 @@ const Dashboard: React.FC = () => {
             const invoiceDate = new Date(invoice.date);
             return invoiceDate >= monthStart && invoiceDate <= monthEnd;
           })
-          .reduce((total: number, invoice: Invoice) => total + ((invoice.totalAmount || 0)), 0);
+          .reduce((total: number, invoice: Invoice) => total + (invoice.totalAmount || 0), 0);
 
         revenueMonthlyData.push({ month: monthName, revenue: monthlyRevenue });
       }
 
-      const totalRevenue = paidInvoices.reduce((total: number, invoice: Invoice) => total + (invoice.totalAmount || 0), 0);
+      const totalRevenue = paidInvoices.reduce(
+        (total: number, invoice: Invoice) => total + (invoice.totalAmount || 0),
+        0
+      );
 
       setRevenueStats({
         totalRevenue,
         thisMonth: revenueThisMonth,
         monthlyData: revenueMonthlyData
       });
-
-    } catch (error) {
-      log.error('Error loading dashboard stats', { error }, 'Dashboard');
+    } catch (err) {
+      log.error('Error loading dashboard stats', { error: err }, 'Dashboard');
     }
   };
 
@@ -225,35 +231,44 @@ const Dashboard: React.FC = () => {
   // Currency formatting now handled by the imported utility functions
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      maxHeight: '100vh',
-      p: { xs: 1, md: 1.5 },
-      pt: { xs: 0, md: 1.5 },
-      pr: { xs: 2, md: 1.5 },
-      pb: { xs: 1, md: 1.5 }, // Add bottom padding to ensure content doesn't overlap with button
-      boxSizing: 'border-box',
-      minWidth: 0,
-      overflowY: 'auto', // Enable scrolling within the container
-      overflowX: 'hidden', // Prevent horizontal scrolling
-      position: 'relative', // Ensure positioning context for the button
-      // Ensure proper scrolling on mobile devices
-      WebkitOverflowScrolling: 'touch',
-      // Handle safe areas on mobile
-      paddingBottom: { xs: 'max(16px, env(safe-area-inset-bottom))', md: '1.5rem' },
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        maxHeight: '100vh',
+        p: { xs: 1, md: 1.5 },
+        pt: { xs: 0, md: 1.5 },
+        pr: { xs: 2, md: 1.5 },
+        pb: { xs: 1, md: 1.5 }, // Add bottom padding to ensure content doesn't overlap with button
+        boxSizing: 'border-box',
+        minWidth: 0,
+        overflowY: 'auto', // Enable scrolling within the container
+        overflowX: 'hidden', // Prevent horizontal scrolling
+        position: 'relative', // Ensure positioning context for the button
+        // Ensure proper scrolling on mobile devices
+        WebkitOverflowScrolling: 'touch',
+        // Handle safe areas on mobile
+        paddingBottom: { xs: 'max(16px, env(safe-area-inset-bottom))', md: '1.5rem' }
+      }}
+    >
       <Box sx={{ mb: 1 }}>
-        <Typography level="h2" sx={{ mb: 1 }}>
+        <Typography level='h2' sx={{ mb: 1 }}>
           Welcome!
         </Typography>
       </Box>
 
       <Stack spacing={1.5}>
-        <Box sx={{ display: 'flex', gap: 1.5, flexDirection: { xs: 'column', lg: 'row' }, flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1.5,
+            flexDirection: { xs: 'column', lg: 'row' },
+            flexWrap: 'wrap'
+          }}
+        >
           {/* New Patients This Month Card */}
           <Card
-            variant="outlined"
+            variant='outlined'
             sx={{
               p: 1.5,
               position: 'relative',
@@ -262,66 +277,70 @@ const Dashboard: React.FC = () => {
               minWidth: { xs: '100%', lg: '300px' }
             }}
           >
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            mb: 1
-          }}>
-            <Box>
-              <Typography level="h4" sx={{ mb: 0.5 }}>
-                New Patients This Month
-              </Typography>
-              <Typography level="h2" color="primary" sx={{ mb: 0.5 }}>
-                {stats.newThisMonth}
-              </Typography>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-                Total patients: {stats.totalPatients}
-              </Typography>
-            </Box>
-
-            <Button
-              variant="solid"
-              color="neutral"
-              size="sm"
-              startDecorator={<Add />}
-              onClick={() => navigate('/patients/add')}
+            <Box
               sx={{
-                borderRadius: 'sm',
-                whiteSpace: 'nowrap'
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                mb: 1
               }}
             >
-              Add a New Patient
-            </Button>
-          </Box>
+              <Box>
+                <Typography level='h4' sx={{ mb: 0.5 }}>
+                  New Patients This Month
+                </Typography>
+                <Typography level='h2' color='primary' sx={{ mb: 0.5 }}>
+                  {_stats.newThisMonth}
+                </Typography>
+                <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                  Total patients: {_stats.totalPatients}
+                </Typography>
+              </Box>
 
-          {/* Recharts Line Chart */}
-          <Box sx={{ mt: 0.5 }}>
-            <Box sx={{
-              width: '100%',
-              height: 240,
-              backgroundColor: 'background.level1',
-              borderRadius: 'sm',
-              p: 1,
-              border: '1px solid',
-              borderColor: 'divider'
-            }}>
-              <LazyLineChart
-                data={stats.monthlyData}
-                dataKey="count"
-                stroke="var(--joy-palette-primary-500)"
-                height={220}
-                title="Patient Registration Trend"
-                formatYAxis={formatNumber}
-                formatTooltip={formatNumber}
-              />
+              <Button
+                variant='solid'
+                color='neutral'
+                size='sm'
+                startDecorator={<Add />}
+                onClick={() => navigate('/patients/add')}
+                sx={{
+                  borderRadius: 'sm',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Add a New Patient
+              </Button>
             </Box>
-          </Box>
+
+            {/* Recharts Line Chart */}
+            <Box sx={{ mt: 0.5 }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 240,
+                  backgroundColor: 'background.level1',
+                  borderRadius: 'sm',
+                  p: 1,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                <LazyLineChart
+                  data={_stats.monthlyData}
+                  dataKey='count'
+                  stroke='var(--joy-palette-primary-500)'
+                  height={220}
+                  title='Patient Registration Trend'
+                  formatYAxis={formatNumber}
+                  formatTooltip={formatNumber}
+                />
+              </Box>
+            </Box>
           </Card>
 
           {/* Appointments This Month Card */}
           <Card
-            variant="outlined"
+            variant='outlined'
             sx={{
               p: 1.5,
               position: 'relative',
@@ -330,48 +349,57 @@ const Dashboard: React.FC = () => {
               minWidth: { xs: '100%', md: '0' }
             }}
           >
-          <Box sx={{ mb: 1 }}>
-            <Typography level="h4" sx={{ mb: 0.5 }}>
-              Appointments This Month
-            </Typography>
-            <Typography level="h2" color="success" sx={{ mb: 0.5 }}>
-              {appointmentStats.thisMonth}
-            </Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-              Total appointments: {appointmentStats.totalAppointments}
-            </Typography>
-          </Box>
-
-          {/* Recharts Line Chart for Appointments */}
-          <Box sx={{ mt: 0.5 }}>
-            <Box sx={{
-              width: '100%',
-              height: 240,
-              backgroundColor: 'background.level1',
-              borderRadius: 'sm',
-              p: 1,
-              border: '1px solid',
-              borderColor: 'divider'
-            }}>
-              <LazyLineChart
-                data={appointmentStats.monthlyData}
-                dataKey="count"
-                stroke="var(--joy-palette-success-500)"
-                height={220}
-                title="Appointments Trend"
-                formatYAxis={formatNumber}
-                formatTooltip={formatNumber}
-              />
+            <Box sx={{ mb: 1 }}>
+              <Typography level='h4' sx={{ mb: 0.5 }}>
+                Appointments This Month
+              </Typography>
+              <Typography level='h2' color='success' sx={{ mb: 0.5 }}>
+                {appointmentStats.thisMonth}
+              </Typography>
+              <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                Total appointments: {appointmentStats.totalAppointments}
+              </Typography>
             </Box>
-          </Box>
+
+            {/* Recharts Line Chart for Appointments */}
+            <Box sx={{ mt: 0.5 }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 240,
+                  backgroundColor: 'background.level1',
+                  borderRadius: 'sm',
+                  p: 1,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                <LazyLineChart
+                  data={appointmentStats.monthlyData}
+                  dataKey='count'
+                  stroke='var(--joy-palette-success-500)'
+                  height={220}
+                  title='Appointments Trend'
+                  formatYAxis={formatNumber}
+                  formatTooltip={formatNumber}
+                />
+              </Box>
+            </Box>
           </Card>
         </Box>
 
         {/* Second Row - Revenue Card */}
-        <Box sx={{ display: 'flex', gap: 1.5, flexDirection: { xs: 'column', lg: 'row' }, flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1.5,
+            flexDirection: { xs: 'column', lg: 'row' },
+            flexWrap: 'wrap'
+          }}
+        >
           {/* Revenue This Month Card */}
           <Card
-            variant="outlined"
+            variant='outlined'
             sx={{
               p: 1.5,
               position: 'relative',
@@ -380,76 +408,79 @@ const Dashboard: React.FC = () => {
               minWidth: { xs: '100%', lg: '300px' }
             }}
           >
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            mb: 1
-          }}>
-            <Box>
-              <Typography level="h4" sx={{ mb: 0.5 }}>
-                Revenue This Month
-              </Typography>
-              <Typography level="h2" color="success" sx={{ mb: 0.5 }}>
-                {formatCurrency(revenueStats.thisMonth, currency)}
-              </Typography>
-              <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-                Total revenue: {formatCurrency(revenueStats.totalRevenue, currency)}
-              </Typography>
-            </Box>
-
-            <Button
-              variant="solid"
-              color="neutral"
-              size="sm"
-              startDecorator={<MonetizationOn />}
-              onClick={() => navigate('/invoices')}
+            <Box
               sx={{
-                borderRadius: 'sm',
-                whiteSpace: 'nowrap'
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                mb: 1
               }}
             >
-              View Invoices
-            </Button>
-          </Box>
+              <Box>
+                <Typography level='h4' sx={{ mb: 0.5 }}>
+                  Revenue This Month
+                </Typography>
+                <Typography level='h2' color='success' sx={{ mb: 0.5 }}>
+                  {formatCurrency(revenueStats.thisMonth, currency)}
+                </Typography>
+                <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+                  Total revenue: {formatCurrency(revenueStats.totalRevenue, currency)}
+                </Typography>
+              </Box>
 
-          {/* Recharts Revenue Chart */}
-          <Box sx={{ mt: 0.5 }}>
-            <Box sx={{
-              width: '100%',
-              height: 240,
-              backgroundColor: 'background.level1',
-              borderRadius: 'sm',
-              p: 1,
-              border: '1px solid',
-              borderColor: 'divider'
-            }}>
-              <LazyLineChart
-                data={revenueStats.monthlyData}
-                dataKey="revenue"
-                stroke="var(--joy-palette-primary-500)"
-                height={220}
-                title="Revenue Trend"
-                formatYAxis={formatCurrencyShort}
-                formatTooltip={formatCurrencyShort}
-              />
+              <Button
+                variant='solid'
+                color='neutral'
+                size='sm'
+                startDecorator={<MonetizationOn />}
+                onClick={() => navigate('/invoices')}
+                sx={{
+                  borderRadius: 'sm',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                View Invoices
+              </Button>
             </Box>
-          </Box>
+
+            {/* Recharts Revenue Chart */}
+            <Box sx={{ mt: 0.5 }}>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 240,
+                  backgroundColor: 'background.level1',
+                  borderRadius: 'sm',
+                  p: 1,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                <LazyLineChart
+                  data={revenueStats.monthlyData}
+                  dataKey='revenue'
+                  stroke='var(--joy-palette-primary-500)'
+                  height={220}
+                  title='Revenue Trend'
+                  formatYAxis={formatCurrencyShort}
+                  formatTooltip={formatCurrencyShort}
+                />
+              </Box>
+            </Box>
           </Card>
         </Box>
-
       </Stack>
 
       {/* Floating New Appointment Button */}
       <Button
-        color="primary"
-        variant="solid"
+        color='primary'
+        variant='solid'
         onClick={() => navigate('/appointments/new')}
         startDecorator={<Add />}
         sx={{
-          position: 'fixed',
+          position: 'fixed !important',
           bottom: { xs: '80px', md: '24px' }, // Positioned above mobile navbar (60px + safe area)
-          right: { xs: '16px', md: '24px' },
+          right: { xs: '16px', md: '24px' }, // Aligned to right edge
           zIndex: 1000,
           borderRadius: 28,
           fontSize: '14px',
@@ -464,12 +495,12 @@ const Dashboard: React.FC = () => {
           // Ensure button stays within safe areas on mobile devices
           '@media screen and (max-aspect-ratio: 9/16)': {
             bottom: '80px',
-            right: '16px',
+            right: '16px'
           },
           // Handle notched screens and safe areas
           '@supports (padding: max(0px))': {
             paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
-            marginRight: 'max(16px, env(safe-area-inset-right))',
+            marginRight: 'max(16px, env(safe-area-inset-right))'
           },
           '&:hover': {
             transform: 'scale(1.05)',

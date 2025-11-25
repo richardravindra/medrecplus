@@ -1,6 +1,15 @@
 import { IndexedDBStorage } from '../utils/IndexedDBStorage';
 import { ChunkedDataRestore } from '../utils/ChunkedDataRestore';
-import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
+import {
+  Patient,
+  Invoice,
+  Appointment,
+  VitalSigns,
+  Treatment,
+  Operator,
+  CustomExamination,
+  ReceiptConfig
+} from '../types';
 
 // Type guard functions
 function isPatient(entity: DataEntity): entity is Patient {
@@ -12,7 +21,12 @@ function isInvoice(entity: DataEntity): entity is Invoice {
 }
 
 function isAppointment(entity: DataEntity): entity is Appointment {
-  return 'patientName' in entity && 'operatorName' in entity && 'date' in entity && 'vitalSigns' in entity;
+  return (
+    'patientName' in entity &&
+    'operatorName' in entity &&
+    'date' in entity &&
+    'vitalSigns' in entity
+  );
 }
 
 function isOperator(entity: DataEntity): entity is Operator {
@@ -28,24 +42,25 @@ function isReceiptConfig(entity: DataEntity): entity is ReceiptConfig {
 }
 
 // Generic type for data entities - includes all possible types with index signature
-export type DataEntity = (Patient & Record<string, unknown>) |
-                   (Invoice & Record<string, unknown>) |
-                   (Appointment & Record<string, unknown>) |
-                   (Operator & Record<string, unknown>) |
-                   (CustomExamination & Record<string, unknown>) |
-                   (ReceiptConfig & Record<string, unknown>) |
-                   (Record<string, unknown> & {
-  patientName?: string;
-  patientId?: number;
-  operatorName?: string;
-  operatorId?: number;
-  date?: string;
-  invoiceNumber?: string;
-  status?: string;
-  totalAmount?: number;
-  vitalSigns?: VitalSigns;
-  treatments?: Treatment[];
-});
+export type DataEntity =
+  | (Patient & Record<string, unknown>)
+  | (Invoice & Record<string, unknown>)
+  | (Appointment & Record<string, unknown>)
+  | (Operator & Record<string, unknown>)
+  | (CustomExamination & Record<string, unknown>)
+  | (ReceiptConfig & Record<string, unknown>)
+  | (Record<string, unknown> & {
+      patientName?: string;
+      patientId?: number;
+      operatorName?: string;
+      operatorId?: number;
+      date?: string;
+      invoiceNumber?: string;
+      status?: string;
+      totalAmount?: number;
+      vitalSigns?: VitalSigns;
+      treatments?: Treatment[];
+    });
 
 export class DataService {
   // Universal data retrieval - tries IndexedDB first, then localStorage
@@ -54,25 +69,20 @@ export class DataService {
       // Try IndexedDB first
       const indexedDBData = await IndexedDBStorage.getData(key);
       if (indexedDBData && indexedDBData.length > 0) {
-        console.log(`📊 Retrieved ${indexedDBData.length} ${key} from IndexedDB`);
         return indexedDBData;
       }
-    } catch (error) {
-      console.log(`⚠️ IndexedDB read failed for ${key}, trying localStorage:`, error);
+    } catch { // Error handled silently
     }
 
     // Fallback to localStorage (including chunked data)
     try {
       const localStorageData = ChunkedDataRestore.getDataFromStorage(key);
       if (localStorageData && localStorageData.length > 0) {
-        console.log(`📊 Retrieved ${localStorageData.length} ${key} from localStorage`);
         return localStorageData;
       }
-    } catch (error) {
-      console.log(`❌ localStorage read failed for ${key}:`, error);
+    } catch { // Error handled silently
     }
 
-    console.log(`📭 No data found for ${key}`);
     return [];
   }
 
@@ -82,17 +92,14 @@ export class DataService {
       // Try localStorage first for sync access
       const localStorageData = ChunkedDataRestore.getDataFromStorage(key);
       if (localStorageData && localStorageData.length > 0) {
-        console.log(`📊 Sync retrieved ${localStorageData.length} ${key} from localStorage`);
         return localStorageData;
       }
-    } catch (error) {
-      console.log(`❌ Sync localStorage read failed for ${key}:`, error);
+    } catch { // Error handled silently
     }
 
     return [];
   }
 
-  
   // Get patients
   static async getPatients(): Promise<Patient[]> {
     const data = await this.getData('patient_management_data');
@@ -168,9 +175,11 @@ export class DataService {
     return data.filter((item): item is Treatment => {
       if (typeof item !== 'object' || item === null) return false;
       const candidate = item as Record<string, unknown>;
-      return typeof candidate.id === 'number' &&
-             typeof candidate.name === 'string' &&
-             typeof candidate.price === 'number';
+      return (
+        typeof candidate.id === 'number' &&
+        typeof candidate.name === 'string' &&
+        typeof candidate.price === 'number'
+      );
     });
   }
 
@@ -179,9 +188,11 @@ export class DataService {
     return data.filter((item): item is Treatment => {
       if (typeof item !== 'object' || item === null) return false;
       const candidate = item as Record<string, unknown>;
-      return typeof candidate.id === 'number' &&
-             typeof candidate.name === 'string' &&
-             typeof candidate.price === 'number';
+      return (
+        typeof candidate.id === 'number' &&
+        typeof candidate.name === 'string' &&
+        typeof candidate.price === 'number'
+      );
     });
   }
 
@@ -191,16 +202,18 @@ export class DataService {
     const localStorageLimit = 5 * 1024 * 1024; // 5MB
 
     if (dataSize > localStorageLimit) {
-      console.log(`💾 Saving ${data.length} ${key} to IndexedDB (${(dataSize / 1024 / 1024).toFixed(2)}MB)`);
       await IndexedDBStorage.saveData(key, data);
     } else {
-      console.log(`💾 Saving ${data.length} ${key} to localStorage (${(dataSize / 1024).toFixed(2)}KB)`);
       localStorage.setItem(key, JSON.stringify(data));
     }
   }
 
   // Get data with search and pagination for patients
-  static async getPatientsPaginated(search?: string, page = 1, pageSize = 50): Promise<{
+  static async getPatientsPaginated(
+    search?: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<{
     patients: Patient[];
     totalCount: number;
     totalPages: number;
@@ -210,11 +223,12 @@ export class DataService {
     // Apply search filter
     if (search) {
       const searchLower = search.toLowerCase();
-      patients = patients.filter(patient =>
-        patient.name?.toLowerCase().includes(searchLower) ||
-        patient.record_number?.toLowerCase().includes(searchLower) ||
-        patient.phone_number?.toLowerCase().includes(searchLower) ||
-        patient.initial_diagnosis?.toLowerCase().includes(searchLower)
+      patients = patients.filter(
+        patient =>
+          patient.name?.toLowerCase().includes(searchLower) ||
+          patient.record_number?.toLowerCase().includes(searchLower) ||
+          patient.phone_number?.toLowerCase().includes(searchLower) ||
+          patient.initial_diagnosis?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -231,7 +245,11 @@ export class DataService {
   }
 
   // Get data with search and pagination for appointments
-  static async getAppointmentsPaginated(search?: string, page = 1, pageSize = 50): Promise<{
+  static async getAppointmentsPaginated(
+    search?: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<{
     appointments: Appointment[];
     totalCount: number;
     totalPages: number;
@@ -241,10 +259,11 @@ export class DataService {
     // Apply search filter
     if (search) {
       const searchLower = search.toLowerCase();
-      appointments = appointments.filter(appointment =>
-        appointment.patientName?.toLowerCase().includes(searchLower) ||
-        appointment.operatorName?.toLowerCase().includes(searchLower) ||
-        appointment.date?.includes(search)
+      appointments = appointments.filter(
+        appointment =>
+          appointment.patientName?.toLowerCase().includes(searchLower) ||
+          appointment.operatorName?.toLowerCase().includes(searchLower) ||
+          appointment.date?.includes(search)
       );
     }
 
@@ -264,7 +283,12 @@ export class DataService {
   }
 
   // Get data with search and pagination for invoices
-  static async getInvoicesPaginated(search?: string, status?: string, page = 1, pageSize = 50): Promise<{
+  static async getInvoicesPaginated(
+    search?: string,
+    status?: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<{
     invoices: Invoice[];
     totalCount: number;
     totalPages: number;
@@ -274,10 +298,11 @@ export class DataService {
     // Apply filters
     if (search) {
       const searchLower = search.toLowerCase();
-      invoices = invoices.filter(invoice =>
-        invoice.patientName?.toLowerCase().includes(searchLower) ||
-        invoice.invoiceNumber?.toLowerCase().includes(searchLower) ||
-        invoice.operatorName?.toLowerCase().includes(searchLower)
+      invoices = invoices.filter(
+        invoice =>
+          invoice.patientName?.toLowerCase().includes(searchLower) ||
+          invoice.invoiceNumber?.toLowerCase().includes(searchLower) ||
+          invoice.operatorName?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -361,55 +386,43 @@ export class DataService {
 
   // Debug method to check data sources
   static async debugDataSources(): Promise<void> {
-    console.log('🔍 Debugging data sources...');
 
-    const sources = ['operators', 'treatments', 'patient_management_data', 'appointments', 'invoices'];
+    const sources = [
+      'operators',
+      'treatments',
+      'patient_management_data',
+      'appointments',
+      'invoices'
+    ];
 
     for (const source of sources) {
       try {
-        const indexedDBData = await IndexedDBStorage.getData(source);
-        const localStorageData = ChunkedDataRestore.getDataFromStorage(source);
-
-        console.log(`📊 ${source}:`, {
-          indexedDB: indexedDBData.length,
-          localStorage: localStorageData.length,
-          total: indexedDBData.length + localStorageData.length
-        });
-      } catch (error) {
-        console.log(`❌ Error checking ${source}:`, error);
-      }
+        await IndexedDBStorage.getData(source);
+        ChunkedDataRestore.getDataFromStorage(source);
+      } catch { // Error handled silently
+    }
     }
 
     // Check IndexedDB storage info
     try {
-      const storageInfo = await IndexedDBStorage.getStorageInfo();
-      console.log('💾 IndexedDB Storage Info:', storageInfo);
-    } catch (error) {
-      console.log('❌ Error getting storage info:', error);
+      await IndexedDBStorage.getStorageInfo();
+    } catch { // Error handled silently
     }
   }
 
   // Clear all data (both IndexedDB and localStorage)
   static async clearAll(): Promise<void> {
-    console.log('🗑️ Clearing all data...');
 
-    try {
-      await IndexedDBStorage.clearAll();
+    await IndexedDBStorage.clearAll();
 
-      // Clear localStorage
-      const keysToKeep = ['currentUser', 'settings'];
-      const allKeys = Object.keys(localStorage);
+    // Clear localStorage
+    const keysToKeep = ['currentUser', 'settings'];
+    const allKeys = Object.keys(localStorage);
 
-      allKeys.forEach(key => {
-        if (!keysToKeep.includes(key)) {
-          localStorage.removeItem(key);
-        }
-      });
-
-      console.log('✅ All data cleared successfully');
-    } catch (error) {
-      console.error('❌ Error clearing data:', error);
-      throw error;
-    }
+    allKeys.forEach(key => {
+      if (!keysToKeep.includes(key)) {
+        localStorage.removeItem(key);
+      }
+    });
   }
 }

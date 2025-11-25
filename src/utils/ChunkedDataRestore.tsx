@@ -1,25 +1,35 @@
 import { storage } from '../services/UnifiedStorage';
-import { Patient, Invoice, Appointment, VitalSigns, Treatment, Operator, CustomExamination, ReceiptConfig } from '../types';
+import {
+  Patient,
+  Invoice,
+  Appointment,
+  VitalSigns,
+  Treatment,
+  Operator,
+  CustomExamination,
+  ReceiptConfig
+} from '../types';
 
 // Generic type for data entities - includes all possible types with index signature
-type DataEntity = (Patient & Record<string, unknown>) |
-                   (Invoice & Record<string, unknown>) |
-                   (Appointment & Record<string, unknown>) |
-                   (Operator & Record<string, unknown>) |
-                   (CustomExamination & Record<string, unknown>) |
-                   (ReceiptConfig & Record<string, unknown>) |
-                   (Record<string, unknown> & {
-  patientName?: string;
-  patientId?: number;
-  operatorName?: string;
-  operatorId?: number;
-  date?: string;
-  invoiceNumber?: string;
-  status?: string;
-  totalAmount?: number;
-  vitalSigns?: VitalSigns;
-  treatments?: Treatment[];
-});
+type DataEntity =
+  | (Patient & Record<string, unknown>)
+  | (Invoice & Record<string, unknown>)
+  | (Appointment & Record<string, unknown>)
+  | (Operator & Record<string, unknown>)
+  | (CustomExamination & Record<string, unknown>)
+  | (ReceiptConfig & Record<string, unknown>)
+  | (Record<string, unknown> & {
+      patientName?: string;
+      patientId?: number;
+      operatorName?: string;
+      operatorId?: number;
+      date?: string;
+      invoiceNumber?: string;
+      status?: string;
+      totalAmount?: number;
+      vitalSigns?: VitalSigns;
+      treatments?: Treatment[];
+    });
 
 interface BackupData {
   operators: Operator[];
@@ -39,8 +49,10 @@ interface RestoreProgress {
 }
 
 export class ChunkedDataRestore {
-
-  static async restoreFromLargeFile(file: File, onProgress?: (progress: RestoreProgress) => void): Promise<void> {
+  static async restoreFromLargeFile(
+    file: File,
+    onProgress?: (progress: RestoreProgress) => void
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         onProgress?.({
@@ -63,49 +75,36 @@ export class ChunkedDataRestore {
     });
   }
 
-  private static async readLargeFileInChunks(file: File, onProgress?: (progress: RestoreProgress) => void): Promise<BackupData> {
+  private static async readLargeFileInChunks(
+    file: File,
+    onProgress?: (progress: RestoreProgress) => void
+  ): Promise<BackupData> {
     return new Promise((resolve, reject) => {
       const chunkSize = 1024 * 1024; // 1MB chunks
       let offset = 0;
       let content = '';
 
-      console.log(`📖 Starting to read file: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
-
+  
       const reader = new FileReader();
 
       const processChunk = () => {
         if (offset >= file.size) {
-          console.log(`✅ File reading complete. Total content length: ${content.length} characters`);
 
           try {
-            console.log('🔄 Parsing JSON content...');
             const backupData = JSON.parse(content) as BackupData;
-
-            console.log('✅ JSON parsing successful! Data summary:', {
-              operators: backupData.operators?.length || 0,
-              treatments: backupData.treatments?.length || 0,
-              patients: backupData.patients?.length || 0,
-              appointments: backupData.appointments?.length || 0,
-              invoices: backupData.invoices?.length || 0,
-              backupDate: backupData.backupDate,
-              version: backupData.version
-            });
 
             resolve(backupData);
           } catch (error) {
-            console.error('❌ JSON parsing failed:', error);
-            console.error('📄 Content preview:', content.substring(0, 500) + '...');
 
             // Try to find JSON syntax errors
             const errorMessage = error instanceof Error ? error.message : String(error);
             const errorMatch = errorMessage.match(/position (\d+)/);
             if (errorMatch) {
               const position = parseInt(errorMatch[1]);
-              const context = content.substring(Math.max(0, position - 100), position + 100);
-              console.error('📍 Error context around position', position, ':', context);
+              content.substring(Math.max(0, position - 100), position + 100);
             }
 
-            reject(new Error('Failed to parse JSON: ' + error));
+            reject(new Error('Failed to parse JSON: ' + errorMessage));
           }
           return;
         }
@@ -114,14 +113,12 @@ export class ChunkedDataRestore {
         reader.readAsText(chunk);
       };
 
-      reader.onload = (e) => {
+      reader.onload = e => {
         const chunkContent = e.target?.result as string;
         content += chunkContent;
         offset += chunkSize;
 
         const progress = Math.round((offset / file.size) * 100);
-
-        console.log(`📖 Read chunk: ${Math.round(offset / 1024 / 1024)}MB of ${Math.round(file.size / 1024 / 1024)}MB (${progress}%)`);
 
         onProgress?.({
           stage: 'Reading file',
@@ -135,7 +132,6 @@ export class ChunkedDataRestore {
       };
 
       reader.onerror = () => {
-        console.error('❌ File reading error:', reader.error);
         reject(new Error('Failed to read file'));
       };
 
@@ -143,27 +139,35 @@ export class ChunkedDataRestore {
     });
   }
 
-  private static async processBackupData(backupData: BackupData, onProgress?: (progress: RestoreProgress) => void): Promise<void> {
-    console.log('🔍 Starting processBackupData with:', {
-      operators: backupData.operators?.length || 0,
-      treatments: backupData.treatments?.length || 0,
-      patients: backupData.patients?.length || 0,
-      appointments: backupData.appointments?.length || 0,
-      invoices: backupData.invoices?.length || 0
+  private static async processBackupData(
+    backupData: BackupData,
+    onProgress?: (progress: RestoreProgress) => void
+  ): Promise<void> {
+    onProgress?.({
+      stage: 'Starting restore',
+      progress: 0,
+      total: 100,
+      current: `Found data: ${backupData.patients?.length || 0} patients, ${backupData.operators?.length || 0} operators`
     });
 
     // Validate backup structure
-    if (!backupData.operators || !backupData.treatments || !backupData.patients ||
-        !backupData.appointments || !backupData.invoices) {
-      console.error('❌ Invalid backup file structure:', {
-        hasOperators: !!backupData.operators,
-        hasTreatments: !!backupData.treatments,
-        hasPatients: !!backupData.patients,
-        hasAppointments: !!backupData.appointments,
-        hasInvoices: !!backupData.invoices
-      });
+    if (
+      !backupData.operators ||
+      !backupData.treatments ||
+      !backupData.patients ||
+      !backupData.appointments ||
+      !backupData.invoices
+    ) {
       throw new Error('Invalid backup file structure');
     }
+
+    // Report data availability
+    onProgress?.({
+      stage: 'Data validation complete',
+      progress: 5,
+      total: 100,
+      current: `Data found - ${backupData.patients?.length || 0} patients, ${backupData.operators?.length || 0} operators`
+    });
 
     const stages = [
       { name: 'operators', data: backupData.operators, key: 'operators' },
@@ -173,11 +177,8 @@ export class ChunkedDataRestore {
       { name: 'invoices', data: backupData.invoices, key: 'invoices' }
     ];
 
-    console.log('📋 Processing stages:', stages.map(s => `${s.name}: ${s.data.length}`));
-
     for (let i = 0; i < stages.length; i++) {
       const stage = stages[i];
-      console.log(`🔄 Stage ${i + 1}/${stages.length}: Processing ${stage.name} (${stage.data.length} records)`);
 
       onProgress?.({
         stage: `Processing ${stage.name}`,
@@ -186,17 +187,10 @@ export class ChunkedDataRestore {
         current: `Processing ${stage.data.length} ${stage.name}...`
       });
 
-      try {
-        await this.processDataChunk(stage.data as DataEntity[], stage.key, onProgress);
-        console.log(`✅ Completed processing ${stage.name}`);
-      } catch (error) {
-        console.error(`❌ Failed to process ${stage.name}:`, error);
-        throw error;
-      }
+      await this.processDataChunk(stage.data as DataEntity[], stage.key, onProgress);
     }
 
     // Save metadata
-    console.log('💾 Saving metadata...');
     onProgress?.({
       stage: 'Finalizing',
       progress: 95,
@@ -207,7 +201,6 @@ export class ChunkedDataRestore {
     localStorage.setItem('lastBackupDate', backupData.backupDate);
     localStorage.setItem('backupVersion', backupData.version);
 
-    console.log('✅ All data processing completed!');
     onProgress?.({
       stage: 'Complete',
       progress: 100,
@@ -216,17 +209,14 @@ export class ChunkedDataRestore {
     });
   }
 
-  private static async processDataChunk(data: DataEntity[], storageKey: string, onProgress?: (progress: RestoreProgress) => void): Promise<void> {
+  private static async processDataChunk(
+    data: DataEntity[],
+    storageKey: string,
+    onProgress?: (progress: RestoreProgress) => void
+  ): Promise<void> {
     if (data.length === 0) {
-      console.log(`⚠️ No data to process for ${storageKey}`);
       return;
     }
-
-    console.log(`🔄 Processing ${data.length} records for ${storageKey}`);
-
-    // Check if data exceeds localStorage limit
-    const dataSize = JSON.stringify(data).length;
-    console.log(`📊 Data size for ${storageKey}: ${Math.round(dataSize / 1024 / 1024)}MB`);
 
     onProgress?.({
       stage: 'Saving to Unified Storage',
@@ -235,17 +225,9 @@ export class ChunkedDataRestore {
       current: `Saving ${data.length} ${storageKey} records to storage...`
     });
 
-    try {
-      // Use UnifiedStorage (same as SimpleDataService) to ensure consistency
-      await storage.store(storageKey, data);
-      console.log(`✅ Successfully saved ${storageKey} to UnifiedStorage`);
-    } catch (error) {
-      console.error(`❌ Failed to save ${storageKey} to UnifiedStorage:`, error);
-      throw error;
-    }
+    // Use UnifiedStorage (same as SimpleDataService) to ensure consistency
+    await storage.store(storageKey, data);
   }
-
-  
 
   // Utility method to retrieve data from chunked storage
   static getDataFromStorage(key: string): DataEntity[] {
@@ -291,7 +273,9 @@ export class ChunkedDataRestore {
   }
 
   // Method to estimate if restore will succeed
-  static async canHandleFileSize(fileSize: number): Promise<{ canHandle: boolean; reason?: string; recommendation?: string }> {
+  static async canHandleFileSize(
+    fileSize: number
+  ): Promise<{ canHandle: boolean; reason?: string; recommendation?: string }> {
     const maxSize = 500 * 1024 * 1024; // 500MB limit
 
     if (fileSize > maxSize) {
@@ -304,7 +288,6 @@ export class ChunkedDataRestore {
 
     // Check available storage (UnifiedStorage doesn't have quota check, so we'll be optimistic)
     // UnifiedStorage handles both IndexedDB and localStorage automatically
-    console.log(`📊 File size check: ${Math.round(fileSize / 1024 / 1024)}MB should be handled by UnifiedStorage`);
 
     return { canHandle: true };
   }

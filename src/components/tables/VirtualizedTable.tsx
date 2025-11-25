@@ -7,13 +7,7 @@
 
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { List } from 'react-window';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  IconButton,
-  Sheet
-} from '@mui/joy';
+import { Box, Typography, CircularProgress, IconButton, Sheet } from '@mui/joy';
 import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 
@@ -41,7 +35,6 @@ export interface Column<T> {
   minWidth?: string;
   maxWidth?: string;
 }
-
 
 export function VirtualizedTable<T extends { id?: number | string }>({
   data,
@@ -95,47 +88,42 @@ export function VirtualizedTable<T extends { id?: number | string }>({
       return;
     }
 
-    const startTime = performance.now();
-
     const filtered = data.filter(item => {
       return Object.values(item).some(value =>
         String(value).toLowerCase().includes(searchQuery.toLowerCase())
       );
     });
 
-    const endTime = performance.now();
-    console.log(`🔍 Filtered ${data.length} items to ${filtered.length} in ${(endTime - startTime).toFixed(2)}ms`);
-
     setFilteredData(filtered);
   }, [data, searchQuery]);
 
-  
   // Memoized click handler for rows
-  const handleItemClick = useCallback((item: T) => {
-    if (onItemClick) {
-      onItemClick(item);
-    }
-  }, [onItemClick]);
+  const handleItemClick = useCallback(
+    (item: T) => {
+      if (onItemClick) {
+        onItemClick(item);
+      }
+    },
+    [onItemClick]
+  );
 
   // Handle header click for sorting
-  const handleHeaderClick = useCallback((column: Column<T>) => {
-    if (!column.sortable || !onSort) return;
+  const handleHeaderClick = useCallback(
+    (column: Column<T>) => {
+      if (!column.sortable || !onSort) return;
 
-    const newDirection = sortKey === column.key && sortDirection === 'desc' ? 'asc' : 'desc';
-    onSort(column.key, newDirection);
-  }, [sortKey, sortDirection, onSort]);
+      const newDirection = sortKey === column.key && sortDirection === 'desc' ? 'asc' : 'desc';
+      onSort(column.key, newDirection);
+    },
+    [sortKey, sortDirection, onSort]
+  );
 
   // Handle empty state
   if (loading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height={height}
-      >
-        <CircularProgress size="lg" />
-        <Typography level="body-lg" ml={2}>
+      <Box display='flex' justifyContent='center' alignItems='center' height={height}>
+        <CircularProgress size='lg' />
+        <Typography level='body-lg' ml={2}>
           Loading data...
         </Typography>
       </Box>
@@ -144,13 +132,8 @@ export function VirtualizedTable<T extends { id?: number | string }>({
 
   if (sortedData.length === 0) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height={height}
-      >
-        <Typography level="body-lg" color="neutral">
+      <Box display='flex' justifyContent='center' alignItems='center' height={height}>
+        <Typography level='body-lg' color='neutral'>
           {searchQuery ? 'No results found' : 'No data available'}
         </Typography>
       </Box>
@@ -159,7 +142,7 @@ export function VirtualizedTable<T extends { id?: number | string }>({
 
   return (
     <Sheet
-      variant="outlined"
+      variant='outlined'
       sx={{
         height,
         display: 'flex',
@@ -177,7 +160,7 @@ export function VirtualizedTable<T extends { id?: number | string }>({
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {columns.map((column) => (
+              {columns.map(column => (
                 <th
                   key={String(column.key)}
                   style={{
@@ -196,7 +179,7 @@ export function VirtualizedTable<T extends { id?: number | string }>({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {column.label}
                     {column.sortable && sortKey === column.key && (
-                      <IconButton size="sm" variant="plain" sx={{ color: '#ffffff' }}>
+                      <IconButton size='sm' variant='plain' sx={{ color: '#ffffff' }}>
                         {sortDirection === 'asc' ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
                       </IconButton>
                     )}
@@ -229,7 +212,7 @@ export function VirtualizedTable<T extends { id?: number | string }>({
                   }}
                   onClick={() => handleItemClick(item)}
                 >
-                  {columns.map((column) => (
+                  {columns.map(column => (
                     <td
                       key={String(column.key)}
                       style={{
@@ -247,8 +230,7 @@ export function VirtualizedTable<T extends { id?: number | string }>({
                     >
                       {column.render
                         ? column.render(item[column.key], item)
-                        : String(item[column.key] || '')
-                      }
+                        : String(item[column.key] || '')}
                     </td>
                   ))}
                 </tr>
@@ -260,18 +242,18 @@ export function VirtualizedTable<T extends { id?: number | string }>({
 
       {/* Footer with stats */}
       <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
+        display='flex'
+        justifyContent='space-between'
+        alignItems='center'
         p={2}
-        borderTop="1px solid"
-        borderColor="divider"
+        borderTop='1px solid'
+        borderColor='divider'
       >
-        <Typography level="body-sm" color="neutral">
+        <Typography level='body-sm' color='neutral'>
           Showing {sortedData.length.toLocaleString()} of {data.length.toLocaleString()} records
         </Typography>
         {searchQuery && (
-          <Typography level="body-sm" color="neutral">
+          <Typography level='body-sm' color='neutral'>
             Filtered by: "{searchQuery}"
           </Typography>
         )}

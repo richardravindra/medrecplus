@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -35,24 +35,24 @@ const muiTheme = createTheme({
     primary: {
       main: '#1d293d',
       light: '#1A2332',
-      dark: '#13171E',
+      dark: '#13171E'
     },
     background: {
       default: '#020618',
-      paper: '#0f172b',
+      paper: '#0f172b'
     },
     text: {
       primary: '#ffffff',
-      secondary: '#ffffff',
+      secondary: '#ffffff'
     },
     action: {
       active: '#1d293d',
       hover: 'rgba(29, 41, 61, 0.08)',
       selected: 'rgba(29, 41, 61, 0.16)',
       disabled: 'rgba(255, 255, 255, 0.38)',
-      disabledBackground: 'rgba(255, 255, 255, 0.12)',
+      disabledBackground: 'rgba(255, 255, 255, 0.12)'
     },
-    divider: 'rgba(255, 255, 255, 0.12)',
+    divider: 'rgba(255, 255, 255, 0.12)'
   },
   transitions: {
     duration: {
@@ -62,9 +62,9 @@ const muiTheme = createTheme({
       standard: 300,
       complex: 375,
       enteringScreen: 225,
-      leavingScreen: 195,
-    },
-  },
+      leavingScreen: 195
+    }
+  }
 });
 
 const PatientDetails: React.FC = () => {
@@ -73,19 +73,12 @@ const PatientDetails: React.FC = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [isAppointmentsCollapsed, setIsAppointmentsCollapsed] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [appointmentsPerPage] = useState(10);
 
-  useEffect(() => {
-    if (id) {
-      loadPatient(parseInt(id));
-      loadAppointments(parseInt(id));
-    }
-  }, [id]);
-
-  const loadPatient = async (patientId: number) => {
+  const loadPatient = useCallback(async (patientId: number) => {
     try {
       setLoading(true);
       const foundPatient = await SimpleDataService.getPatientById(patientId);
@@ -97,33 +90,39 @@ const PatientDetails: React.FC = () => {
         setError('Patient not found');
         log.warn('Patient not found', { id: patientId }, 'PatientDetails');
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load patient details');
-      log.error('Error loading patient', { error, patientId }, 'PatientDetails');
+      log.error('Error loading patient', { _error, patientId }, 'PatientDetails');
     } finally {
       setLoading(false);
     }
-  };
+  }, [_error]);
 
-  const loadAppointments = async (patientId: number) => {
+  const loadAppointments = useCallback(async (patientId: number) => {
     try {
       const appointmentsResult = await SimpleDataService.getAppointments({
         filters: { patientId }
       });
-      const patientAppointments = appointmentsResult.data
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort from latest to oldest
+      const patientAppointments = appointmentsResult.data.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      ); // Sort from latest to oldest
       setAppointments(patientAppointments);
       setCurrentPage(1); // Reset to first page when loading new data
-    } catch (error) {
-      console.error('Error loading appointments:', error);
+    } catch { // Error handled silently
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      loadPatient(parseInt(id));
+      loadAppointments(parseInt(id));
+    }
+  }, [id, loadPatient, loadAppointments]);
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
     setCurrentPage(value);
   };
 
-  
   const formatAppointmentDate = (dateString: string) => {
     const date = new Date(dateString);
     const day = date.getDate().toString().padStart(2, '0');
@@ -137,71 +136,78 @@ const PatientDetails: React.FC = () => {
   const handleCreateAppointment = () => {
     if (patient) {
       // Store selected patient ID in localStorage for the new appointment page to use
-      localStorage.setItem('selectedPatientForAppointment', JSON.stringify({
-        id: patient.id,
-        name: patient.name
-      }));
+      localStorage.setItem(
+        'selectedPatientForAppointment',
+        JSON.stringify({
+          id: patient.id,
+          name: patient.name
+        })
+      );
       navigate('/appointments/new');
     }
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Stack alignItems="center" spacing={2}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+      >
+        <Stack alignItems='center' spacing={2}>
           <CircularProgress />
-          <Typography level="body-lg">Loading patient details...</Typography>
+          <Typography level='body-lg'>Loading patient details...</Typography>
         </Stack>
       </Box>
     );
   }
 
-  if (error || !patient) {
+  if (_error || !patient) {
     return (
-      <Box sx={{
-        maxWidth: '100%',
-        mx: 'auto',
-        px: { xs: 2, sm: 0 }
-      }}>
+      <Box
+        sx={{
+          maxWidth: '100%',
+          mx: 'auto',
+          px: { xs: 2, sm: 0 }
+        }}
+      >
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
-            variant="outlined"
+            variant='outlined'
             startDecorator={<ArrowBack />}
             onClick={() => navigate('/patients')}
             sx={{ borderRadius: 'sm' }}
           >
             Back to Patients
           </Button>
-          <Typography level="h3">Patient Details</Typography>
+          <Typography level='h3'>Patient Details</Typography>
         </Box>
-        <Alert color="danger">
-          {error || 'Patient not found'}
-        </Alert>
+        <Alert color='danger'>{_error || 'Patient not found'}</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{
-      width: '100%',
-      height: '100%',
-      p: 1,
-      boxSizing: 'border-box',
-      minWidth: 0
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        p: 1,
+        boxSizing: 'border-box',
+        minWidth: 0
+      }}
+    >
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/patients')}
           sx={{ borderRadius: 'sm' }}
         >
           Back to Patients
         </Button>
-        <Typography level="h3">Patient Details</Typography>
+        <Typography level='h3'>Patient Details</Typography>
         <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
           <Button
-            variant="outlined"
+            variant='outlined'
             startDecorator={<Edit />}
             onClick={() => navigate(`/patients/${patient.id}/edit`)}
             sx={{ borderRadius: 'sm' }}
@@ -209,8 +215,8 @@ const PatientDetails: React.FC = () => {
             Edit Patient
           </Button>
           <Button
-            variant="solid"
-            color="primary"
+            variant='solid'
+            color='primary'
             startDecorator={<Add />}
             onClick={handleCreateAppointment}
             sx={{ borderRadius: 'sm' }}
@@ -224,13 +230,13 @@ const PatientDetails: React.FC = () => {
         <Stack spacing={2}>
           {/* Patient Header */}
           <Box>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+            <Stack direction='row' alignItems='center' spacing={1.5} sx={{ mb: 1 }}>
               <Person sx={{ fontSize: 36, color: '#ffffff' }} />
               <Box>
-                <Typography level="h2" sx={{ mb: 0.25 }}>
+                <Typography level='h2' sx={{ mb: 0.25 }}>
                   {patient.name}
                 </Typography>
-                <Chip color="primary" variant="soft" size="sm">
+                <Chip color='primary' variant='soft' size='sm'>
                   {patient.record_number}
                 </Chip>
               </Box>
@@ -241,39 +247,45 @@ const PatientDetails: React.FC = () => {
 
           {/* Basic Information */}
           <Box>
-            <Typography level="h4" sx={{ mb: 0.5, color: 'primary' }}>
+            <Typography level='h4' sx={{ mb: 0.5, color: 'primary' }}>
               Basic Information
             </Typography>
             <Stack spacing={2}>
-              <Box sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', md: 'row' },
-                gap: 3
-              }}>
-                <Box sx={{
-                  flex: 1,
-                  minWidth: { xs: '100%', md: 200 }
-                }}>
-                  <Typography level="body-sm" sx={{ mb: 0.5, color: 'text.secondary' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', md: 'row' },
+                  gap: 3
+                }}
+              >
+                <Box
+                  sx={{
+                    flex: 1,
+                    minWidth: { xs: '100%', md: 200 }
+                  }}
+                >
+                  <Typography level='body-sm' sx={{ mb: 0.5, color: 'text.secondary' }}>
                     Age
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Face sx={{ fontSize: 20, color: 'text.secondary' }} />
-                    <Typography level="body-lg" sx={{ fontWeight: 500 }}>
+                    <Typography level='body-lg' sx={{ fontWeight: 500 }}>
                       {patient.age} years old
                     </Typography>
                   </Box>
                 </Box>
-                <Box sx={{
-                  flex: 1,
-                  minWidth: { xs: '100%', md: 200 }
-                }}>
-                  <Typography level="body-sm" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                <Box
+                  sx={{
+                    flex: 1,
+                    minWidth: { xs: '100%', md: 200 }
+                  }}
+                >
+                  <Typography level='body-sm' sx={{ mb: 0.5, color: 'text.secondary' }}>
                     Phone Number
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Phone sx={{ fontSize: 20, color: 'text.secondary' }} />
-                    <Typography level="body-lg" sx={{ fontWeight: 500 }}>
+                    <Typography level='body-lg' sx={{ fontWeight: 500 }}>
                       {patient.phone_number}
                     </Typography>
                   </Box>
@@ -282,12 +294,12 @@ const PatientDetails: React.FC = () => {
 
               {patient.address && (
                 <Box>
-                  <Typography level="body-sm" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                  <Typography level='body-sm' sx={{ mb: 0.5, color: 'text.secondary' }}>
                     Address
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                     <Home sx={{ fontSize: 20, color: 'text.secondary', mt: 0.5 }} />
-                    <Typography level="body-lg" sx={{ fontWeight: 500 }}>
+                    <Typography level='body-lg' sx={{ fontWeight: 500 }}>
                       {patient.address}
                     </Typography>
                   </Box>
@@ -296,12 +308,12 @@ const PatientDetails: React.FC = () => {
 
               {patient.initial_diagnosis && (
                 <Box>
-                  <Typography level="body-sm" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                  <Typography level='body-sm' sx={{ mb: 0.5, color: 'text.secondary' }}>
                     Initial Diagnosis
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                     <MedicalInformation sx={{ fontSize: 20, color: 'text.secondary', mt: 0.5 }} />
-                    <Typography level="body-lg" sx={{ fontWeight: 500, whiteSpace: 'pre-line' }}>
+                    <Typography level='body-lg' sx={{ fontWeight: 500, whiteSpace: 'pre-line' }}>
                       {patient.initial_diagnosis}
                     </Typography>
                   </Box>
@@ -315,11 +327,11 @@ const PatientDetails: React.FC = () => {
           {/* Appointment History */}
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography level="h4" sx={{ color: 'primary' }}>
+              <Typography level='h4' sx={{ color: 'primary' }}>
                 Appointment History ({appointments.length} total)
               </Typography>
               <IconButton
-                variant="outlined"
+                variant='outlined'
                 onClick={() => setIsAppointmentsCollapsed(!isAppointmentsCollapsed)}
                 sx={{
                   color: '#ffffff',
@@ -332,7 +344,11 @@ const PatientDetails: React.FC = () => {
                   }
                 }}
               >
-                {isAppointmentsCollapsed ? <ExpandMore sx={{ color: '#000000' }} /> : <ExpandLess sx={{ color: '#000000' }} />}
+                {isAppointmentsCollapsed ? (
+                  <ExpandMore sx={{ color: '#000000' }} />
+                ) : (
+                  <ExpandLess sx={{ color: '#000000' }} />
+                )}
               </IconButton>
             </Box>
 
@@ -342,68 +358,84 @@ const PatientDetails: React.FC = () => {
                   <>
                     <Card sx={{ mb: 1 }}>
                       <Box sx={{ overflow: 'auto' }}>
-                        <table style={{
-                          width: '100%',
-                          borderCollapse: 'collapse',
-                          fontSize: '0.875rem'
-                        }}>
+                        <table
+                          style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            fontSize: '0.875rem'
+                          }}
+                        >
                           <thead>
-                            <tr style={{
-                              borderBottom: '1px solid rgba(255,255,255,0.1)',
-                              backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                            }}>
-                              <th style={{
-                                padding: '8px',
-                                textAlign: 'left',
-                                color: '#ffffff',
-                                fontWeight: 'bold',
-                                whiteSpace: 'nowrap'
-                              }}>
+                            <tr
+                              style={{
+                                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
+                              }}
+                            >
+                              <th
+                                style={{
+                                  padding: '8px',
+                                  textAlign: 'left',
+                                  color: '#ffffff',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 Date
                               </th>
-                              <th style={{
-                                padding: '8px',
-                                textAlign: 'left',
-                                color: '#ffffff',
-                                fontWeight: 'bold',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              <th
+                                style={{
+                                  padding: '8px',
+                                  textAlign: 'left',
+                                  color: '#ffffff',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 Operator
                               </th>
-                              <th style={{
-                                padding: '8px',
-                                textAlign: 'left',
-                                color: '#ffffff',
-                                fontWeight: 'bold',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              <th
+                                style={{
+                                  padding: '8px',
+                                  textAlign: 'left',
+                                  color: '#ffffff',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 Vital Signs
                               </th>
-                              <th style={{
-                                padding: '8px',
-                                textAlign: 'left',
-                                color: '#ffffff',
-                                fontWeight: 'bold',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              <th
+                                style={{
+                                  padding: '8px',
+                                  textAlign: 'left',
+                                  color: '#ffffff',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 Treatments
                               </th>
-                              <th style={{
-                                padding: '8px',
-                                textAlign: 'right',
-                                color: '#ffffff',
-                                fontWeight: 'bold',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              <th
+                                style={{
+                                  padding: '8px',
+                                  textAlign: 'right',
+                                  color: '#ffffff',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 Total Price
                               </th>
-                              <th style={{
-                                padding: '8px',
-                                textAlign: 'center',
-                                color: '#ffffff',
-                                fontWeight: 'bold',
-                                whiteSpace: 'nowrap'
-                              }}>
+                              <th
+                                style={{
+                                  padding: '8px',
+                                  textAlign: 'center',
+                                  color: '#ffffff',
+                                  fontWeight: 'bold',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
                                 Actions
                               </th>
                             </tr>
@@ -414,61 +446,65 @@ const PatientDetails: React.FC = () => {
                                 (currentPage - 1) * appointmentsPerPage,
                                 currentPage * appointmentsPerPage
                               )
-                              .map((appointment) => (
+                              .map(appointment => (
                                 <tr
                                   key={appointment.id}
                                   style={{
                                     borderBottom: '1px solid rgba(255,255,255,0.05)',
                                     cursor: 'pointer'
                                   }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.backgroundColor =
+                                      'rgba(255, 255, 255, 0.05)';
                                   }}
-                                  onMouseLeave={(e) => {
+                                  onMouseLeave={e => {
                                     e.currentTarget.style.backgroundColor = 'transparent';
                                   }}
                                 >
                                   <td style={{ padding: '8px' }}>
-                                    <Typography level="body-sm">
+                                    <Typography level='body-sm'>
                                       {formatAppointmentDate(appointment.date)}
                                     </Typography>
                                   </td>
                                   <td style={{ padding: '8px' }}>
-                                    <Typography level="body-sm" sx={{ fontWeight: 500 }}>
+                                    <Typography level='body-sm' sx={{ fontWeight: 500 }}>
                                       {appointment.operatorName}
                                     </Typography>
                                   </td>
                                   <td style={{ padding: '8px' }}>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                      <Typography level="body-xs">
+                                    <Box
+                                      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
+                                    >
+                                      <Typography level='body-xs'>
                                         BP: {appointment.vitalSigns.bloodPressure}
                                       </Typography>
-                                      <Typography level="body-xs">
+                                      <Typography level='body-xs'>
                                         HR: {appointment.vitalSigns.heartRate} bpm
                                       </Typography>
-                                      <Typography level="body-xs">
+                                      <Typography level='body-xs'>
                                         RR: {appointment.vitalSigns.respirationRate} /min
                                       </Typography>
-                                      <Typography level="body-xs">
+                                      <Typography level='body-xs'>
                                         Borg: {appointment.vitalSigns.borgScale}/10
                                       </Typography>
                                     </Box>
                                   </td>
                                   <td style={{ padding: '8px' }}>
-                                    <Typography level="body-sm">
-                                      {appointment.treatments.length} treatment{appointment.treatments.length !== 1 ? 's' : ''}
+                                    <Typography level='body-sm'>
+                                      {appointment.treatments.length} treatment
+                                      {appointment.treatments.length !== 1 ? 's' : ''}
                                     </Typography>
                                   </td>
                                   <td style={{ padding: '8px', textAlign: 'right' }}>
-                                    <Chip color="success" variant="soft" size="sm">
+                                    <Chip color='success' variant='soft' size='sm'>
                                       {formatCurrencyWhole(appointment.totalPrice)}
                                     </Chip>
                                   </td>
                                   <td style={{ padding: '8px', textAlign: 'center' }}>
                                     <IconButton
-                                      size="sm"
-                                      variant="outlined"
-                                      color="primary"
+                                      size='sm'
+                                      variant='outlined'
+                                      color='primary'
                                       onClick={() => navigate(`/appointments/${appointment.id}`)}
                                     >
                                       <Visibility />
@@ -488,29 +524,31 @@ const PatientDetails: React.FC = () => {
                             count={Math.ceil(appointments.length / appointmentsPerPage)}
                             page={currentPage}
                             onChange={handlePageChange}
-                            size="medium"
-                            shape="rounded"
+                            size='medium'
+                            shape='rounded'
                             showFirstButton
                             showLastButton
-                            color="primary"
+                            color='primary'
                           />
                         </ThemeProvider>
                       </Box>
                     )}
                   </>
                 ) : (
-                  <Box sx={{
-                    p: 3,
-                    textAlign: 'center',
-                    backgroundColor: 'background.level1',
-                    borderRadius: 'sm',
-                    border: '1px dashed',
-                    borderColor: 'divider'
-                  }}>
-                    <Typography level="title-lg" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                  <Box
+                    sx={{
+                      p: 3,
+                      textAlign: 'center',
+                      backgroundColor: 'background.level1',
+                      borderRadius: 'sm',
+                      border: '1px dashed',
+                      borderColor: 'divider'
+                    }}
+                  >
+                    <Typography level='title-lg' sx={{ mb: 0.5, color: 'text.secondary' }}>
                       No appointments recorded
                     </Typography>
-                    <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
+                    <Typography level='body-sm' sx={{ color: 'text.tertiary' }}>
                       This patient hasn't had any appointments yet
                     </Typography>
                   </Box>
@@ -524,8 +562,9 @@ const PatientDetails: React.FC = () => {
             <>
               <Divider />
               <Box>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                  Patient record created on {new Date(patient.created_at).toLocaleDateString('en-US', {
+                <Typography level='body-sm' sx={{ color: 'text.secondary' }}>
+                  Patient record created on{' '}
+                  {new Date(patient.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -536,8 +575,7 @@ const PatientDetails: React.FC = () => {
               </Box>
             </>
           )}
-
-          </Stack>
+        </Stack>
       </Card>
     </Box>
   );

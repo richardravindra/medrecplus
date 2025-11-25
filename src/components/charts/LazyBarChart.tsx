@@ -35,7 +35,7 @@ const ChartComponent: React.FC<LazyBarChartProps> = ({
   return (
     <Box>
       {title && (
-        <Typography level="body-sm" sx={{ mb: 1, color: '#999' }}>
+        <Typography level='body-sm' sx={{ mb: 1, color: '#999' }}>
           {title}
         </Typography>
       )}
@@ -45,23 +45,14 @@ const ChartComponent: React.FC<LazyBarChartProps> = ({
         minWidth={minWidth}
         minHeight={minHeight}
       >
-        <BarChart
-          data={data}
-          margin={{ top: 10, right: 15, left: 10, bottom: 10 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#444"
-          />
+        <BarChart data={data} margin={{ top: 10, right: 15, left: 10, bottom: 10 }}>
+          <CartesianGrid strokeDasharray='3 3' stroke='#444' />
           <XAxis
-            dataKey="month"
+            dataKey='month'
             tick={{ fill: '#999', fontSize: 12 }}
             axisLine={{ stroke: '#666' }}
           />
-          <YAxis
-            tick={{ fill: '#999', fontSize: 12 }}
-            axisLine={{ stroke: '#666' }}
-          />
+          <YAxis tick={{ fill: '#999', fontSize: 12 }} axisLine={{ stroke: '#666' }} />
           <Tooltip
             contentStyle={{
               backgroundColor: '#1a1a1a',
@@ -71,11 +62,7 @@ const ChartComponent: React.FC<LazyBarChartProps> = ({
             }}
             labelStyle={{ color: '#999' }}
           />
-          <Bar
-            dataKey={dataKey}
-            fill={fill}
-            radius={[4, 4, 0, 0]}
-          />
+          <Bar dataKey={dataKey} fill={fill} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </Box>
@@ -93,14 +80,14 @@ const LoadingFallback: React.FC<{ height?: number }> = ({ height = 220 }) => (
       color: '#666'
     }}
   >
-    <CircularProgress size="lg" />
-    <Typography level="body-sm" sx={{ mt: 1 }}>
+    <CircularProgress size='lg' />
+    <Typography level='body-sm' sx={{ mt: 1 }}>
       Loading chart...
     </Typography>
   </Box>
 );
 
-export const LazyBarChart: React.FC<LazyBarChartProps> = (props) => {
+export const LazyBarChart: React.FC<LazyBarChartProps> = props => {
   return (
     <Suspense fallback={<LoadingFallback height={props.height} />}>
       <ChartComponent {...props} />

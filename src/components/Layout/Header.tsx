@@ -113,7 +113,8 @@ const Header: React.FC = () => {
         }
       }
 
-      if (label !== segment) { // Only add if we processed this segment
+      if (label !== segment) {
+        // Only add if we processed this segment
         if (icon) {
           breadcrumbs.push({ label, href, icon });
         } else {
@@ -132,32 +133,34 @@ const Header: React.FC = () => {
         borderBottom: '1px solid',
         borderColor: 'divider',
         backgroundColor: 'background.surface',
-        display: 'none',
+        display: 'none'
       }}
     >
-      <Breadcrumbs 
-        separator="›"
+      <Breadcrumbs
+        separator='›'
         sx={{
           fontSize: { xs: '0.875rem', md: '1rem' },
-          flexWrap: 'wrap',
+          flexWrap: 'wrap'
         }}
       >
         {getBreadcrumbs().map((crumb, index) => (
           <Link
             key={index}
             href={crumb.href}
-            underline="hover"
-            color="neutral"
+            underline='hover'
+            color='neutral'
             sx={{
               display: 'flex',
               alignItems: 'center',
               gap: { xs: 0.5, md: 1 },
               fontSize: { xs: '0.875rem', md: '1rem' },
               fontWeight: index === getBreadcrumbs().length - 1 ? 'bold' : 'normal',
-              color: index === getBreadcrumbs().length - 1 ? 'primary' : 'text.secondary',
+              color: index === getBreadcrumbs().length - 1 ? 'primary' : 'text.secondary'
             }}
           >
-            {crumb.icon && <span style={{ marginRight: '4px', fontSize: '1rem' }}>{crumb.icon}</span>}
+            {crumb.icon && (
+              <span style={{ marginRight: '4px', fontSize: '1rem' }}>{crumb.icon}</span>
+            )}
             {crumb.label}
           </Link>
         ))}

@@ -18,6 +18,8 @@ import Alert from '@mui/joy/Alert';
 import IconButton from '@mui/joy/IconButton';
 import Edit from '@mui/icons-material/Edit';
 import Delete from '@mui/icons-material/Delete';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useConfirmDialog } from '../../hooks/useDialog';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Search from '@mui/icons-material/Search';
@@ -30,12 +32,11 @@ import SimpleDataService from '../../services/SimpleDataService';
 import { Operator } from '../../types';
 import { log } from '../../utils/logger';
 
-
 const OperatorSettings: React.FC = () => {
   const navigate = useNavigate();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [isOperatorModalOpen, setIsOperatorModalOpen] = useState(false);
   const [editingOperator, setEditingOperator] = useState<Operator | null>(null);
   const [operatorFormData, setOperatorFormData] = useState({
@@ -48,6 +49,9 @@ const OperatorSettings: React.FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+
+  // Dialog hook
+  const confirmDialog = useConfirmDialog();
 
   useEffect(() => {
     loadOperators();
@@ -68,12 +72,10 @@ const OperatorSettings: React.FC = () => {
       setLoading(true);
       // Use SimpleDataService to get operators
       const data = await SimpleDataService.getOperators();
-      console.log(`📊 Loaded ${data.length} operators using SimpleDataService`);
       setOperators(data);
       log.debug('Operators loaded successfully', { count: data.length }, 'OperatorSettings');
-    } catch (error) {
-      console.error('Error loading operators:', error);
-      log.error('Error loading operators', { error }, 'OperatorSettings');
+    } catch {
+      log.error('Error loading operators', { _error: 'Failed to load operators' }, 'OperatorSettings');
       setError('Failed to load operators');
     } finally {
       setLoading(false);
@@ -87,9 +89,10 @@ const OperatorSettings: React.FC = () => {
     // Apply search filter
     if (debouncedSearchTerm) {
       const searchLower = debouncedSearchTerm.toLowerCase();
-      filtered = operators.filter(operator =>
-        operator.name.toLowerCase().includes(searchLower) ||
-        operator.role.toLowerCase().includes(searchLower)
+      filtered = operators.filter(
+        operator =>
+          operator.name.toLowerCase().includes(searchLower) ||
+          operator.role.toLowerCase().includes(searchLower)
       );
     }
 
@@ -124,12 +127,13 @@ const OperatorSettings: React.FC = () => {
     setCurrentPage(prev => Math.min(prev + 1, totalPages));
   };
 
-  const handleOperatorInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setOperatorFormData(prev => ({
-      ...prev,
-      [field]: event.target.value
-    }));
-  };
+  const handleOperatorInputChange =
+    (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      setOperatorFormData(prev => ({
+        ...prev,
+        [field]: event.target.value
+      }));
+    };
 
   const handleAddOperator = () => {
     setEditingOperator(null);
@@ -143,43 +147,53 @@ const OperatorSettings: React.FC = () => {
     setIsOperatorModalOpen(true);
   };
 
-  const handleDeleteOperator = async (operator: Operator) => {
-    if (window.confirm(`Are you sure you want to delete operator "${operator.name}"?`)) {
-      try {
-        // Use the new proper deleteOperator method
-        const result = await SimpleDataService.deleteOperator(operator.id);
+  const handleDeleteOperator = (operator: Operator) => {
+    confirmDialog.openDialog({
+      title: 'Delete Operator',
+      message: `Are you sure you want to delete operator "${operator.name}"?`,
+      onConfirm: async () => {
+        try {
+          // Use the new proper deleteOperator method
+          const result = await SimpleDataService.deleteOperator(operator.id);
 
-        if (result) {
-          console.log(`✅ Operator "${operator.name}" deleted successfully`);
-          log.info('Operator deleted', { id: operator.id, name: operator.name }, 'OperatorSettings');
+          if (result) {
+            log.info(
+              'Operator deleted',
+              { id: operator.id, name: operator.name },
+              'OperatorSettings'
+            );
 
-          // Force a small delay to ensure storage operations complete
-          await new Promise(resolve => setTimeout(resolve, 100));
+            // Force a small delay to ensure storage operations complete
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-          // Force reload directly from storage to bypass any caching
-          const updatedOperators = await SimpleDataService.getOperatorsFresh();
-          console.log(`🔄 Reloaded ${updatedOperators.length} operators from fresh storage after deletion`);
-          console.log('🔄 Updated operators data:', updatedOperators);
+            // Force reload directly from storage to bypass any caching
+            const updatedOperators = await SimpleDataService.getOperatorsFresh();
 
-          // Force state update with new array reference
-          setOperators([...updatedOperators]);
-          console.log('🔄 Called setOperators with updated data');
+            // Force state update with new array reference
+            setOperators([...updatedOperators]);
 
-          // Reset to first page if current page becomes empty
-          const startIndex = (currentPage - 1) * itemsPerPage;
-          if (startIndex >= updatedOperators.length && currentPage > 1) {
-            setCurrentPage(currentPage - 1);
+            // Reset to first page if current page becomes empty
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            if (startIndex >= updatedOperators.length && currentPage > 1) {
+              setCurrentPage(currentPage - 1);
+            }
+          } else {
+            log.warn(
+              'Operator deletion failed',
+              { id: operator.id, name: operator.name },
+              'OperatorSettings'
+            );
           }
-        } else {
-          console.warn(`⚠️ Failed to delete operator "${operator.name}"`);
-          log.warn('Operator deletion failed', { id: operator.id, name: operator.name }, 'OperatorSettings');
+        } catch {
+          log.error(
+            'Failed to delete operator',
+            { _error, operatorId: operator.id },
+            'OperatorSettings'
+          );
+          setError('Failed to delete operator');
         }
-      } catch (error) {
-        console.error('Failed to delete operator:', error);
-        log.error('Failed to delete operator', { error, operatorId: operator.id }, 'OperatorSettings');
-        setError('Failed to delete operator');
       }
-    }
+    });
   };
 
   const handleOperatorSubmit = async (e: React.FormEvent) => {
@@ -205,11 +219,14 @@ const OperatorSettings: React.FC = () => {
         };
 
         await SimpleDataService.saveOperator(updatedOperator);
-        console.log(`💾 Updated operator using SimpleDataService`);
-        log.info('Operator updated', { id: updatedOperator.id, name: updatedOperator.name }, 'OperatorSettings');
+        log.info(
+          'Operator updated',
+          { id: updatedOperator.id, name: updatedOperator.name },
+          'OperatorSettings'
+        );
 
         // Update local state
-        setOperators(operators.map(op => op.id === editingOperator.id ? updatedOperator : op));
+        setOperators(operators.map(op => (op.id === editingOperator.id ? updatedOperator : op)));
       } else {
         // Add new operator
         const newOperator: Operator = {
@@ -220,8 +237,11 @@ const OperatorSettings: React.FC = () => {
         };
 
         const savedOperator = await SimpleDataService.saveOperator(newOperator);
-        console.log(`💾 Created new operator using SimpleDataService`);
-        log.info('Operator created', { id: savedOperator.id, name: savedOperator.name }, 'OperatorSettings');
+        log.info(
+          'Operator created',
+          { id: savedOperator.id, name: savedOperator.name },
+          'OperatorSettings'
+        );
 
         // Update local state with the correct ID from storage
         setOperators([...operators, savedOperator]);
@@ -231,61 +251,64 @@ const OperatorSettings: React.FC = () => {
       setOperatorFormData({ name: '', role: '' });
       setEditingOperator(null);
       setError(null);
-    } catch (error) {
-      console.error('Failed to save operator:', error);
+    } catch {
       setError(editingOperator ? 'Failed to update operator' : 'Failed to add operator');
     }
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Typography level="body-lg">Loading operators...</Typography>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+      >
+        <Typography level='body-lg'>Loading operators...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{
-      width: '100%',
-      minHeight: '100%',
-      p: { xs: 1, md: 2 },
-      pt: { xs: 0, md: 2 },
-      pr: { xs: 2, md: 2 },
-      boxSizing: 'border-box',
-      minWidth: 0,
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100%',
+        p: { xs: 1, md: 2 },
+        pt: { xs: 0, md: 2 },
+        pr: { xs: 2, md: 2 },
+        boxSizing: 'border-box',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
-          variant="outlined"
+          variant='outlined'
           startDecorator={<ArrowBack />}
           onClick={() => navigate('/settings')}
           sx={{ borderRadius: 'sm' }}
         >
           Back to Settings
         </Button>
-        <Typography level="h2">Operator Management</Typography>
+        <Typography level='h2'>Operator Management</Typography>
       </Box>
 
-      {error && (
-        <Alert color="danger" sx={{ mb: 3 }}>
-          {error}
+      {_error && (
+        <Alert color='danger' sx={{ mb: 3 }}>
+          {_error}
         </Alert>
       )}
 
       <Card>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
-            <Typography level="h4">System Operators</Typography>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+            <Typography level='h4'>System Operators</Typography>
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
               Manage system operators and their roles ({totalCount} total)
             </Typography>
           </Box>
           <Button
-            variant="solid"
-            color="primary"
+            variant='solid'
+            color='primary'
             startDecorator={<Add />}
             onClick={handleAddOperator}
           >
@@ -296,9 +319,9 @@ const OperatorSettings: React.FC = () => {
         {/* Search Box */}
         <Box sx={{ mb: 3 }}>
           <Input
-            placeholder="Search operators by name or role..."
+            placeholder='Search operators by name or role...'
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             startDecorator={<Search />}
             sx={{
               color: '#ffffff',
@@ -315,44 +338,39 @@ const OperatorSettings: React.FC = () => {
 
         {totalCount === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography level="body-lg" sx={{ color: '#ffffff', mb: 2 }}>
+            <Typography level='body-lg' sx={{ color: '#ffffff', mb: 2 }}>
               {operators.length === 0 ? 'No operators found' : 'No operators match your search'}
             </Typography>
             {operators.length === 0 ? (
-              <Button
-                variant="outlined"
-                startDecorator={<Add />}
-                onClick={handleAddOperator}
-              >
+              <Button variant='outlined' startDecorator={<Add />} onClick={handleAddOperator}>
                 Add First Operator
               </Button>
             ) : (
-              <Button
-                variant="outlined"
-                onClick={() => setSearchTerm('')}
-              >
+              <Button variant='outlined' onClick={() => setSearchTerm('')}>
                 Clear Search
               </Button>
             )}
           </Box>
         ) : (
-          <Sheet sx={{
-            overflow: 'auto',
-            borderRadius: 'sm',
-            overflowX: 'auto',
-            width: '100%',
-            maxWidth: '100%'
-          }}>
+          <Sheet
+            sx={{
+              overflow: 'auto',
+              borderRadius: 'sm',
+              overflowX: 'auto',
+              width: '100%',
+              maxWidth: '100%'
+            }}
+          >
             <Box sx={{ overflowX: 'auto', width: '100%' }}>
               <Table
-                aria-labelledby="tableTitle"
+                aria-labelledby='tableTitle'
                 hoverRow
                 sx={{
                   minWidth: { xs: 'auto', md: 'auto' },
                   width: { xs: '100%', md: '100%' },
                   tableLayout: { xs: 'auto', md: 'auto' },
                   '& tbody tr:hover': {
-                    backgroundColor: 'background.level2',
+                    backgroundColor: 'background.level2'
                   },
                   '& thead th': {
                     backgroundColor: 'background.level1',
@@ -360,15 +378,15 @@ const OperatorSettings: React.FC = () => {
                     color: 'text.primary',
                     whiteSpace: 'nowrap',
                     minWidth: { xs: 'auto', md: 'auto' },
-                    padding: { xs: '8px 12px', md: '12px' },
+                    padding: { xs: '8px 12px', md: '12px' }
                   },
                   '& tbody td': {
                     whiteSpace: 'nowrap',
                     minWidth: { xs: 'auto', md: 'auto' },
                     padding: { xs: '8px 12px', md: '12px' },
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  },
+                    textOverflow: 'ellipsis'
+                  }
                 }}
               >
                 <thead>
@@ -380,37 +398,37 @@ const OperatorSettings: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedOperators.map((operator) => (
+                  {paginatedOperators.map(operator => (
                     <tr key={operator.id}>
                       <td>
-                        <Typography level="body-sm" fontWeight="bold">
+                        <Typography level='body-sm' fontWeight='bold'>
                           {operator.name}
                         </Typography>
                       </td>
                       <td>
-                        <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+                        <Typography level='body-sm' sx={{ color: '#ffffff' }}>
                           {operator.role}
                         </Typography>
                       </td>
                       <td>
-                        <Typography level="body-sm" sx={{ color: '#ffffff' }}>
+                        <Typography level='body-sm' sx={{ color: '#ffffff' }}>
                           {new Date(operator.created_at || '').toLocaleDateString()}
                         </Typography>
                       </td>
                       <td>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                           <IconButton
-                            size="sm"
-                            variant="outlined"
-                            color="neutral"
+                            size='sm'
+                            variant='outlined'
+                            color='neutral'
                             onClick={() => handleEditOperator(operator)}
                           >
                             <Edit />
                           </IconButton>
                           <IconButton
-                            size="sm"
-                            variant="outlined"
-                            color="danger"
+                            size='sm'
+                            variant='outlined'
+                            color='danger'
                             onClick={() => handleDeleteOperator(operator)}
                           >
                             <Delete />
@@ -427,21 +445,24 @@ const OperatorSettings: React.FC = () => {
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mt: 3,
-            px: 2
-          }}>
-            <Typography level="body-sm" sx={{ color: '#ffffff' }}>
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} operators
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mt: 3,
+              px: 2
+            }}
+          >
+            <Typography level='body-sm' sx={{ color: '#ffffff' }}>
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+              {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} operators
             </Typography>
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <IconButton
-                size="sm"
-                variant="outlined"
+                size='sm'
+                variant='outlined'
                 onClick={handleFirstPage}
                 disabled={currentPage === 1}
                 sx={{
@@ -462,8 +483,8 @@ const OperatorSettings: React.FC = () => {
                 <FirstPage />
               </IconButton>
               <IconButton
-                size="sm"
-                variant="outlined"
+                size='sm'
+                variant='outlined'
                 onClick={handlePreviousPage}
                 disabled={currentPage === 1}
                 sx={{
@@ -484,18 +505,21 @@ const OperatorSettings: React.FC = () => {
                 <ChevronLeft />
               </IconButton>
 
-              <Typography level="body-sm" sx={{
-                color: '#ffffff',
-                mx: 2,
-                minWidth: '60px',
-                textAlign: 'center'
-              }}>
+              <Typography
+                level='body-sm'
+                sx={{
+                  color: '#ffffff',
+                  mx: 2,
+                  minWidth: '60px',
+                  textAlign: 'center'
+                }}
+              >
                 Page {currentPage} of {totalPages}
               </Typography>
 
               <IconButton
-                size="sm"
-                variant="outlined"
+                size='sm'
+                variant='outlined'
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
                 sx={{
@@ -516,8 +540,8 @@ const OperatorSettings: React.FC = () => {
                 <ChevronRight />
               </IconButton>
               <IconButton
-                size="sm"
-                variant="outlined"
+                size='sm'
+                variant='outlined'
                 onClick={handleLastPage}
                 disabled={currentPage === totalPages}
                 sx={{
@@ -557,7 +581,7 @@ const OperatorSettings: React.FC = () => {
                   <Input
                     value={operatorFormData.name}
                     onChange={handleOperatorInputChange('name')}
-                    placeholder="Enter operator name"
+                    placeholder='Enter operator name'
                     required
                     sx={{
                       color: '#ffffff',
@@ -577,7 +601,7 @@ const OperatorSettings: React.FC = () => {
                   <Input
                     value={operatorFormData.role}
                     onChange={handleOperatorInputChange('role')}
-                    placeholder="Enter role (e.g., Doctor, Nurse, Administrator)"
+                    placeholder='Enter role (e.g., Doctor, Nurse, Administrator)'
                     required
                     sx={{
                       color: '#ffffff',
@@ -594,13 +618,13 @@ const OperatorSettings: React.FC = () => {
 
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
                   <Button
-                    variant="outlined"
-                    color="neutral"
+                    variant='outlined'
+                    color='neutral'
                     onClick={() => setIsOperatorModalOpen(false)}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" variant="solid" color="primary">
+                  <Button type='submit' variant='solid' color='primary'>
                     {editingOperator ? 'Update' : 'Add'} Operator
                   </Button>
                 </Box>
@@ -609,6 +633,18 @@ const OperatorSettings: React.FC = () => {
           </DialogContent>
         </ModalDialog>
       </Modal>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.isOpen}
+        onClose={confirmDialog.closeDialog}
+        onConfirm={confirmDialog.handleConfirm}
+        title={confirmDialog.config.title}
+        message={confirmDialog.config.message}
+        confirmText={confirmDialog.config.confirmText}
+        cancelText={confirmDialog.config.cancelText}
+        variant={confirmDialog.config.variant}
+      />
     </Box>
   );
 };

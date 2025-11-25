@@ -4,9 +4,9 @@ import { log } from '../utils/logger';
 // Hook for easy access to simple optimization features
 export const useSimplePerformance = () => {
   const getCacheInfo = () => {
-    const stats = memoryManager.getStats();
+    const _stats = memoryManager.getStats();
     const memoryUsage = memoryManager.getMemoryUsage();
-    return { stats, memoryUsage };
+    return { _stats, memoryUsage };
   };
 
   const clearCache = (cacheName?: string) => {
@@ -50,8 +50,13 @@ export const performanceUtils = {
       end: () => {
         const end = performance.now();
         const duration = end - start;
-        if (duration > 100) { // Warn if component takes more than 100ms
-          log.warn(`Slow component render: ${componentName} took ${duration.toFixed(2)}ms`, undefined, 'Performance');
+        if (duration > 100) {
+          // Warn if component takes more than 100ms
+          log.warn(
+            `Slow component render: ${componentName} took ${duration.toFixed(2)}ms`,
+            undefined,
+            'Performance'
+          );
         }
         return duration;
       }

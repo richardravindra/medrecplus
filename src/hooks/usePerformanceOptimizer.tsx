@@ -16,7 +16,7 @@ interface PerformanceStats {
 }
 
 export const usePerformanceOptimizer = () => {
-  const [stats, setStats] = useState<PerformanceStats | null>(null);
+  const [_stats, setStats] = useState<PerformanceStats | null>(null);
 
   const getStats = () => {
     const memoryStats = MemoryManager.getMemoryStats();
@@ -42,7 +42,7 @@ export const usePerformanceOptimizer = () => {
   };
 
   return {
-    stats,
+    _stats,
     getStats,
     optimizeNow,
     clearAllCaches

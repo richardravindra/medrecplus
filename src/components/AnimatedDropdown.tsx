@@ -41,14 +41,14 @@ const AnimatedDropdown: React.FC<AnimatedDropdownProps> = ({
     <Dropdown open={open} onOpenChange={handleOpenChange}>
       <MenuButton
         onClick={() => setOpen(!open)}
-        className="button-press"
+        className='button-press'
         sx={{
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
-            transform: 'translateY(-1px)',
+            transform: 'translateY(-1px)'
           },
           '&:active': {
-            transform: 'translateY(0) scale(0.98)',
+            transform: 'translateY(0) scale(0.98)'
           }
         }}
       >
@@ -64,7 +64,7 @@ const AnimatedDropdown: React.FC<AnimatedDropdownProps> = ({
             borderRadius: 'md',
             boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)',
             overflow: 'hidden',
-            padding: '4px',
+            padding: '4px'
           },
           '& .MuiMenuItem-root': {
             borderRadius: 'sm',
@@ -72,10 +72,10 @@ const AnimatedDropdown: React.FC<AnimatedDropdownProps> = ({
             transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              transform: 'translateX(4px)',
+              transform: 'translateX(4px)'
             },
             '&:active': {
-              transform: 'translateX(2px) scale(0.98)',
+              transform: 'translateX(2px) scale(0.98)'
             }
           }
         }}

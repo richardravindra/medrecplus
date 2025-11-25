@@ -16,7 +16,7 @@ export const PerformanceOverlay: React.FC = () => {
   }, [isMonitoring, getGlobalStats]);
 
   if (!isMonitoring || !stats || import.meta.env.MODE === 'production') {
-    return null;
+    return null; // Disable performance overlay in production or when not monitoring
   }
 
   return (
@@ -36,14 +36,19 @@ export const PerformanceOverlay: React.FC = () => {
       }}
     >
       <div style={{ marginBottom: '5px', fontWeight: 'bold' }}>Performance Monitor</div>
-      <div>Memory: {(stats.memoryUsage.used / 1024 / 1024).toFixed(1)}MB ({stats.memoryUsage.percentage.toFixed(1)}%)</div>
+      <div>
+        Memory: {(stats.memoryUsage.used / 1024 / 1024).toFixed(1)}MB (
+        {stats.memoryUsage.percentage.toFixed(1)}%)
+      </div>
       <div>Caches: {(stats.totalCachesSize / 1024 / 1024).toFixed(1)}MB</div>
       <div>
-        {Object.entries(stats.caches).map(([name, info]: [string, { items: number; size: number }]) => (
-          <div key={name} style={{ marginLeft: '10px' }}>
-            {name}: {info.items} items
-          </div>
-        ))}
+        {Object.entries(stats.caches).map(
+          ([name, info]: [string, { items: number; size: number }]) => (
+            <div key={name} style={{ marginLeft: '10px' }}>
+              {name}: {info.items} items
+            </div>
+          )
+        )}
       </div>
       <button
         onClick={optimizeAll}

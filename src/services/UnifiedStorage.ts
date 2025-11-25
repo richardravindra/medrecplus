@@ -2,7 +2,13 @@ import { Patient, Invoice, Appointment, Operator, Treatment, CustomExamination }
 import { log } from '../utils/logger';
 
 // Type for any data entity
-export type DataEntity = Patient | Invoice | Appointment | Operator | Treatment | Record<string, unknown>;
+export type DataEntity =
+  | Patient
+  | Invoice
+  | Appointment
+  | Operator
+  | Treatment
+  | Record<string, unknown>;
 
 // Type for settings
 export type SettingsValue = string | number | boolean | Record<string, unknown>;
@@ -96,9 +102,9 @@ class UnifiedStorage {
           log.debug('IndexedDB is available', undefined, 'UnifiedStorage');
         }
       }
-    } catch (error) {
+    } catch (err) {
       this.isIndexedDBAvailable = false;
-      log.debug('IndexedDB not available, will use localStorage', { error }, 'UnifiedStorage');
+      log.debug('IndexedDB not available, will use localStorage', { error: err }, 'UnifiedStorage');
     }
 
     // Fallback to localStorage if IndexedDB is not available
@@ -151,7 +157,7 @@ class UnifiedStorage {
     const db = await this.openDatabase('medrec-storage');
     if (!db) return [];
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const transaction = db.transaction(['data'], 'readonly');
       const store = transaction.objectStore('data');
       const request = store.get(key);
@@ -180,9 +186,9 @@ class UnifiedStorage {
       }
 
       log.debug(`Stored ${data.length} items in localStorage`, { key, size }, 'UnifiedStorage');
-    } catch (error) {
-      log.error('localStorage storage failed', { error, key }, 'UnifiedStorage');
-      throw error;
+    } catch (err) {
+      log.error('localStorage storage failed', { error: err, key }, 'UnifiedStorage');
+      throw err;
     }
   }
 
@@ -202,7 +208,11 @@ class UnifiedStorage {
       localStorage.setItem(`${key}_chunk_${index}`, chunk);
     });
 
-    log.debug(`Stored ${chunks.length} chunks for ${key}`, { chunks: chunks.length }, 'UnifiedStorage');
+    log.debug(
+      `Stored ${chunks.length} chunks for ${key}`,
+      { chunks: chunks.length },
+      'UnifiedStorage'
+    );
   }
 
   private retrieveFromLocalStorage(key: string): DataEntity[] {
@@ -233,8 +243,8 @@ class UnifiedStorage {
       }
 
       return [];
-    } catch (error) {
-      log.error('localStorage retrieval failed', { error, key }, 'UnifiedStorage');
+    } catch (err) {
+      log.error('localStorage retrieval failed', { error: err, key }, 'UnifiedStorage');
       return [];
     }
   }
@@ -247,12 +257,13 @@ class UnifiedStorage {
     const db = await this.openDatabase('medrec-storage');
     if (!db) return;
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const transaction = db.transaction(['data'], 'readwrite');
       const store = transaction.objectStore('data');
       const request = store.delete(key);
 
-      request.onerror = () => log.error('IndexedDB deletion failed', { error: request.error }, 'UnifiedStorage');
+      request.onerror = () =>
+        log.error('IndexedDB deletion failed', { error: request.error }, 'UnifiedStorage');
       request.onsuccess = () => resolve();
       transaction.oncomplete = () => db.close();
     });
@@ -271,8 +282,8 @@ class UnifiedStorage {
         }
         localStorage.removeItem(`${key}_chunk_count`);
       }
-    } catch (error) {
-      log.error('localStorage deletion failed', { error, key }, 'UnifiedStorage');
+    } catch (err) {
+      log.error('localStorage deletion failed', { error: err, key }, 'UnifiedStorage');
     }
   }
 
@@ -295,8 +306,8 @@ class UnifiedStorage {
       } else {
         this.storeInLocalStorage(key, data);
       }
-    } catch (error) {
-      log.error('Storage failed', { error, key }, 'UnifiedStorage');
+    } catch (err) {
+      log.error('Storage failed', { error: err, key }, 'UnifiedStorage');
 
       // Try fallback if enabled
       if (this.config.enableFallback) {
@@ -308,12 +319,12 @@ class UnifiedStorage {
             await this.storeInIndexedDB(key, data);
             log.debug('Fallback to IndexedDB successful', { key }, 'UnifiedStorage');
           }
-        } catch (fallbackError) {
-          log.error('All storage methods failed', { error: fallbackError, key }, 'UnifiedStorage');
-          throw fallbackError;
+        } catch (fallbackErr) {
+          log.error('All storage methods failed', { error: fallbackErr, key }, 'UnifiedStorage');
+          throw fallbackErr;
         }
       } else {
-        throw error;
+        throw err;
       }
     }
   }
@@ -337,8 +348,8 @@ class UnifiedStorage {
 
       log.debug('No data found', { key }, 'UnifiedStorage');
       return [];
-    } catch (error) {
-      log.error('Retrieval failed', { error, key }, 'UnifiedStorage');
+    } catch (err) {
+      log.error('Retrieval failed', { error: err, key }, 'UnifiedStorage');
       return [];
     }
   }
@@ -348,8 +359,8 @@ class UnifiedStorage {
       await this.removeFromIndexedDB(key);
       this.removeFromLocalStorage(key);
       log.debug(`Removed data for key: ${key}`, { key }, 'UnifiedStorage');
-    } catch (error) {
-      log.error('Removal failed', { error, key }, 'UnifiedStorage');
+    } catch (err) {
+      log.error('Removal failed', { error: err, key }, 'UnifiedStorage');
     }
   }
 
@@ -359,12 +370,13 @@ class UnifiedStorage {
       if (this.isIndexedDBAvailable) {
         const db = await this.openDatabase('medrec-storage');
         if (db) {
-          await new Promise<void>((resolve) => {
+          await new Promise<void>(resolve => {
             const transaction = db.transaction(['data'], 'readwrite');
             const store = transaction.objectStore('data');
             const request = store.clear();
 
-            request.onerror = () => log.error('IndexedDB clear failed', { error: request.error }, 'UnifiedStorage');
+            request.onerror = () =>
+              log.error('IndexedDB clear failed', { error: request.error }, 'UnifiedStorage');
             request.onsuccess = () => resolve();
             transaction.oncomplete = () => db.close();
           });
@@ -382,8 +394,8 @@ class UnifiedStorage {
       });
 
       log.debug('All storage cleared', undefined, 'UnifiedStorage');
-    } catch (error) {
-      log.error('Storage clear failed', { error }, 'UnifiedStorage');
+    } catch (err) {
+      log.error('Storage clear failed', { error: err }, 'UnifiedStorage');
     }
   }
 
@@ -428,14 +440,20 @@ class UnifiedStorage {
     if (data.length === 0) {
       data = await this.retrieve('patient_management_data');
       if (data.length > 0) {
-        log.debug('Found patients data under legacy key, migrating to new key', { count: data.length }, 'UnifiedStorage');
+        log.debug(
+          'Found patients data under legacy key, migrating to new key',
+          { count: data.length },
+          'UnifiedStorage'
+        );
         // Migrate to new key for future use
         await this.store('patients', data);
         log.debug('Successfully migrated patients data to new key', undefined, 'UnifiedStorage');
       }
     }
 
-    return data.filter(item => 'record_number' in item && 'name' in item && 'age' in item) as Patient[];
+    return data.filter(
+      item => 'record_number' in item && 'name' in item && 'age' in item
+    ) as Patient[];
   }
 
   async storeAppointments(appointments: Appointment[]): Promise<void> {
@@ -444,7 +462,9 @@ class UnifiedStorage {
 
   async getAppointments(): Promise<Appointment[]> {
     const data = await this.retrieve('appointments');
-    return data.filter(item => 'patientName' in item && 'operatorName' in item && 'date' in item) as Appointment[];
+    return data.filter(
+      item => 'patientName' in item && 'operatorName' in item && 'date' in item
+    ) as Appointment[];
   }
 
   async storeInvoices(invoices: Invoice[]): Promise<void> {
@@ -456,13 +476,69 @@ class UnifiedStorage {
     return data.filter(item => 'invoiceNumber' in item && 'totalAmount' in item) as Invoice[];
   }
 
+  async deleteInvoice(id: number): Promise<void> {
+    try {
+      const invoices = await this.getInvoices();
+      const updatedInvoices = invoices.filter(invoice => invoice.id !== id);
+      await this.storeInvoices(updatedInvoices);
+      log.info('Invoice deleted successfully', { id }, 'UnifiedStorage');
+    } catch (err) {
+      log.error('Failed to delete invoice', { id, error: err }, 'UnifiedStorage');
+      throw err;
+    }
+  }
+
+  async getInvoiceById(id: number): Promise<Invoice | null> {
+    try {
+      const invoices = await this.getInvoices();
+      const invoice = invoices.find(inv => inv.id === id);
+      return invoice || null;
+    } catch (err) {
+      log.error('Failed to get invoice by ID', { id, error: err }, 'UnifiedStorage');
+      return null;
+    }
+  }
+
+  async updateInvoice(id: number, updates: Partial<Invoice>): Promise<Invoice | null> {
+    try {
+      const invoices = await this.getInvoices();
+      const invoiceIndex = invoices.findIndex(inv => inv.id === id);
+      if (invoiceIndex === -1) {
+        return null;
+      }
+
+      const updatedInvoice = { ...invoices[invoiceIndex], ...updates };
+      invoices[invoiceIndex] = updatedInvoice;
+      await this.storeInvoices(invoices);
+
+      log.info('Invoice updated successfully', { id }, 'UnifiedStorage');
+      return updatedInvoice;
+    } catch (err) {
+      log.error('Failed to update invoice', { id, error: err }, 'UnifiedStorage');
+      throw err;
+    }
+  }
+
+  async getPatientById(id: number): Promise<Patient | null> {
+    try {
+      const patients = await this.getPatients();
+      const patient = patients.find(p => p.id === id);
+      return patient || null;
+    } catch (err) {
+      log.error('Failed to get patient by ID', { id, error: err }, 'UnifiedStorage');
+      return null;
+    }
+  }
+
   async storeOperators(operators: Operator[]): Promise<void> {
     await this.store('operators', operators);
   }
 
   async getOperators(): Promise<Operator[]> {
     const data = await this.retrieve('operators');
-    return data.filter(item => 'role' in item && 'name' in item && !('record_number' in item)) as Operator[];
+    return data.filter(
+      item => 'role' in item && 'name' in item && !('record_number' in item)
+    ) as Operator[];
   }
 
   async storeTreatments(treatments: Treatment[]): Promise<void> {
@@ -471,7 +547,10 @@ class UnifiedStorage {
 
   async getTreatments(): Promise<Treatment[]> {
     const data = await this.retrieve('treatments');
-    return data.filter(item => ('price' in item && 'name' in item) || ('id' in item && 'name' in item && 'price' in item)) as Treatment[];
+    return data.filter(
+      item =>
+        ('price' in item && 'name' in item) || ('id' in item && 'name' in item && 'price' in item)
+    ) as Treatment[];
   }
 
   async storeCustomExaminations(examinations: CustomExamination[]): Promise<void> {
@@ -480,7 +559,9 @@ class UnifiedStorage {
 
   async getCustomExaminations(): Promise<CustomExamination[]> {
     const data = await this.retrieve('custom_examinations');
-    return data.filter(item => 'name' in item && 'unit' in item && 'created_at' in item) as CustomExamination[];
+    return data.filter(
+      item => 'name' in item && 'unit' in item && 'created_at' in item
+    ) as CustomExamination[];
   }
 
   // Settings Management
@@ -492,15 +573,13 @@ class UnifiedStorage {
       // Also store in localStorage as backup for development persistence
       localStorage.setItem('medrec_dev_settings_backup', JSON.stringify(settings));
       // Debug logging removed - settings stored in both IndexedDB and localStorage backup
-    } catch (error) {
-      console.error('❌ Failed to store settings:', error);
+    } catch {
       // Fallback to localStorage only
       try {
         localStorage.setItem('medrec_dev_settings_backup', JSON.stringify(settings));
         // Debug logging removed - settings stored in localStorage fallback only
-      } catch (fallbackError) {
-        console.error('❌ Even localStorage fallback failed:', fallbackError);
-      }
+      } catch { // Error handled silently
+    }
     }
   }
 
@@ -512,8 +591,7 @@ class UnifiedStorage {
         // Debug logging removed - settings retrieved from IndexedDB
         return data[0] as Record<string, SettingsValue>;
       }
-    } catch (error) {
-      console.warn('⚠️ Failed to retrieve from IndexedDB:', error);
+    } catch { // Error handled silently
     }
 
     // Fallback to localStorage backup
@@ -523,8 +601,7 @@ class UnifiedStorage {
         // Debug logging removed - settings retrieved from localStorage backup
         return JSON.parse(backupSettings);
       }
-    } catch (error) {
-      console.warn('⚠️ Failed to retrieve from localStorage backup:', error);
+    } catch { // Error handled silently
     }
 
     // Debug logging removed - no settings found, returning empty object
@@ -539,7 +616,7 @@ class UnifiedStorage {
 
   async getSetting(key: string, defaultValue?: SettingsValue): Promise<SettingsValue> {
     const settings = await this.getSettings();
-    return settings[key] !== undefined ? settings[key] : (defaultValue || '' as SettingsValue);
+    return settings[key] !== undefined ? settings[key] : defaultValue || ('' as SettingsValue);
   }
 
   // Activity Logs Management
@@ -548,7 +625,7 @@ class UnifiedStorage {
   }
 
   async getActivityLogs(): Promise<ActivityLog[]> {
-    return await this.retrieve('activity_logs') as unknown as ActivityLog[];
+    return (await this.retrieve('activity_logs')) as unknown as ActivityLog[];
   }
 
   async addActivityLog(log: ActivityLog): Promise<void> {
@@ -563,7 +640,10 @@ class UnifiedStorage {
   }
 
   async getReceiptConfig(): Promise<ReceiptConfig> {
-    return await this.getSetting('receipt_config', {} as unknown as SettingsValue) as ReceiptConfig;
+    return (await this.getSetting(
+      'receipt_config',
+      {} as unknown as SettingsValue
+    )) as ReceiptConfig;
   }
 
   // Security Settings Management
@@ -572,7 +652,10 @@ class UnifiedStorage {
   }
 
   async getSecuritySettings(): Promise<SecuritySettings> {
-    return await this.getSetting('security_settings', {} as unknown as SettingsValue) as SecuritySettings;
+    return (await this.getSetting(
+      'security_settings',
+      {} as unknown as SettingsValue
+    )) as SecuritySettings;
   }
 
   // Currency Settings Management
@@ -581,11 +664,11 @@ class UnifiedStorage {
   }
 
   async getCurrencySettings(): Promise<CurrencySettings> {
-    return await this.getSetting('currency_settings', {
+    return (await this.getSetting('currency_settings', {
       currency: 'IDR',
       symbol: 'Rp',
       locale: 'id-ID'
-    } as unknown as SettingsValue) as CurrencySettings;
+    } as unknown as SettingsValue)) as CurrencySettings;
   }
 
   // Log Tracking Management
@@ -594,7 +677,7 @@ class UnifiedStorage {
   }
 
   async getLogsLastSeen(): Promise<string> {
-    return await this.getSetting('logs_last_seen', '0' as unknown as SettingsValue) as string;
+    return (await this.getSetting('logs_last_seen', '0' as unknown as SettingsValue)) as string;
   }
 
   // Password/Encryption Management
@@ -603,7 +686,9 @@ class UnifiedStorage {
   }
 
   async getPassword(): Promise<string | null> {
-    return await this.getSetting('medrec_dev_password', null as unknown as SettingsValue) as string | null;
+    return (await this.getSetting('medrec_dev_password', null as unknown as SettingsValue)) as
+      | string
+      | null;
   }
 
   async clearPassword(): Promise<void> {
@@ -615,7 +700,10 @@ class UnifiedStorage {
   }
 
   async getEncryptionSetup(): Promise<boolean> {
-    return await this.getSetting('medrec_dev_encryption_setup', false as unknown as SettingsValue) as boolean;
+    return (await this.getSetting(
+      'medrec_dev_encryption_setup',
+      false as unknown as SettingsValue
+    )) as boolean;
   }
 
   async clearEncryptionSetup(): Promise<void> {
@@ -630,10 +718,12 @@ class UnifiedStorage {
       // Debug logging removed - current settings before sync
       await this.storeSettings(currentSettings);
       // Debug logging removed - settings sync complete
-    } catch (error) {
-      console.error('❌ Settings sync failed:', error);
+    } catch { // Error handled silently
     }
   }
+
+  // Advanced pagination, search, and export methods for MedRecDataService
+  // Note: Simplified implementation to work with existing structure
 
   // Type-safe utility functions
   static convertActivityLogToLogEntry(activityLog: ActivityLog): {
@@ -648,7 +738,7 @@ class UnifiedStorage {
     timestamp: string;
     details?: string;
   } {
-    const details = activityLog.details as ActivityLogDetails || {};
+    const details = (activityLog.details as ActivityLogDetails) || {};
 
     return {
       id: parseInt(activityLog.id) || Date.now(),

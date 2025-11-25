@@ -9,12 +9,7 @@ interface AnimatedModalProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-const AnimatedModal: React.FC<AnimatedModalProps> = ({
-  open,
-  onClose,
-  children,
-  size = 'md'
-}) => {
+const AnimatedModal: React.FC<AnimatedModalProps> = ({ open, onClose, children, size = 'md' }) => {
   const backdropRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -22,7 +17,10 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
     if (open) {
       // Backdrop animation
       if (backdropRef.current) {
-        backdropRef.current.classList.remove('modal-backdrop-enter-active', 'modal-backdrop-exit-active');
+        backdropRef.current.classList.remove(
+          'modal-backdrop-enter-active',
+          'modal-backdrop-exit-active'
+        );
         backdropRef.current.classList.add('modal-backdrop-enter');
 
         requestAnimationFrame(() => {
@@ -33,7 +31,10 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
 
       // Dialog animation
       if (dialogRef.current) {
-        dialogRef.current.classList.remove('modal-content-enter-active', 'modal-content-exit-active');
+        dialogRef.current.classList.remove(
+          'modal-content-enter-active',
+          'modal-content-exit-active'
+        );
         dialogRef.current.classList.add('modal-content-enter');
 
         requestAnimationFrame(() => {
@@ -56,16 +57,11 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
   }, [open]);
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      disableAutoFocus
-      keepMounted={false}
-    >
+    <Modal open={open} onClose={onClose} disableAutoFocus keepMounted={false}>
       <>
         <div
           ref={backdropRef}
-          className="modal-backdrop-enter-active"
+          className='modal-backdrop-enter-active'
           style={{
             position: 'fixed',
             top: 0,
@@ -78,8 +74,8 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
         />
         <ModalDialog
           ref={dialogRef}
-          className="modal-content-enter-active"
-          variant="outlined"
+          className='modal-content-enter-active'
+          variant='outlined'
           size={size}
           sx={{
             position: 'fixed',
