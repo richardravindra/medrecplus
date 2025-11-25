@@ -15,6 +15,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     lastActivity: Date.now(),
     lockoutTime: null
   });
+  const [encryptionEnabled, setEncryptionEnabled] = useState<boolean>(false);
 
   // Refs for debouncing
   const activityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,7 +25,69 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ? Math.max(0, securityState.lockoutTime - Date.now())
     : 0;
 
+  // Check encryption status on mount and only enable security features if encryption is active
+  useEffect(() => {
+    const checkEncryptionStatus = async () => {
+      try {
+        let isEncrypted = false;
+
+        if (typeof window !== 'undefined' && '__TAURI__' in window) {
+          // In Tauri app, check backend encryption status
+          try {
+            isEncrypted = await invoke<boolean>('is_database_encrypted');
+          } catch {
+            // Backend check failed, assume not encrypted
+            isEncrypted = false;
+          }
+        } else {
+          // In web browser, check if encryption is set up in storage
+          const encryptionSetup = await storage.getEncryptionSetup();
+          const hasPassword = await storage.getPassword();
+          isEncrypted = !!(encryptionSetup && hasPassword);
+        }
+
+        setEncryptionEnabled(isEncrypted);
+
+        // Only restore lock state if encryption is enabled
+        if (isEncrypted) {
+          const isLocked = localStorage.getItem('medrec_app_locked') === 'true';
+          const lockTime = localStorage.getItem('medrec_lock_time');
+
+          if (isLocked) {
+            setSecurityState(prev => ({
+              ...prev,
+              isLocked: true,
+              failedAttempts: 0,
+              lockoutTime: null,
+              lastActivity: lockTime ? parseInt(lockTime) : Date.now()
+            }));
+          }
+        } else {
+          // Clear any existing lock state if encryption is not enabled
+          localStorage.removeItem('medrec_app_locked');
+          localStorage.removeItem('medrec_lock_time');
+          setSecurityState({
+            isLocked: false,
+            failedAttempts: 0,
+            lastActivity: Date.now(),
+            lockoutTime: null
+          });
+        }
+      } catch (error) {
+        console.error('Failed to check encryption status:', error);
+        setEncryptionEnabled(false);
+      }
+    };
+
+    checkEncryptionStatus();
+  }, []);
+
   const lockApp = useCallback(() => {
+    // Only lock if encryption is enabled
+    if (!encryptionEnabled) {
+      return;
+    }
+
     // Log lock event
     SecurityService.logSecurityEvent('app_locked', {
       timestamp: Date.now(),
@@ -42,7 +105,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Persist lock state to localStorage
     localStorage.setItem('medrec_app_locked', 'true');
     localStorage.setItem('medrec_lock_time', Date.now().toString());
-  }, []);
+  }, [encryptionEnabled]);
 
   const unlockApp = useCallback(
     async (password: string): Promise<boolean> => {
@@ -145,12 +208,17 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const checkInactivity = useCallback(() => {
+    // Only check inactivity if encryption is enabled
+    if (!encryptionEnabled) {
+      return;
+    }
+
     // Use the ref for more accurate timing
     const inactiveTime = Date.now() - lastActivityRef.current;
     if (inactiveTime >= AUTO_LOCK_TIMEOUT && !securityState.isLocked) {
       lockApp();
     }
-  }, [securityState.isLocked, lockApp]);
+  }, [securityState.isLocked, lockApp, encryptionEnabled]);
 
   const resetFailedAttempts = useCallback(() => {
     setSecurityState(prev => ({
@@ -160,14 +228,20 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   }, []);
 
-  // Check inactivity periodically
+  // Check inactivity periodically only if encryption is enabled
   useEffect(() => {
+    if (!encryptionEnabled) {
+      return;
+    }
     const interval = setInterval(checkInactivity, 60 * 1000); // Check every minute
     return () => clearInterval(interval);
-  }, [checkInactivity]);
+  }, [checkInactivity, encryptionEnabled]);
 
-  // Handle visibility change (user switching tabs/apps)
+  // Handle visibility change (user switching tabs/apps) only if encryption is enabled
   useEffect(() => {
+    if (!encryptionEnabled) {
+      return;
+    }
     const handleVisibilityChange = () => {
       if (document.hidden) {
         checkInactivity();
@@ -178,10 +252,13 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [checkInactivity, recordActivity]);
+  }, [checkInactivity, recordActivity, encryptionEnabled]);
 
-  // Handle user interaction events
+  // Handle user interaction events only if encryption is enabled
   useEffect(() => {
+    if (!encryptionEnabled) {
+      return;
+    }
     const handleUserActivity = () => {
       recordActivity();
     };
@@ -206,24 +283,9 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         document.removeEventListener(event, handleUserActivity);
       });
     };
-  }, [recordActivity]);
+  }, [recordActivity, encryptionEnabled]);
 
-  // Restore lock state from localStorage on mount
-  useEffect(() => {
-    const isLocked = localStorage.getItem('medrec_app_locked') === 'true';
-    const lockTime = localStorage.getItem('medrec_lock_time');
-
-    if (isLocked) {
-      setSecurityState(prev => ({
-        ...prev,
-        isLocked: true,
-        failedAttempts: 0,
-        lockoutTime: null,
-        lastActivity: lockTime ? parseInt(lockTime) : Date.now()
-      }));
-    }
-  }, []);
-
+  
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -234,7 +296,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const value: SecurityContextType = {
-    isLocked: securityState.isLocked,
+    isLocked: securityState.isLocked && encryptionEnabled, // Only show as locked if encryption is enabled
     failedAttempts: securityState.failedAttempts,
     lockoutTime: securityState.lockoutTime,
     remainingLockoutTime,

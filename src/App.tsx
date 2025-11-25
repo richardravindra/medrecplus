@@ -61,14 +61,12 @@ const LazyLoadingFallback = () => (
   </Box>
 );
 import { createSampleLogs } from './utils/sampleLogs';
-import { invoke } from '@tauri-apps/api/core';
 import { useSecurity } from './hooks/useSecurity';
 import { log } from './utils/logger';
 import './utils/IndexedDBDataGenerator';
 import './utils/PerformanceProfiler';
 import { PerformanceProvider } from './hooks/usePerformanceMonitor';
 import { SimplePerformanceOptimizer } from './components/SimplePerformanceOptimizer';
-import { storage } from './services/UnifiedStorage';
 
 const theme = extendTheme({
   colorSchemes: {
@@ -201,37 +199,17 @@ const theme = extendTheme({
 
 function AppContent() {
   const { isLocked } = useSecurity();
-  const [isUnlocked, setIsUnlocked] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // DEFINITIVE FIX: Start completely unlocked by default
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
+  const [isLoading, _setIsLoading] = useState(false);
 
+  // Skip all encryption checking - app starts unlocked immediately
   useEffect(() => {
-    checkEncryptionStatus();
+    // Initialize sample logs on app start
+    createSampleLogs();
   }, []);
 
-  const checkEncryptionStatus = async () => {
-    try {
-      // Check if Tauri API is available (not running in web browser)
-      if (typeof window !== 'undefined' && '__TAURI__' in window) {
-        const encrypted = await invoke<boolean>('is_database_encrypted');
-        setIsUnlocked(!encrypted); // If not encrypted, we're "unlocked" by default
-      } else {
-        // Running in web browser - check UnifiedStorage for encryption setup
-        // Force settings sync first
-        await storage.syncSettings();
-
-        const isSetupComplete = await storage.getEncryptionSetup();
-        const hasPassword = await storage.getPassword();
-
-        // If encryption is set up, require password. If not set up, allow access.
-        const shouldRequirePassword = Boolean(isSetupComplete && hasPassword);
-        setIsUnlocked(!shouldRequirePassword); // Unlock if encryption is not set up, lock if it is set up
-      }
-    } catch {
-      setIsUnlocked(false); // Show encryption setup on error
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Encryption check function removed - app starts unlocked by default
 
   const handleUnlock = () => {
     setIsUnlocked(true);

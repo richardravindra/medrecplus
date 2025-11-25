@@ -47,36 +47,68 @@ export const EncryptionSetup: React.FC<EncryptionSetupProps> = ({ onUnlock }) =>
   }, []);
 
   const checkEncryptionStatus = async () => {
-    try {
-      // Check if Tauri API is available (not running in web browser)
-      if (typeof window !== 'undefined' && '__TAURI__' in window) {
-        const encrypted = await invoke<boolean>('is_database_encrypted');
-        setIsEncrypted(encrypted);
+    console.log('🔍 [EncryptionSetup] Starting encryption status check...');
 
-        if (encrypted) {
-          setSetupMode('unlock');
-        } else {
-          // Check if there's existing data to migrate
-          const hasExistingData = await checkForExistingData();
-          setSetupMode(hasExistingData ? 'migrate' : 'setup');
+    try {
+      // Check if Tauri API is available
+      const hasTauriAPI = typeof window !== 'undefined' && '__TAURI__' in window;
+      console.log('🔍 [EncryptionSetup] Tauri API available:', hasTauriAPI);
+
+      if (hasTauriAPI) {
+        // In Tauri app, check backend encryption status
+        try {
+          console.log('🔍 [EncryptionSetup] Calling is_database_encrypted...');
+          const encrypted = await invoke<boolean>('is_database_encrypted');
+          console.log('🔍 [EncryptionSetup] Backend encryption status:', encrypted);
+          setIsEncrypted(encrypted);
+
+          if (encrypted) {
+            console.log('🔍 [EncryptionSetup] Setting up unlock mode');
+            setSetupMode('unlock');
+          } else {
+            console.log('🔍 [EncryptionSetup] Database not encrypted, checking for existing data...');
+            // Check if there's existing data to migrate
+            const hasExistingData = await checkForExistingData();
+            console.log('🔍 [EncryptionSetup] Has existing data:', hasExistingData);
+            setSetupMode(hasExistingData ? 'migrate' : 'setup');
+          }
+          return;
+        } catch (backendError) {
+          console.warn('🔍 [EncryptionSetup] Backend encryption check failed:', backendError);
+          // Fall through to auto-unlock for development
         }
       } else {
-        // Running in web browser - check UnifiedStorage for setup state
-        const isSetupComplete = await storage.getEncryptionSetup();
-        const hasStoredPassword = await storage.getPassword();
+        console.log('🔍 [EncryptionSetup] Running in web browser mode');
+        // In web browser, check storage for encryption setup
+        const encryptionSetup = await storage.getEncryptionSetup();
+        const hasPassword = await storage.getPassword();
+        console.log('🔍 [EncryptionSetup] Web mode - encryptionSetup:', encryptionSetup, 'hasPassword:', !!hasPassword);
 
-        if (isSetupComplete && hasStoredPassword) {
+        if (encryptionSetup && hasPassword) {
           setIsEncrypted(true);
           setSetupMode('unlock');
-        } else {
-          setIsEncrypted(false);
-          setSetupMode('setup'); // Show setup mode for first-time setup
+          return;
         }
       }
-    } catch {
+
+      // For web development or when encryption isn't configured, auto-unlock
+      console.log('🔍 [EncryptionSetup] Auto-unlocking - no encryption detected');
+      setIsEncrypted(false);
+      setSetupMode('setup');
+
+      // Auto-unlock immediately for better user experience
+      console.log('🔍 [EncryptionSetup] Calling onUnlock...');
+      onUnlock();
+
+    } catch (error) {
+      console.error('🔍 [EncryptionSetup] Encryption status check failed:', error);
       setError('Failed to check encryption status');
       setIsEncrypted(false);
       setSetupMode('setup');
+
+      // Auto-unlock on error for better user experience
+      console.log('🔍 [EncryptionSetup] Auto-unlocking due to error');
+      onUnlock();
     }
   };
 
