@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -76,18 +76,44 @@ const Dashboard: React.FC = () => {
     monthlyData: []
   });
 
-  useEffect(() => {
-    loadStats();
+  // Helper function to get total count efficiently without loading all data
+  const getTotalCount = useCallback(async (dataType: 'patients' | 'appointments' | 'invoices'): Promise<number> => {
+    try {
+      // Request just 1 item to get the totalCount without loading large dataset
+      const result = await SimpleDataService[dataType === 'patients' ? 'getPatients' :
+                                           dataType === 'appointments' ? 'getAppointments' :
+                                           'getInvoices']({ limit: 1 });
+      return result.totalCount || 0;
+    } catch (err) {
+      log.error(`Error getting total count for ${dataType}`, { error: err }, 'Dashboard');
+      return 0;
+    }
   }, []);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
-      // Load patient statistics using a reasonable limit to prevent browser freezing
-      const patientsResult = await SimpleDataService.getPatients({ limit: 1000 });
-      const patients = patientsResult.data;
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
+
+      // Get total counts efficiently
+      const [totalPatients, totalAppointments, _totalInvoices] = await Promise.all([
+        getTotalCount('patients'),
+        getTotalCount('appointments'),
+        getTotalCount('invoices')
+      ]);
+
+      // Load data for charts with reasonable limit to prevent browser freezing
+      // Use a higher limit for better chart accuracy but still maintain performance
+      const [patientsResult, appointmentsResult, invoicesResult] = await Promise.all([
+        SimpleDataService.getPatients({ limit: 5000 }),
+        SimpleDataService.getAppointments({ limit: 5000 }),
+        SimpleDataService.getInvoices({ limit: 5000 })
+      ]);
+
+      const patients = patientsResult.data;
+      const appointments = appointmentsResult.data;
+      const invoices = invoicesResult.data;
 
       // Calculate patients added this month
       const newThisMonth = patients.filter(patient => {
@@ -114,14 +140,10 @@ const Dashboard: React.FC = () => {
       }
 
       setStats({
-        totalPatients: patients.length,
+        totalPatients,
         newThisMonth,
         monthlyData: patientMonthlyData
       });
-
-      // Load appointment statistics using a reasonable limit to prevent browser freezing
-      const appointmentsResult = await SimpleDataService.getAppointments({ limit: 1000 });
-      const appointments = appointmentsResult.data;
 
       // Calculate appointments this month
       const appointmentsThisMonth = appointments.filter((appointment: Appointment) => {
@@ -149,14 +171,11 @@ const Dashboard: React.FC = () => {
       }
 
       setAppointmentStats({
-        totalAppointments: appointments.length,
+        totalAppointments,
         thisMonth: appointmentsThisMonth,
         monthlyData: appointmentMonthlyData
       });
 
-      // Load invoice statistics and calculate revenue using a reasonable limit to prevent browser freezing
-      const invoicesResult = await SimpleDataService.getInvoices({ limit: 1000 });
-      const invoices = invoicesResult.data;
       const paidInvoices = invoices.filter((invoice: Invoice) => invoice.status === 'paid');
 
       // Calculate revenue this month
@@ -200,7 +219,11 @@ const Dashboard: React.FC = () => {
     } catch (err) {
       log.error('Error loading dashboard stats', { error: err }, 'Dashboard');
     }
-  };
+  }, [getTotalCount]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   // Helper function to format numbers with shortened units
   const formatNumber = (value: number): string => {

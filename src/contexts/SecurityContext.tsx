@@ -73,8 +73,7 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             lockoutTime: null
           });
         }
-      } catch (error) {
-        console.error('Failed to check encryption status:', error);
+      } catch {
         setEncryptionEnabled(false);
       }
     };

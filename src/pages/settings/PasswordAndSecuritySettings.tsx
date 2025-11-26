@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { invoke } from '@tauri-apps/api/core';
 import {
   Box,
   Card,
@@ -38,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { useSecurity } from '../../hooks/useSecurity';
 import { storage } from '../../services/UnifiedStorage';
+import { SecurityService } from '../../services/SecurityService';
 
 interface SecuritySettings {
   lockscreenTimeout: number;
@@ -59,10 +61,21 @@ const PasswordAndSecuritySettings: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Setup encryption form states
+  const [setupPassword, setSetupPassword] = useState('');
+  const [setupConfirmPassword, setSetupConfirmPassword] = useState('');
+  const [showSetupPassword, setShowSetupPassword] = useState(false);
+  const [showSetupConfirmPassword, setShowSetupConfirmPassword] = useState(false);
+  const [setupMode, setSetupMode] = useState<'setup' | 'migrate' | 'reencrypt'>('setup');
+
   // Real-time validation states
   const [currentPasswordError, setCurrentPasswordError] = useState('');
   const [newPasswordError, setNewPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+
+  // Setup encryption validation states
+  const [setupPasswordError, setSetupPasswordError] = useState('');
+  const [setupConfirmPasswordError, setSetupConfirmPasswordError] = useState('');
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
@@ -110,6 +123,7 @@ const PasswordAndSecuritySettings: React.FC = () => {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showSetupEncryptionModal, setShowSetupEncryptionModal] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -210,8 +224,8 @@ const PasswordAndSecuritySettings: React.FC = () => {
           }
         }
 
-        const enteredPasswordHash = btoa(password);
-        if (enteredPasswordHash !== storedPasswordHash) {
+        const isValidPassword = await SecurityService.verifyPassword(password, storedPasswordHash);
+        if (!isValidPassword) {
           setCurrentPasswordError('Current password is incorrect');
           return false;
         }
@@ -278,6 +292,62 @@ const PasswordAndSecuritySettings: React.FC = () => {
     setConfirmPasswordError('');
   };
 
+  const clearSetupValidationErrors = () => {
+    setSetupPasswordError('');
+    setSetupConfirmPasswordError('');
+  };
+
+  const validateSetupPassword = (password: string) => {
+    if (!password) {
+      setSetupPasswordError('');
+      return true; // Allow empty field while typing
+    }
+
+    if (password.length < 8) {
+      setSetupPasswordError('Must be at least 8 characters');
+      return false;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      setSetupPasswordError('Must contain at least one uppercase letter');
+      return false;
+    }
+
+    if (!/[a-z]/.test(password)) {
+      setSetupPasswordError('Must contain at least one lowercase letter');
+      return false;
+    }
+
+    if (!/[0-9]/.test(password)) {
+      setSetupPasswordError('Must contain at least one number');
+      return false;
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setSetupPasswordError('Must contain at least one special character');
+      return false;
+    }
+
+    setSetupPasswordError('');
+    return true;
+  };
+
+  const validateSetupConfirmPassword = (password: string, confirmPwd?: string) => {
+    const confirmPasswordValue = confirmPwd || password;
+    if (!confirmPasswordValue || !setupPassword) {
+      setSetupConfirmPasswordError('');
+      return true; // Allow empty fields while typing
+    }
+
+    if (confirmPasswordValue !== setupPassword) {
+      setSetupConfirmPasswordError('Passwords do not match');
+      return false;
+    }
+
+    setSetupConfirmPasswordError('');
+    return true;
+  };
+
   const handleChangePassword = async () => {
     setError('');
     setSuccess('');
@@ -318,7 +388,8 @@ const PasswordAndSecuritySettings: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         // Development mode - store new password using UnifiedStorage
-        await storage.storePassword(btoa(newPassword));
+        const newPasswordHash = await SecurityService.hashPassword(newPassword);
+        await storage.storePassword(newPasswordHash);
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
       }
 
@@ -335,6 +406,67 @@ const PasswordAndSecuritySettings: React.FC = () => {
           ? String(err.message)
           : 'Failed to change password'
       );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSetupEncryption = async () => {
+    setError('');
+    setSuccess('');
+
+    // Final validation using real-time validation functions
+    const isSetupPasswordValid = validateSetupPassword(setupPassword);
+    const isSetupConfirmPasswordValid = validateSetupConfirmPassword(setupConfirmPassword);
+
+    if (!isSetupPasswordValid || !isSetupConfirmPasswordValid) {
+      return; // Validation errors will be shown in real-time
+    }
+
+    setIsLoading(true);
+    try {
+      // Check if Tauri API is available
+      if (typeof window !== 'undefined' && '__TAURI__' in window) {
+        // TODO: Implement Tauri API calls based on setup mode
+        switch (setupMode) {
+          case 'setup':
+            await invoke('setup_encryption', { password: setupPassword });
+            break;
+          case 'migrate':
+            await invoke('migrate_to_encrypted_database', { password: setupPassword });
+            break;
+          case 'reencrypt':
+            // For re-encryption, we'd need to first unlock with current password
+            // This is a complex operation that should be handled carefully
+            // TODO: Implement re-encryption feature
+            break;
+        }
+      } else {
+        // Development mode - use UnifiedStorage
+        const passwordHash = await SecurityService.hashPassword(setupPassword);
+        await storage.storePassword(passwordHash);
+        await storage.setEncryptionSetup(true);
+        await storage.syncSettings();
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
+      }
+
+      // Clear form and validation errors
+      setSetupPassword('');
+      setSetupConfirmPassword('');
+      clearSetupValidationErrors();
+      setShowSetupEncryptionModal(false);
+      setSuccess('Encryption setup completed successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+
+      // Update encryption status
+      checkEncryptionStatus();
+    } catch (err) {
+      setError(
+        err && typeof err === 'object' && 'message' in err
+          ? String(err.message)
+          : 'Failed to setup encryption'
+      );
+      setTimeout(() => setError(''), 3000);
     } finally {
       setIsLoading(false);
     }
@@ -524,7 +656,7 @@ const PasswordAndSecuritySettings: React.FC = () => {
 
                         if (!storedPasswordHash || !encryptionSetup) {
                           setError(
-                            'Encryption setup is incomplete. Please restart the app and complete the encryption setup first.'
+                            'Encryption setup is incomplete. Please complete the encryption setup first.'
                           );
                           return;
                         }
@@ -540,6 +672,21 @@ const PasswordAndSecuritySettings: React.FC = () => {
                   sx={{ flex: { xs: 1, md: 'auto' } }}
                 >
                   Change Password
+                </Button>
+                <Button
+                  variant='solid'
+                  color='success'
+                  onClick={() => {
+                    clearSetupValidationErrors();
+                    setSetupPassword('');
+                    setSetupConfirmPassword('');
+                    setSetupMode('setup');
+                    setShowSetupEncryptionModal(true);
+                  }}
+                  startDecorator={<Security />}
+                  sx={{ flex: { xs: 1, md: 'auto' } }}
+                >
+                  Setup Encryption
                 </Button>
                 <Button
                   variant='outlined'
@@ -572,6 +719,20 @@ const PasswordAndSecuritySettings: React.FC = () => {
               </Alert>
 
               <Alert color='primary' startDecorator={<Info />}>
+                <Typography level='body-sm'>
+                  <strong>When to use each option:</strong>
+                  <br />
+                  • <strong>Setup Encryption:</strong> First-time setup or enable encryption
+                  <br />
+                  • <strong>Change Password:</strong> Update existing encryption password
+                  <br />
+                  • <strong>Reset Password:</strong> Emergency reset (loses all encrypted data)
+                  <br />
+                  • <strong>Lock the App:</strong> Immediate manual locking
+                </Typography>
+              </Alert>
+
+              <Alert color='neutral' startDecorator={<Info />}>
                 <Typography level='body-sm'>
                   <strong>Password Requirements:</strong>
                   <br />
@@ -922,6 +1083,201 @@ const PasswordAndSecuritySettings: React.FC = () => {
               Your password has been changed successfully.
             </Typography>
           </Box>
+        </ModalDialog>
+      </Modal>
+
+      {/* Setup Encryption Modal */}
+      <Modal open={showSetupEncryptionModal} onClose={() => setShowSetupEncryptionModal(false)}>
+        <ModalDialog sx={{ maxWidth: 500 }}>
+          <ModalClose />
+          <Typography level='h4' sx={{ mb: 2 }}>
+            🔐 Setup Encryption
+          </Typography>
+
+          <Stack spacing={2}>
+            {/* Setup Mode Selection */}
+            <FormControl>
+              <FormLabel>Setup Mode</FormLabel>
+              <Select
+                value={setupMode}
+                onChange={(_, value) => setSetupMode(value as 'setup' | 'migrate' | 'reencrypt')}
+                sx={{ minWidth: '100%' }}
+              >
+                <Option value='setup'>
+                  <Box>
+                    <Typography level='body-md'>🔐 New Setup</Typography>
+                    <Typography level='body-xs' sx={{ color: '#999' }}>
+                      Create a new encrypted database
+                    </Typography>
+                  </Box>
+                </Option>
+                <Option value='migrate'>
+                  <Box>
+                    <Typography level='body-md'>🛡️ Migrate Existing Data</Typography>
+                    <Typography level='body-xs' sx={{ color: '#999' }}>
+                      Encrypt existing unencrypted data
+                    </Typography>
+                  </Box>
+                </Option>
+                <Option value='reencrypt'>
+                  <Box>
+                    <Typography level='body-md'>🔄 Re-encrypt Database</Typography>
+                    <Typography level='body-xs' sx={{ color: '#999' }}>
+                      Change encryption password (requires current password)
+                    </Typography>
+                  </Box>
+                </Option>
+              </Select>
+            </FormControl>
+
+            {setupMode === 'reencrypt' && (
+              <Alert color='warning'>
+                <Typography level='body-sm'>
+                  <strong>Note:</strong> Re-encryption will require your current password for verification.
+                  This feature is not yet fully implemented.
+                </Typography>
+              </Alert>
+            )}
+
+            {setupMode === 'migrate' && (
+              <Alert color='warning'>
+                <Typography level='body-sm'>
+                  <strong>Migration Notice:</strong> Your existing database will be encrypted.
+                  A backup will be created automatically. This process cannot be undone.
+                </Typography>
+              </Alert>
+            )}
+
+            <FormControl>
+              <FormLabel>
+                {setupMode === 'reencrypt' ? 'New Password' : 'Password'}
+              </FormLabel>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Input
+                  type={showSetupPassword ? 'text' : 'password'}
+                  value={setupPassword}
+                  onChange={e => {
+                    setSetupPassword(e.target.value);
+                    validateSetupPassword(e.target.value);
+                    // Also re-validate confirm password if it has a value
+                    if (setupConfirmPassword) {
+                      validateSetupConfirmPassword(e.target.value, setupConfirmPassword);
+                    }
+                  }}
+                  placeholder={`Enter ${setupMode === 'reencrypt' ? 'new ' : ''}password`}
+                  error={!!setupPasswordError}
+                  sx={{ flex: 1 }}
+                />
+                <IconButton
+                  onClick={() => setShowSetupPassword(!showSetupPassword)}
+                  variant='outlined'
+                >
+                  {showSetupPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </Box>
+              {setupPasswordError && (
+                <Typography level='body-xs' sx={{ color: '#ff6b6b', mt: 1 }}>
+                  {setupPasswordError}
+                </Typography>
+              )}
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>
+                Confirm {setupMode === 'reencrypt' ? 'New ' : ''}Password
+              </FormLabel>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Input
+                  type={showSetupConfirmPassword ? 'text' : 'password'}
+                  value={setupConfirmPassword}
+                  onChange={e => {
+                    setSetupConfirmPassword(e.target.value);
+                    validateSetupConfirmPassword(setupPassword, e.target.value);
+                  }}
+                  placeholder={`Confirm ${setupMode === 'reencrypt' ? 'new ' : ''}password`}
+                  error={!!setupConfirmPasswordError}
+                  sx={{ flex: 1 }}
+                />
+                <IconButton
+                  onClick={() => setShowSetupConfirmPassword(!showSetupConfirmPassword)}
+                  variant='outlined'
+                >
+                  {showSetupConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </Box>
+              {setupConfirmPasswordError && (
+                <Typography level='body-xs' sx={{ color: '#ff6b6b', mt: 1 }}>
+                  {setupConfirmPasswordError}
+                </Typography>
+              )}
+            </FormControl>
+
+            {/* Password Strength Indicator */}
+            {setupPassword && !setupPasswordError && (
+              <Box sx={{ mt: 1 }}>
+                <Typography level='body-xs' sx={{ mb: 1 }}>Password Strength</Typography>
+                <LinearProgress
+                  determinate
+                  value={calculatePasswordStrength(setupPassword).score}
+                  color={
+                    calculatePasswordStrength(setupPassword).color as
+                      | 'primary'
+                      | 'neutral'
+                      | 'danger'
+                      | 'success'
+                      | 'warning'
+                  }
+                  sx={{ mb: 1 }}
+                />
+                <Typography level='body-xs' sx={{ color: '#999' }}>
+                  {calculatePasswordStrength(setupPassword).feedback.join(', ')}
+                </Typography>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+              <Button
+                variant='outlined'
+                onClick={() => setShowSetupEncryptionModal(false)}
+                sx={{ flex: 1 }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant='solid'
+                onClick={handleSetupEncryption}
+                disabled={
+                  isLoading ||
+                  !setupPassword ||
+                  !setupConfirmPassword ||
+                  !!setupPasswordError ||
+                  !!setupConfirmPasswordError ||
+                  setupMode === 'reencrypt' // Disable re-encrypt until implemented
+                }
+                loading={isLoading}
+                sx={{ flex: 1 }}
+              >
+                {setupMode === 'reencrypt' ? 'Re-encrypt' : 'Setup Encryption'}
+              </Button>
+            </Box>
+
+            {/* Security Requirements */}
+            <Alert color='primary'>
+              <Typography level='body-sm'>
+                <strong>Security Requirements:</strong>
+                <br />
+                • Minimum 8 characters
+                <br />
+                • At least one uppercase letter (A-Z)
+                <br />
+                • At least one lowercase letter (a-z)
+                <br />
+                • At least one number (0-9)
+                <br />
+                • At least one special character (!@#$%^&*)
+              </Typography>
+            </Alert>
+          </Stack>
         </ModalDialog>
       </Modal>
     </Box>

@@ -47,42 +47,31 @@ export const EncryptionSetup: React.FC<EncryptionSetupProps> = ({ onUnlock }) =>
   }, []);
 
   const checkEncryptionStatus = async () => {
-    console.log('🔍 [EncryptionSetup] Starting encryption status check...');
-
     try {
       // Check if Tauri API is available
       const hasTauriAPI = typeof window !== 'undefined' && '__TAURI__' in window;
-      console.log('🔍 [EncryptionSetup] Tauri API available:', hasTauriAPI);
 
       if (hasTauriAPI) {
         // In Tauri app, check backend encryption status
         try {
-          console.log('🔍 [EncryptionSetup] Calling is_database_encrypted...');
           const encrypted = await invoke<boolean>('is_database_encrypted');
-          console.log('🔍 [EncryptionSetup] Backend encryption status:', encrypted);
           setIsEncrypted(encrypted);
 
           if (encrypted) {
-            console.log('🔍 [EncryptionSetup] Setting up unlock mode');
             setSetupMode('unlock');
           } else {
-            console.log('🔍 [EncryptionSetup] Database not encrypted, checking for existing data...');
             // Check if there's existing data to migrate
             const hasExistingData = await checkForExistingData();
-            console.log('🔍 [EncryptionSetup] Has existing data:', hasExistingData);
             setSetupMode(hasExistingData ? 'migrate' : 'setup');
           }
           return;
-        } catch (backendError) {
-          console.warn('🔍 [EncryptionSetup] Backend encryption check failed:', backendError);
+        } catch {
           // Fall through to auto-unlock for development
         }
       } else {
-        console.log('🔍 [EncryptionSetup] Running in web browser mode');
         // In web browser, check storage for encryption setup
         const encryptionSetup = await storage.getEncryptionSetup();
         const hasPassword = await storage.getPassword();
-        console.log('🔍 [EncryptionSetup] Web mode - encryptionSetup:', encryptionSetup, 'hasPassword:', !!hasPassword);
 
         if (encryptionSetup && hasPassword) {
           setIsEncrypted(true);
@@ -92,22 +81,18 @@ export const EncryptionSetup: React.FC<EncryptionSetupProps> = ({ onUnlock }) =>
       }
 
       // For web development or when encryption isn't configured, auto-unlock
-      console.log('🔍 [EncryptionSetup] Auto-unlocking - no encryption detected');
       setIsEncrypted(false);
       setSetupMode('setup');
 
       // Auto-unlock immediately for better user experience
-      console.log('🔍 [EncryptionSetup] Calling onUnlock...');
       onUnlock();
 
-    } catch (error) {
-      console.error('🔍 [EncryptionSetup] Encryption status check failed:', error);
+    } catch {
       setError('Failed to check encryption status');
       setIsEncrypted(false);
       setSetupMode('setup');
 
       // Auto-unlock on error for better user experience
-      console.log('🔍 [EncryptionSetup] Auto-unlocking due to error');
       onUnlock();
     }
   };
